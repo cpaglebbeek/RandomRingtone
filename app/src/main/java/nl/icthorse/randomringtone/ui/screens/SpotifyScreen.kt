@@ -3,6 +3,8 @@ package nl.icthorse.randomringtone.ui.screens
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,6 +13,7 @@ import android.os.Build
 import android.os.Environment
 import android.webkit.*
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -26,11 +29,14 @@ import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
 import java.io.File
 
+private const val SPOTIFY_WEB_URL = "https://open.spotify.com"
+private val SPOTIFY_TRACK_REGEX = Regex("open\\.spotify\\.com/track/([a-zA-Z0-9]+)")
+
 /**
- * Spotify-naar-MP3 scherm.
- * Laadt de gekozen converter-site in een WebView.
- * Intercepteert MP3 downloads via DownloadListener.
- * Na download: opslaan in app download-dir, snackbar met acties.
+ * Spotify-naar-MP3 scherm — twee fasen:
+ * 1. Browse Spotify Web → zoek een track → URL bevat /track/ → FAB verschijnt
+ * 2. Klik FAB → WebView navigeert naar converter-site, Spotify URL in clipboard
+ * 3. Converter verwerkt → download wordt opgepikt via DownloadListener
  */
 @Composable
 fun SpotifyScreen(
@@ -41,23 +47,31 @@ fun SpotifyScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    // Converter config
     var converterUrl by remember { mutableStateOf("") }
     var converterName by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
+
+    // WebView state
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
     var canGoBack by remember { mutableStateOf(false) }
     var currentUrl by remember { mutableStateOf("") }
-    var lastDownloadedFile by remember { mutableStateOf<File?>(null) }
-    var showPlaylistDialog by remember { mutableStateOf(false) }
-    var existingPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
 
-    // Laad converter URL uit instellingen
+    // Spotify track detectie
+    var detectedTrackUrl by remember { mutableStateOf<String?>(null) }
+    var phase by remember { mutableStateOf(SpotifyPhase.BROWSING) }
+
+    // Download state
+    var lastDownloadedFile by remember { mutableStateOf<File?>(null) }
+    var showActionsDialog by remember { mutableStateOf(false) }
+
+    // Laad converter uit instellingen
     LaunchedEffect(Unit) {
         val converterId = ringtoneManager.storage.getSpotifyConverter()
         val converter = SpotifyConverter.findById(converterId)
         converterUrl = converter.url
         converterName = converter.name
-        existingPlaylists = db.playlistDao().getAll()
     }
 
     // Download completion receiver
@@ -77,25 +91,14 @@ fun SpotifyScreen(
                             val localUri = if (uriIdx >= 0) cursor.getString(uriIdx) else null
                             if (localUri != null) {
                                 val file = File(Uri.parse(localUri).path ?: return)
-                                lastDownloadedFile = file
                                 scope.launch {
-                                    // Kopieer naar app download-dir
                                     val destFile = File(
                                         ringtoneManager.storage.getDownloadDir(),
                                         "spotify_${System.currentTimeMillis()}.mp3"
                                     )
                                     file.copyTo(destFile, overwrite = true)
                                     lastDownloadedFile = destFile
-
-                                    snackbarHostState.showSnackbar(
-                                        message = "MP3 gedownload: ${file.name}",
-                                        actionLabel = "Acties",
-                                        duration = SnackbarDuration.Long
-                                    ).let { result ->
-                                        if (result == SnackbarResult.ActionPerformed) {
-                                            showPlaylistDialog = true
-                                        }
-                                    }
+                                    showActionsDialog = true
                                 }
                             }
                         }
@@ -110,77 +113,112 @@ fun SpotifyScreen(
         } else {
             context.registerReceiver(receiver, filter)
         }
+        onDispose { context.unregisterReceiver(receiver) }
+    }
 
-        onDispose {
-            context.unregisterReceiver(receiver)
+    // URL veranderd → check of het een Spotify track is
+    LaunchedEffect(currentUrl) {
+        val match = SPOTIFY_TRACK_REGEX.find(currentUrl)
+        if (match != null && phase == SpotifyPhase.BROWSING) {
+            detectedTrackUrl = currentUrl.split("?").first() // Strip query params
+        } else if (phase == SpotifyPhase.BROWSING) {
+            detectedTrackUrl = null
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Navigatiebalk
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            IconButton(
-                onClick = { webView?.goBack() },
-                enabled = canGoBack
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Navigatiebalk
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Terug")
-            }
-            IconButton(
-                onClick = { webView?.goForward() }
-            ) {
-                Icon(Icons.Default.ArrowForward, contentDescription = "Vooruit")
-            }
-            IconButton(
-                onClick = { webView?.reload() }
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = "Vernieuwen")
+                IconButton(
+                    onClick = {
+                        if (phase == SpotifyPhase.CONVERTING) {
+                            // Terug naar Spotify browse
+                            phase = SpotifyPhase.BROWSING
+                            detectedTrackUrl = null
+                            webView?.loadUrl(SPOTIFY_WEB_URL)
+                        } else {
+                            webView?.goBack()
+                        }
+                    },
+                    enabled = canGoBack || phase == SpotifyPhase.CONVERTING
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Terug")
+                }
+                IconButton(onClick = { webView?.goForward() }) {
+                    Icon(Icons.Default.ArrowForward, contentDescription = "Vooruit")
+                }
+                IconButton(onClick = { webView?.reload() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Vernieuwen")
+                }
+
+                // Fase indicator
+                AssistChip(
+                    onClick = {
+                        if (phase == SpotifyPhase.CONVERTING) {
+                            phase = SpotifyPhase.BROWSING
+                            detectedTrackUrl = null
+                            webView?.loadUrl(SPOTIFY_WEB_URL)
+                        }
+                    },
+                    label = {
+                        Text(
+                            when (phase) {
+                                SpotifyPhase.BROWSING -> "Spotify"
+                                SpotifyPhase.CONVERTING -> converterName
+                            },
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            when (phase) {
+                                SpotifyPhase.BROWSING -> Icons.Default.MusicNote
+                                SpotifyPhase.CONVERTING -> Icons.Default.CloudDownload
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
             }
 
+            // URL balk
             Text(
-                text = converterName,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
+                text = currentUrl,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
             )
 
             if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            } else {
+                Spacer(modifier = Modifier.height(4.dp))
             }
-        }
 
-        // URL balk
-        Text(
-            text = currentUrl,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-        )
-
-        Spacer(modifier = Modifier.height(2.dp))
-
-        if (isLoading) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        }
-
-        // WebView
-        if (converterUrl.isNotBlank()) {
+            // WebView
             SpotifyWebView(
-                url = converterUrl,
+                url = SPOTIFY_WEB_URL,
                 onWebViewCreated = { webView = it },
                 onPageStarted = { url ->
                     isLoading = true
@@ -191,8 +229,7 @@ fun SpotifyScreen(
                     currentUrl = url
                     canGoBack = webView?.canGoBack() == true
                 },
-                onDownloadStart = { url, userAgent, contentDisposition, mimeType, contentLength ->
-                    // Start download via DownloadManager
+                onDownloadStart = { url, userAgent, contentDisposition, mimeType, _ ->
                     val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
                     val request = DownloadManager.Request(Uri.parse(url)).apply {
                         setMimeType(mimeType)
@@ -208,33 +245,61 @@ fun SpotifyScreen(
                 }
             )
         }
+
+        // FAB: "Download MP3" — verschijnt als Spotify track URL gedetecteerd
+        AnimatedVisibility(
+            visible = detectedTrackUrl != null && phase == SpotifyPhase.BROWSING,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    val trackUrl = detectedTrackUrl ?: return@ExtendedFloatingActionButton
+                    // Kopieer Spotify URL naar clipboard
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Spotify URL", trackUrl))
+
+                    // Navigeer naar converter
+                    phase = SpotifyPhase.CONVERTING
+
+                    // Probeer de URL direct in de converter te injecteren
+                    // Veel converters accepteren de URL als zoekterm in hun URL
+                    val targetUrl = buildConverterUrl(converterUrl, trackUrl)
+                    webView?.loadUrl(targetUrl)
+
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Spotify URL gekopieerd — wordt geopend in $converterName",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                },
+                icon = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
+                text = { Text("Download MP3") },
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 
-    // Playlist / acties dialoog na download
-    if (showPlaylistDialog && lastDownloadedFile != null) {
+    // Acties dialoog na succesvolle download
+    if (showActionsDialog && lastDownloadedFile != null) {
         val file = lastDownloadedFile!!
         AlertDialog(
-            onDismissRequest = { showPlaylistDialog = false },
+            onDismissRequest = { showActionsDialog = false },
             title = { Text("MP3 gedownload") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = file.name,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "Wat wil je doen?",
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    Text(file.name, style = MaterialTheme.typography.bodyMedium)
+                    Text("Wat wil je doen?", style = MaterialTheme.typography.labelLarge)
                 }
             },
             confirmButton = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Editor
                     if (onOpenEditor != null) {
                         Button(
                             onClick = {
-                                showPlaylistDialog = false
+                                showActionsDialog = false
                                 onOpenEditor(file.nameWithoutExtension, file)
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -244,10 +309,9 @@ fun SpotifyScreen(
                             Text("Openen in editor")
                         }
                     }
-                    // Toevoegen aan playlist
                     Button(
                         onClick = {
-                            showPlaylistDialog = false
+                            showActionsDialog = false
                             scope.launch {
                                 val trackId = file.name.hashCode().toLong()
                                 db.savedTrackDao().insert(
@@ -260,7 +324,6 @@ fun SpotifyScreen(
                                         playlistName = "_spotify"
                                     )
                                 )
-                                existingPlaylists = db.playlistDao().getAll()
                                 snackbarHostState.showSnackbar("Track opgeslagen in bibliotheek")
                             }
                         },
@@ -270,15 +333,45 @@ fun SpotifyScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Opslaan in bibliotheek")
                     }
+                    // Terug naar Spotify browsen
+                    OutlinedButton(
+                        onClick = {
+                            showActionsDialog = false
+                            phase = SpotifyPhase.BROWSING
+                            detectedTrackUrl = null
+                            webView?.loadUrl(SPOTIFY_WEB_URL)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Terug naar Spotify")
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPlaylistDialog = false }) {
-                    Text("Sluiten")
-                }
+                TextButton(onClick = { showActionsDialog = false }) { Text("Sluiten") }
             }
         )
     }
+}
+
+private enum class SpotifyPhase {
+    BROWSING,    // Fase 1: Browse Spotify Web
+    CONVERTING   // Fase 2: Converter-site verwerkt de track
+}
+
+/**
+ * Bouw de converter URL met de Spotify track URL.
+ * Sommige converters accepteren de URL als pad of query parameter.
+ */
+private fun buildConverterUrl(converterBaseUrl: String, spotifyUrl: String): String {
+    val base = converterBaseUrl.trimEnd('/')
+    // Veelgebruikte patronen bij converter-sites:
+    // spotifydown.com → plak in input (geen URL-param support)
+    // De meeste sites vereisen handmatig plakken.
+    // We laden gewoon de converter site — de URL zit al in het clipboard.
+    return base
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -301,8 +394,10 @@ private fun SpotifyWebView(
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
                 settings.setSupportMultipleWindows(false)
+                settings.userAgentString = settings.userAgentString.replace(
+                    "wv", ""
+                ) // Sommige sites blokkeren WebView user agent
 
-                // Cookie support voor converter-sites
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
 
@@ -317,7 +412,6 @@ private fun SpotifyWebView(
 
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                         val requestUrl = request?.url?.toString() ?: return false
-                        // Externe app-links (play store etc.) niet in WebView openen
                         if (requestUrl.startsWith("intent://") || requestUrl.startsWith("market://")) {
                             return true
                         }
@@ -327,7 +421,6 @@ private fun SpotifyWebView(
 
                 webChromeClient = WebChromeClient()
 
-                // Download interceptie
                 setDownloadListener { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
                     onDownloadStart(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
                 }

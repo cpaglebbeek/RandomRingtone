@@ -143,7 +143,10 @@ fun RandomRingtoneApp() {
                 )
             }
             composable("settings") {
-                SettingsScreen(ringtoneManager = ringtoneManager)
+                SettingsScreen(
+                    ringtoneManager = ringtoneManager,
+                    snackbarHostState = snackbarHostState
+                )
             }
         }
     }

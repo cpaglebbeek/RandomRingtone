@@ -10,9 +10,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -21,8 +25,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import nl.icthorse.randomringtone.data.AppRingtoneManager
 
 @Composable
-fun SettingsScreen(ringtoneManager: AppRingtoneManager) {
+fun SettingsScreen(
+    ringtoneManager: AppRingtoneManager,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
+) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     var canWriteSettings by remember { mutableStateOf(ringtoneManager.canWriteSettings()) }
     var notificationAccessEnabled by remember { mutableStateOf(isNotificationListenerEnabled(context)) }
@@ -42,6 +50,7 @@ fun SettingsScreen(ringtoneManager: AppRingtoneManager) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
         Text(
@@ -161,37 +170,163 @@ fun SettingsScreen(ringtoneManager: AppRingtoneManager) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // App info
+        // Opslag sectie
         Text(
-            text = "Over",
+            text = "Opslag",
             style = MaterialTheme.typography.titleMedium
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                InfoRow("App", "RandomRingtone")
-                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"David Bowie\"")
-                InfoRow("Muziekbron", "Deezer (30 sec previews)")
-                InfoRow("Ringtone duur", "~20 sec (voicemail timeout)")
+        var downloadPath by remember { mutableStateOf("") }
+        var ringtonePath by remember { mutableStateOf("") }
+        var diskUsage by remember { mutableStateOf<nl.icthorse.randomringtone.data.DiskUsage?>(null) }
+        var editDownloadPath by remember { mutableStateOf(false) }
+        var editRingtonePath by remember { mutableStateOf(false) }
+        var tempPath by remember { mutableStateOf("") }
+
+        LaunchedEffect(Unit) {
+            downloadPath = ringtoneManager.storage.getDownloadDir().absolutePath
+            ringtonePath = ringtoneManager.storage.getRingtoneDir().absolutePath
+            diskUsage = ringtoneManager.storage.getDiskUsage()
+        }
+
+        // Downloads locatie
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Text("Downloads (tijdelijk)", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = downloadPath,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                diskUsage?.let {
+                    Text(
+                        text = "${it.downloadCount} bestanden, ${it.downloadFormatted()}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = {
+                        tempPath = downloadPath
+                        editDownloadPath = true
+                    }) { Text("Wijzig") }
+                    TextButton(onClick = {
+                        scope.launch {
+                            ringtoneManager.clearDownloads()
+                            diskUsage = ringtoneManager.storage.getDiskUsage()
+                            snackbarHostState.showSnackbar("Downloads gewist")
+                        }
+                    }) { Text("Wissen", color = MaterialTheme.colorScheme.error) }
+                }
             }
         }
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Ringtones locatie
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Text("Ringtones (permanent)", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = ringtonePath,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                diskUsage?.let {
+                    Text(
+                        text = "${it.ringtoneCount} bestanden, ${it.ringtoneFormatted()}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = {
+                        tempPath = ringtonePath
+                        editRingtonePath = true
+                    }) { Text("Wijzig") }
+                    TextButton(onClick = {
+                        scope.launch {
+                            ringtoneManager.clearRingtones()
+                            diskUsage = ringtoneManager.storage.getDiskUsage()
+                            snackbarHostState.showSnackbar("Ringtones gewist")
+                        }
+                    }) { Text("Wissen", color = MaterialTheme.colorScheme.error) }
+                }
+            }
+        }
+
+        diskUsage?.let {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Totaal schijfgebruik: ${it.totalFormatted()}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    ringtoneManager.storage.resetToDefaults()
+                    downloadPath = ringtoneManager.storage.getDownloadDir().absolutePath
+                    ringtonePath = ringtoneManager.storage.getRingtoneDir().absolutePath
+                    snackbarHostState.showSnackbar("Paden gereset naar standaard")
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Reset naar standaard locaties") }
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Cache wissen
-        OutlinedButton(
-            onClick = { ringtoneManager.clearCache() },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Gedownloade ringtones wissen")
+        // App info
+        Text(text = "Over", style = MaterialTheme.typography.titleMedium)
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                InfoRow("App", "RandomRingtone")
+                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"David Bowie\"")
+                InfoRow("Muziekbron", "Deezer (30 sec previews)")
+                InfoRow("Ringtone duur", "Instelbaar via editor")
+            }
+        }
+
+        // Pad-bewerk dialogen
+        if (editDownloadPath) {
+            PathEditDialog(
+                title = "Download locatie",
+                currentPath = tempPath,
+                onDismiss = { editDownloadPath = false },
+                onSave = { newPath ->
+                    scope.launch {
+                        ringtoneManager.storage.setDownloadDir(newPath)
+                        downloadPath = newPath
+                        editDownloadPath = false
+                        snackbarHostState.showSnackbar("Download locatie bijgewerkt")
+                    }
+                }
+            )
+        }
+
+        if (editRingtonePath) {
+            PathEditDialog(
+                title = "Ringtone locatie",
+                currentPath = tempPath,
+                onDismiss = { editRingtonePath = false },
+                onSave = { newPath ->
+                    scope.launch {
+                        ringtoneManager.storage.setRingtoneDir(newPath)
+                        ringtonePath = newPath
+                        editRingtonePath = false
+                        snackbarHostState.showSnackbar("Ringtone locatie bijgewerkt")
+                    }
+                }
+            )
         }
     }
 }
@@ -214,6 +349,39 @@ private fun InfoRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium
         )
     }
+}
+
+@Composable
+private fun PathEditDialog(
+    title: String,
+    currentPath: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var path by remember { mutableStateOf(currentPath) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = path,
+                onValueChange = { path = it },
+                label = { Text("Pad") },
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(path.trim()) },
+                enabled = path.isNotBlank()
+            ) { Text("Opslaan") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuleren") }
+        }
+    )
 }
 
 private fun isNotificationListenerEnabled(context: android.content.Context): Boolean {

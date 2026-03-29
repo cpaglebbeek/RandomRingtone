@@ -16,19 +16,19 @@ import java.io.File
 
 /**
  * Beheert het downloaden van MP3 previews en het instellen als system ringtone.
+ * Gebruikt StorageManager voor configureerbare opslaglocaties.
  */
 class AppRingtoneManager(private val context: Context) {
 
     private val client = OkHttpClient()
-    private val ringtoneDir = File(context.filesDir, "ringtones").apply { mkdirs() }
+    val storage = StorageManager(context)
 
     /**
-     * Download een MP3 preview en sla lokaal op.
+     * Download een MP3 preview naar de configureerbare download-locatie.
      * @return File pad naar het opgeslagen bestand
      */
     suspend fun downloadPreview(track: DeezerTrack): File = withContext(Dispatchers.IO) {
-        val fileName = "ringtone_${track.id}.mp3"
-        val file = File(ringtoneDir, fileName)
+        val file = storage.getDownloadFile(track.id)
 
         if (file.exists()) return@withContext file
 
@@ -43,6 +43,17 @@ class AppRingtoneManager(private val context: Context) {
         }
         file
     }
+
+    /**
+     * Sla een getrimd bestand op in de ringtone-locatie.
+     * @return File pad naar het opgeslagen ringtone-bestand
+     */
+    suspend fun saveToRingtoneDir(sourceFile: File, trackId: Long, playlistName: String? = null): File =
+        withContext(Dispatchers.IO) {
+            val destFile = storage.getRingtoneFile(trackId, playlistName)
+            sourceFile.copyTo(destFile, overwrite = true)
+            destFile
+        }
 
     /**
      * Stel een gedownload MP3 bestand in als system ringtone.
@@ -64,8 +75,9 @@ class AppRingtoneManager(private val context: Context) {
      * Voeg MP3 toe aan MediaStore zodat het systeem het kan vinden.
      */
     private fun addToMediaStore(track: DeezerTrack, file: File): Uri? {
+        val displayName = "${track.artist.name} - ${track.titleShort}"
         val values = ContentValues().apply {
-            put(MediaStore.Audio.Media.DISPLAY_NAME, "${track.artist.name} - ${track.titleShort}")
+            put(MediaStore.Audio.Media.DISPLAY_NAME, displayName)
             put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg")
             put(MediaStore.Audio.Media.IS_RINGTONE, true)
             put(MediaStore.Audio.Media.IS_NOTIFICATION, false)
@@ -86,7 +98,7 @@ class AppRingtoneManager(private val context: Context) {
         context.contentResolver.delete(
             collection,
             "${MediaStore.Audio.Media.DISPLAY_NAME} = ?",
-            arrayOf("${track.artist.name} - ${track.titleShort}")
+            arrayOf(displayName)
         )
 
         val uri = context.contentResolver.insert(collection, values) ?: return null
@@ -106,7 +118,7 @@ class AppRingtoneManager(private val context: Context) {
     suspend fun setAsNotification(track: DeezerTrack, file: File): Boolean = withContext(Dispatchers.IO) {
         if (!Settings.System.canWrite(context)) return@withContext false
 
-        val uri = addToMediaStoreNotification(track, file) ?: return@withContext false
+        val uri = addToMediaStoreAs(track, file, isNotification = true) ?: return@withContext false
         AndroidRingtoneManager.setActualDefaultRingtoneUri(
             context,
             AndroidRingtoneManager.TYPE_NOTIFICATION,
@@ -122,16 +134,18 @@ class AppRingtoneManager(private val context: Context) {
         return addToMediaStore(track, file)
     }
 
-    private fun addToMediaStoreNotification(track: DeezerTrack, file: File): Uri? {
+    private fun addToMediaStoreAs(track: DeezerTrack, file: File, isNotification: Boolean): Uri? {
+        val prefix = if (isNotification) "notif_" else ""
         val values = ContentValues().apply {
-            put(MediaStore.Audio.Media.DISPLAY_NAME, "notif_${track.artist.name} - ${track.titleShort}")
+            put(MediaStore.Audio.Media.DISPLAY_NAME, "$prefix${track.artist.name} - ${track.titleShort}")
             put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg")
-            put(MediaStore.Audio.Media.IS_RINGTONE, false)
-            put(MediaStore.Audio.Media.IS_NOTIFICATION, true)
+            put(MediaStore.Audio.Media.IS_RINGTONE, !isNotification)
+            put(MediaStore.Audio.Media.IS_NOTIFICATION, isNotification)
             put(MediaStore.Audio.Media.IS_ALARM, false)
             put(MediaStore.Audio.Media.IS_MUSIC, false)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Audio.Media.RELATIVE_PATH, "${Environment.DIRECTORY_NOTIFICATIONS}/RandomRingtone")
+                val dir = if (isNotification) Environment.DIRECTORY_NOTIFICATIONS else Environment.DIRECTORY_RINGTONES
+                put(MediaStore.Audio.Media.RELATIVE_PATH, "$dir/RandomRingtone")
             }
         }
 
@@ -154,9 +168,24 @@ class AppRingtoneManager(private val context: Context) {
     fun canWriteSettings(): Boolean = Settings.System.canWrite(context)
 
     /**
-     * Verwijder alle opgeslagen ringtone bestanden.
+     * Wis alle tijdelijke downloads.
+     */
+    suspend fun clearDownloads() {
+        storage.clearDownloads()
+    }
+
+    /**
+     * Wis alle opgeslagen ringtones.
+     */
+    suspend fun clearRingtones() {
+        storage.clearRingtones()
+    }
+
+    /**
+     * Legacy: wis alles (backwards compatible).
      */
     fun clearCache() {
-        ringtoneDir.listFiles()?.forEach { it.delete() }
+        // Sync versie voor SettingsScreen — wist alleen de oude locatie
+        File(context.filesDir, "ringtones").listFiles()?.forEach { it.delete() }
     }
 }

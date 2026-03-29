@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Spotify API calls + MP3 download -->
+    <!-- Deezer API + MP3 download -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Set system ringtone -->
@@ -32,7 +32,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Spotify OAuth callback -->
+            <!-- TODO: Spotify OAuth callback (toekomstige optie)
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -41,6 +41,7 @@
                     android:scheme="randomringtone"
                     android:host="spotify-callback" />
             </intent-filter>
+            -->
         </activity>
 
     </application>

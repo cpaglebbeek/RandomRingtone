@@ -3,10 +3,10 @@
 ---
 
 ## Project Identiteit
-- **Doel:** Android app die automatisch je ringtone wisselt op basis van Spotify playlist(s) — op schema of willekeurig
-- **Scope:** Spotify playlist uitlezen, preview MP3's downloaden (30 sec snippets), als system ringtone instellen, schema/willekeurig wisselen. Wel: ringtone management, Spotify integratie. Niet: muziek afspelen, Spotify streaming.
+- **Doel:** Android app die automatisch je ringtone wisselt op basis van muziek — op schema of willekeurig
+- **Scope:** Zoeken/browsen via Deezer API, preview MP3's downloaden (30 sec), als system ringtone instellen, schema/willekeurig wisselen. Wel: ringtone management, Deezer integratie. Niet: muziek afspelen, streaming. Spotify als toekomstige optie.
 - **Type:** [x] Standalone  [ ] Onderdeel van ecosysteem
-- **Tech Stack:** Kotlin, Jetpack Compose, Gradle, OkHttp3, Room, WorkManager, Spotify Web API (OAuth 2.0 PKCE)
+- **Tech Stack:** Kotlin, Jetpack Compose, Gradle, OkHttp3, Room, WorkManager, Deezer API (geen auth nodig)
 - **GitHub:** `https://github.com/cpaglebbeek/RandomRingtone.git` (branch: `main`)
 - **Lokaal pad:** `/Users/christian/Documents/Gemini_Projects/RandomRingtone`
 - **Package:** `nl.icthorse.randomringtone`
@@ -38,10 +38,9 @@ RandomRingtone/
 │       │   │   │   └── SettingsScreen.kt    # App instellingen + permissies
 │       │   │   └── theme/
 │       │   │       └── Theme.kt             # Material 3 + Dynamic Color
-│       │   ├── auth/
-│       │   │   └── SpotifyAuth.kt           # OAuth 2.0 PKCE flow
+│       │   ├── auth/                        # (toekomst: Spotify OAuth PKCE)
 │       │   ├── data/
-│       │   │   ├── SpotifyApi.kt            # Spotify Web API client
+│       │   │   ├── DeezerApi.kt             # Deezer API client (geen auth nodig)
 │       │   │   ├── RingtoneDb.kt            # Room database
 │       │   │   └── RingtoneManager.kt       # MP3 download + ringtone instellen
 │       │   └── worker/
@@ -58,13 +57,19 @@ RandomRingtone/
 
 ## Technische Details
 
-### Spotify Integratie
+### Deezer Integratie (primair)
+- **API:** Deezer API (https://api.deezer.com/) — **volledig open, geen auth nodig**
+- **Geen API key, geen account, geen OAuth vereist**
+- **Preview audio:** `preview` veld in track objects — 30 sec MP3, directe URL
+- **Alle tracks hebben een preview** (in tegenstelling tot Spotify)
+- **Endpoints:** `/search?q=...`, `/playlist/{id}`, `/track/{id}`, `/artist/{id}/top`
+
+### Spotify Integratie (toekomstige optie)
 - **API:** Spotify Web API (https://api.spotify.com/v1/)
 - **Auth:** OAuth 2.0 PKCE flow (geen server nodig, geen client secret)
 - **Callback URI:** `randomringtone://spotify-callback`
-- **Spotify Developer App:** Moet aangemaakt worden op developer.spotify.com
-- **Preview audio:** `preview_url` veld in track objects — 30 sec, 128kbps MP3
-- **Caveat:** Niet alle tracks hebben een preview_url; app slaat tracks zonder preview over
+- **Vereist:** Spotify Developer App op developer.spotify.com
+- **Caveat:** Niet alle tracks hebben een preview_url
 
 ### Ringtone Management
 - **Permissie:** `WRITE_SETTINGS` — vereist speciale user-grant via `Settings.ACTION_MANAGE_WRITE_SETTINGS`
@@ -162,25 +167,34 @@ Wanneer de gebruiker "over en uit" zegt:
 
 ## Roadmap
 
-### v0.1.0 "Jimi_Hendrix" — Scaffold (huidig)
+### v0.1.0 "Jimi_Hendrix" — Scaffold + Deezer zoeken (huidig)
 - [x] Project skeleton: Gradle, Compose, Navigation, 3 tabs
-- [ ] Spotify OAuth 2.0 PKCE login flow
-- [ ] Playlist ophalen en tonen
+- [x] Deezer API client (zoeken, playlist, track, artiest top tracks)
+- [x] Zoekscherm met resultaten (tracks met preview)
+- [x] RingtoneManager: MP3 download + MediaStore + system ringtone instellen
+- [ ] WRITE_SETTINGS permissie flow in UI
+- [ ] "Instellen" knop koppelen aan RingtoneManager
 
-### v0.2.0 — Ringtone Engine
-- [ ] Preview MP3 download + opslag
-- [ ] System ringtone instellen via RingtoneManager
-- [ ] WRITE_SETTINGS permissie flow
+### v0.2.0 — Ringtone Engine compleet
+- [ ] Instellen-knop werkend: download → MediaStore → ringtone set
+- [ ] WRITE_SETTINGS permissie flow (Settings.ACTION_MANAGE_WRITE_SETTINGS)
+- [ ] Favorieten / geselecteerde tracks opslaan (Room)
 - [ ] Samsung OneUI 8 compatibiliteit testen
 
 ### v0.3.0 — Schema & Willekeurig
 - [ ] WorkManager scheduled ringtone swap
 - [ ] Schema-opties: elk uur / elke dag / bij oproep / handmatig
-- [ ] Room database voor playlist cache + schema
+- [ ] Willekeurig uit favorieten pool
 - [ ] Battery optimization whitelisting (Samsung)
+- [ ] Notificatie bij ringtone wissel
+
+### v0.4.0 — Spotify (optioneel)
+- [ ] Spotify OAuth 2.0 PKCE login flow
+- [ ] Spotify playlists ophalen en tonen
+- [ ] Spotify preview_url downloaden (waar beschikbaar)
+- [ ] Fallback naar Deezer voor tracks zonder Spotify preview
 
 ### v1.0.0 — Productie
 - [ ] Volledige flow werkend op Samsung Android 16
-- [ ] Notificatie bij ringtone wissel
-- [ ] Foutafhandeling (tracks zonder preview, netwerk offline)
+- [ ] Foutafhandeling (netwerk offline, download failures)
 - [ ] APK build + Google Drive upload

@@ -16,145 +16,169 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
+import java.io.File
 
+data class FileInfo(
+    val file: File,
+    val name: String,
+    val sizeFormatted: String
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     db: RingtoneDatabase,
     ringtoneManager: AppRingtoneManager,
-    snackbarHostState: SnackbarHostState
+    snackbarHostState: SnackbarHostState,
+    onOpenEditor: ((String, String, File, Long, String) -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    var downloads by remember { mutableStateOf<List<FileInfo>>(emptyList()) }
+    var ringtones by remember { mutableStateOf<List<FileInfo>>(emptyList()) }
+    var savedTracks by remember { mutableStateOf<List<SavedTrack>>(emptyList()) }
     var playlists by remember { mutableStateOf<List<String>>(emptyList()) }
-    var tracksByPlaylist by remember { mutableStateOf<Map<String, List<SavedTrack>>>(emptyMap()) }
+    var selectedTab by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        playlists = db.savedTrackDao().getPlaylistNames()
-        tracksByPlaylist = playlists.associateWith { db.savedTrackDao().getByPlaylist(it) }
-    }
-
-    // Refresh wanneer scherm terugkomt
     fun refresh() {
         scope.launch {
+            val dlDir = ringtoneManager.storage.getDownloadDir()
+            downloads = (dlDir.listFiles() ?: emptyArray())
+                .filter { it.extension == "mp3" }
+                .sortedByDescending { it.lastModified() }
+                .map { FileInfo(it, it.nameWithoutExtension, formatFileSize(it.length())) }
+
+            val rtDir = ringtoneManager.storage.getRingtoneDir()
+            ringtones = (rtDir.listFiles() ?: emptyArray())
+                .filter { it.extension == "mp3" || it.extension == "m4a" }
+                .sortedByDescending { it.lastModified() }
+                .map { FileInfo(it, it.nameWithoutExtension, formatFileSize(it.length())) }
+
             playlists = db.savedTrackDao().getPlaylistNames()
-            tracksByPlaylist = playlists.associateWith { db.savedTrackDao().getByPlaylist(it) }
+            savedTracks = playlists.flatMap { db.savedTrackDao().getByPlaylist(it) }
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text("Bibliotheek", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(8.dp))
+    LaunchedEffect(Unit) { refresh() }
 
-        val totalTracks = tracksByPlaylist.values.sumOf { it.size }
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Header
         Text(
-            text = "${playlists.size} playlists, $totalTracks tracks",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            "Bibliotheek",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp)
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // Sub-tabs
+        TabRow(selectedTabIndex = selectedTab) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                text = { Text("Downloads (${downloads.size})") },
+                icon = { Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp)) }
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                text = { Text("Ringtones (${ringtones.size})") },
+                icon = { Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp)) }
+            )
+        }
 
-        if (playlists.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.LibraryMusic,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+        when (selectedTab) {
+            0 -> DownloadsTab(
+                downloads = downloads,
+                onTrim = { fileInfo ->
+                    // Zoek track info in DB, of gebruik bestandsnaam
+                    val trackId = extractTrackId(fileInfo.file.name)
+                    onOpenEditor?.invoke(
+                        fileInfo.name, "", fileInfo.file, trackId, ""
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Nog geen tracks opgeslagen",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        "Zoek een nummer en tik op het playlist-icoon",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                },
+                onDelete = { fileInfo ->
+                    scope.launch {
+                        fileInfo.file.delete()
+                        refresh()
+                        snackbarHostState.showSnackbar("Verwijderd: ${fileInfo.name}")
+                    }
                 }
-            }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                playlists.forEach { playlistName ->
-                    val tracks = tracksByPlaylist[playlistName] ?: emptyList()
+            )
+            1 -> RingtonesTab(
+                ringtones = ringtones,
+                db = db,
+                ringtoneManager = ringtoneManager,
+                snackbarHostState = snackbarHostState,
+                onRefresh = { refresh() }
+            )
+        }
+    }
+}
 
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp, bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.QueueMusic,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+// --- Downloads Tab ---
+
+@Composable
+private fun DownloadsTab(
+    downloads: List<FileInfo>,
+    onTrim: (FileInfo) -> Unit,
+    onDelete: (FileInfo) -> Unit
+) {
+    if (downloads.isEmpty()) {
+        EmptyState(
+            icon = Icons.Default.Download,
+            title = "Geen downloads",
+            subtitle = "Zoek een nummer en download het via Zoeken"
+        )
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            item {
+                Text(
+                    "Volledige MP3 bestanden in de download-map. Trim ze om als ringtone te gebruiken.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            items(downloads) { fileInfo ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.AudioFile,
+                            contentDescription = null,
+                            modifier = Modifier.size(36.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "$playlistName (${tracks.size})",
-                                style = MaterialTheme.typography.titleMedium
+                                fileInfo.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                fileInfo.sizeFormatted,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    }
-
-                    items(tracks) { track ->
-                        SavedTrackItem(
-                            track = track,
-                            onSetAsRingtone = {
-                                scope.launch {
-                                    if (!ringtoneManager.canWriteSettings()) {
-                                        snackbarHostState.showSnackbar(
-                                            message = "Permissie nodig: sta 'Systeeminstellingen wijzigen' toe",
-                                            actionLabel = "Openen",
-                                            duration = SnackbarDuration.Long
-                                        ).let { result ->
-                                            if (result == SnackbarResult.ActionPerformed) {
-                                                context.startActivity(
-                                                    Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                                                        data = android.net.Uri.parse("package:${context.packageName}")
-                                                    }
-                                                )
-                                            }
-                                        }
-                                        return@launch
-                                    }
-                                    try {
-                                        val deezerTrack = DeezerTrack(
-                                            id = track.deezerTrackId,
-                                            title = track.title,
-                                            artist = DeezerArtist(name = track.artist),
-                                            preview = track.previewUrl
-                                        )
-                                        val file = ringtoneManager.downloadPreview(deezerTrack)
-                                        val success = ringtoneManager.setAsRingtone(deezerTrack, file)
-                                        snackbarHostState.showSnackbar(
-                                            if (success) "Ringtone ingesteld: ${track.artist} - ${track.title}"
-                                            else "Instellen mislukt"
-                                        )
-                                    } catch (e: Exception) {
-                                        snackbarHostState.showSnackbar("Fout: ${e.message}")
-                                    }
-                                }
-                            },
-                            onDelete = {
-                                scope.launch {
-                                    db.savedTrackDao().removeFromPlaylist(track.deezerTrackId, playlistName)
-                                    refresh()
-                                    snackbarHostState.showSnackbar("Verwijderd: ${track.artist} - ${track.title}")
-                                }
-                            }
-                        )
+                        // Trim knop → opent editor
+                        FilledTonalButton(onClick = { onTrim(fileInfo) }) {
+                            Icon(Icons.Default.ContentCut, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Trim")
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(onClick = { onDelete(fileInfo) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Verwijderen",
+                                tint = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }
@@ -162,55 +186,296 @@ fun LibraryScreen(
     }
 }
 
+// --- Ringtones Tab ---
+
 @Composable
-private fun SavedTrackItem(
-    track: SavedTrack,
-    onSetAsRingtone: () -> Unit,
-    onDelete: () -> Unit
+private fun RingtonesTab(
+    ringtones: List<FileInfo>,
+    db: RingtoneDatabase,
+    ringtoneManager: AppRingtoneManager,
+    snackbarHostState: SnackbarHostState,
+    onRefresh: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var showChannelDialog by remember { mutableStateOf<FileInfo?>(null) }
+    var showPlaylistDialog by remember { mutableStateOf<FileInfo?>(null) }
+    var playlistName by remember { mutableStateOf("") }
+
+    if (ringtones.isEmpty()) {
+        EmptyState(
+            icon = Icons.Default.MusicNote,
+            title = "Geen ringtones",
+            subtitle = "Trim een download of sla een track op via de editor"
+        )
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(
-                if (track.localPath != null) Icons.Default.DownloadDone else Icons.Default.CloudQueue,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = if (track.localPath != null)
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            item {
                 Text(
-                    text = track.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = track.artist,
+                    "Getrimde ringtone bestanden. Stel in als ringtone of voeg toe aan een playlist.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
-            FilledTonalButton(onClick = onSetAsRingtone) {
-                Text("Ringtone")
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Verwijderen",
-                    tint = MaterialTheme.colorScheme.error
-                )
+            items(ringtones) { fileInfo ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                            modifier = Modifier.size(36.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                fileInfo.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                fileInfo.sizeFormatted,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        // Instellen als ringtone (kies kanaal)
+                        IconButton(onClick = { showChannelDialog = fileInfo }) {
+                            Icon(Icons.Default.PhoneAndroid, contentDescription = "Instellen als...")
+                        }
+                        // Toevoegen aan playlist
+                        IconButton(onClick = { showPlaylistDialog = fileInfo }) {
+                            Icon(Icons.Default.PlaylistAdd, contentDescription = "Aan playlist")
+                        }
+                        // Verwijderen
+                        IconButton(onClick = {
+                            scope.launch {
+                                fileInfo.file.delete()
+                                onRefresh()
+                                snackbarHostState.showSnackbar("Verwijderd: ${fileInfo.name}")
+                            }
+                        }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Verwijderen",
+                                tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
             }
         }
     }
+
+    // Kanaal-selectie dialoog
+    showChannelDialog?.let { fileInfo ->
+        AlertDialog(
+            onDismissRequest = { showChannelDialog = null },
+            title = { Text("Instellen als...") },
+            text = {
+                Column {
+                    ChannelOption("Telefoon (globaal)", Icons.Default.Phone) {
+                        scope.launch {
+                            setAsChannel(context, ringtoneManager, fileInfo.file, Channel.CALL, snackbarHostState)
+                            showChannelDialog = null
+                        }
+                    }
+                    ChannelOption("Notificatie (globaal)", Icons.Default.Notifications) {
+                        scope.launch {
+                            setAsChannel(context, ringtoneManager, fileInfo.file, Channel.NOTIFICATION, snackbarHostState)
+                            showChannelDialog = null
+                        }
+                    }
+                    ChannelOption("SMS (globaal)", Icons.Default.Sms) {
+                        scope.launch {
+                            saveGlobalAssignment(db, fileInfo, Channel.SMS)
+                            snackbarHostState.showSnackbar("SMS ringtone ingesteld (via NotificationService)")
+                            showChannelDialog = null
+                        }
+                    }
+                    ChannelOption("WhatsApp (globaal)", Icons.Default.Chat) {
+                        scope.launch {
+                            saveGlobalAssignment(db, fileInfo, Channel.WHATSAPP)
+                            snackbarHostState.showSnackbar("WhatsApp ringtone ingesteld (via NotificationService)")
+                            showChannelDialog = null
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showChannelDialog = null }) { Text("Annuleren") }
+            }
+        )
+    }
+
+    // Playlist dialoog
+    showPlaylistDialog?.let { fileInfo ->
+        AlertDialog(
+            onDismissRequest = { showPlaylistDialog = null },
+            title = { Text("Toevoegen aan playlist") },
+            text = {
+                OutlinedTextField(
+                    value = playlistName,
+                    onValueChange = { playlistName = it },
+                    label = { Text("Playlist naam") },
+                    placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (playlistName.isNotBlank()) {
+                            scope.launch {
+                                val trackId = extractTrackId(fileInfo.file.name)
+                                db.savedTrackDao().insert(
+                                    SavedTrack(
+                                        deezerTrackId = trackId,
+                                        title = fileInfo.name,
+                                        artist = "",
+                                        previewUrl = "",
+                                        localPath = fileInfo.file.absolutePath,
+                                        playlistName = playlistName.trim()
+                                    )
+                                )
+                                snackbarHostState.showSnackbar("Toegevoegd aan '${playlistName.trim()}'")
+                                showPlaylistDialog = null
+                                playlistName = ""
+                            }
+                        }
+                    },
+                    enabled = playlistName.isNotBlank()
+                ) { Text("Toevoegen") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPlaylistDialog = null; playlistName = "" }) { Text("Annuleren") }
+            }
+        )
+    }
+}
+
+// --- Helpers ---
+
+@Composable
+private fun ChannelOption(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(label, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun EmptyState(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(title, style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+private suspend fun setAsChannel(
+    context: android.content.Context,
+    ringtoneManager: AppRingtoneManager,
+    file: File,
+    channel: Channel,
+    snackbarHostState: SnackbarHostState
+) {
+    if (!ringtoneManager.canWriteSettings()) {
+        snackbarHostState.showSnackbar(
+            message = "Permissie nodig: sta 'Systeeminstellingen wijzigen' toe",
+            actionLabel = "Openen",
+            duration = SnackbarDuration.Long
+        ).let { result ->
+            if (result == SnackbarResult.ActionPerformed) {
+                context.startActivity(
+                    Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                        data = android.net.Uri.parse("package:${context.packageName}")
+                    }
+                )
+            }
+        }
+        return
+    }
+
+    val dummyTrack = DeezerTrack(
+        id = extractTrackId(file.name),
+        title = file.nameWithoutExtension,
+        artist = DeezerArtist(name = ""),
+        preview = ""
+    )
+
+    val success = when (channel) {
+        Channel.CALL -> ringtoneManager.setAsRingtone(dummyTrack, file)
+        Channel.NOTIFICATION -> ringtoneManager.setAsNotification(dummyTrack, file)
+        else -> false
+    }
+
+    snackbarHostState.showSnackbar(
+        if (success) "Ingesteld als ${channel.name.lowercase()}"
+        else "Instellen mislukt"
+    )
+}
+
+private suspend fun saveGlobalAssignment(db: RingtoneDatabase, fileInfo: FileInfo, channel: Channel) {
+    val trackId = extractTrackId(fileInfo.file.name)
+    // Sla track op in DB als die nog niet bestaat
+    db.savedTrackDao().insert(
+        SavedTrack(
+            deezerTrackId = trackId,
+            title = fileInfo.name,
+            artist = "",
+            previewUrl = "",
+            localPath = fileInfo.file.absolutePath,
+            playlistName = "_system_${channel.name.lowercase()}"
+        )
+    )
+    // Maak of update globale assignment
+    val existing = db.assignmentDao().getGlobalForChannel(channel)
+    if (existing != null) {
+        db.assignmentDao().update(existing.copy(mode = Mode.FIXED, fixedTrackId = trackId))
+    } else {
+        db.assignmentDao().insert(
+            RingtoneAssignment(
+                channel = channel,
+                mode = Mode.FIXED,
+                fixedTrackId = trackId
+            )
+        )
+    }
+}
+
+private fun extractTrackId(fileName: String): Long {
+    // Probeer track ID uit bestandsnaam te halen: download_12345.mp3 of ringtone_12345.mp3
+    val match = Regex("(?:download|ringtone|lib)_(\\d+)").find(fileName)
+    return match?.groupValues?.get(1)?.toLongOrNull() ?: fileName.hashCode().toLong()
+}
+
+private fun formatFileSize(bytes: Long): String = when {
+    bytes < 1024 -> "$bytes B"
+    bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0)
+    else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
 }

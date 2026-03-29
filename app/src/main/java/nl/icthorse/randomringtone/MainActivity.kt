@@ -132,7 +132,17 @@ fun RandomRingtoneApp() {
                 LibraryScreen(
                     db = db,
                     ringtoneManager = ringtoneManager,
-                    snackbarHostState = snackbarHostState
+                    snackbarHostState = snackbarHostState,
+                    onOpenEditor = { title, artist, file, trackId, previewUrl ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set("editorTrackTitle", title)
+                            set("editorTrackArtist", artist)
+                            set("editorFilePath", file.absolutePath)
+                            set("editorTrackId", trackId)
+                            set("editorPreviewUrl", previewUrl)
+                        }
+                        navController.navigate("editor")
+                    }
                 )
             }
             composable("assignments") {

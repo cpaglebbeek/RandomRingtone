@@ -21,30 +21,229 @@
 
 ---
 
+## Functionele Features
+
+### F1. Zoeken (Deezer)
+- Zoek op artiest, nummer of playlist via Deezer API
+- Resultaten tonen met artiest, titel en preview-beschikbaarheid
+- Direct als ringtone instellen vanuit zoekresultaten
+- Opslaan in benoemde playlist vanuit zoekresultaten
+- **Status:** Werkend
+
+### F2. Bibliotheek
+- Overzicht van alle opgeslagen tracks, gegroepeerd per playlist
+- Per track: direct als ringtone instellen of verwijderen
+- Download-status icoon (lokaal aanwezig / alleen cloud)
+- **Status:** Werkend
+
+### F3. Toewijzingen (per contact / globaal)
+- Toewijzing aanmaken: kies scope (globaal of specifiek contact)
+- 4 kanalen: Telefoon, Notificatie, SMS, WhatsApp
+- 2 modi: Vast (één track) of Random (uit playlist)
+- Contact zoeken met auto-complete
+- Toewijzingen tonen gegroepeerd per contact
+- Verwijderen per toewijzing
+- **Status:** Werkend (UI), per-contact ringtone voor Telefoon via ContactsContract, SMS/WhatsApp via NotificationListenerService
+
+### F4. Schema (wisselfrequentie)
+- Bij RANDOM modus: kies wanneer de ringtone wisselt
+- Opties: Handmatig, Bij elke oproep, Elk uur, Elke dag, Elke week
+- WorkManager voert periodieke taken uit op de achtergrond
+- **Status:** Werkend (WorkManager ingepland), nog niet getest op Samsung batterij-optimalisatie
+
+### F5. Permissiebeheer
+- WRITE_SETTINGS: live status + directe link naar Android instellingen
+- Notificatie-toegang: live status + directe link naar listener instellingen
+- Hercheck bij terugkeer vanuit instellingen (lifecycle observer)
+- **Status:** Werkend
+
+### F6. Spotify Integratie (toekomst)
+- OAuth 2.0 PKCE login flow
+- Spotify playlists ophalen en tonen
+- Preview_url downloaden (waar beschikbaar)
+- Fallback naar Deezer voor tracks zonder preview
+- **Status:** Geparkeerd (v0.4.0)
+
+---
+
+## Technische Features
+
+### T1. Deezer API Client (`DeezerApi.kt`)
+- Open API, geen auth/key nodig
+- Endpoints: `/search`, `/playlist/{id}`, `/track/{id}`, `/artist/{id}/top`
+- OkHttp3 + kotlinx.serialization voor JSON parsing
+- Alle tracks hebben 30 sec MP3 preview
+- **Gebruikt door:** F1 (Zoeken), F4 (Schema/Worker)
+
+### T2. Ringtone Engine (`AppRingtoneManager.kt`)
+- MP3 download via OkHttp3 → app-interne storage (`filesDir/ringtones/`)
+- MediaStore registratie (ringtone of notification type)
+- System ringtone instellen via `RingtoneManager.setActualDefaultRingtoneUri()`
+- System notificatie instellen via `TYPE_NOTIFICATION`
+- Per-contact ringtone via `ContactsContract.Contacts.CUSTOM_RINGTONE`
+- Cache management (alle downloads wissen)
+- **Gebruikt door:** F1 (direct instellen), F2 (bibliotheek instellen), F3 (toewijzingen), F4 (worker)
+
+### T3. Room Database (`RingtoneDb.kt`)
+- **Tabel `assignments`:** contactUri, contactName, channel, mode, schedule, fixedTrackId, playlistName
+- **Tabel `saved_tracks`:** deezerTrackId, title, artist, previewUrl, localPath, playlistName
+- Type converters voor Channel, Mode, Schedule enums
+- DB versie 2, destructive migration
+- **Gebruikt door:** F2 (bibliotheek), F3 (toewijzingen), F4 (worker), T5 (NotificationService)
+
+### T4. WorkManager (`RingtoneWorker.kt`)
+- 3 periodieke workers: hourly, daily, weekly
+- Per worker: zoek RANDOM assignments met matching schedule → pick random track → download → set ringtone
+- Constraints: netwerk vereist
+- Samsung: battery optimization whitelisting nodig
+- **Gebruikt door:** F4 (schema)
+
+### T5. NotificationListenerService (`NotificationService.kt`)
+- Onderschept notificaties van WhatsApp en Samsung/Google Messages
+- Extraheert contactnaam uit notificatie-titel
+- Zoekt matching assignment: eerst per-contact, dan globaal fallback
+- Speelt custom geluid af via MediaPlayer
+- Ondersteunt zowel FIXED als RANDOM modus
+- **Gebruikt door:** F3 (SMS/WhatsApp kanalen)
+
+### T6. Contacten Integratie (`ContactsRepository.kt`)
+- Leest contacten via ContactsContract (alleen met telefoonnummer)
+- Zoekfunctie op naam
+- Per-contact ringtone instellen via CUSTOM_RINGTONE
+- Per-contact ringtone verwijderen (terug naar standaard)
+- **Gebruikt door:** F3 (contact selectie + per-contact telefoon ringtone)
+
+### T7. UI Framework
+- Jetpack Compose + Material 3 + Dynamic Color (Samsung OneUI compatible)
+- 4 tabs: Zoeken / Bibliotheek / Toewijzingen / Instellingen
+- Navigation Compose met state preservation
+- Snackbar feedback bij acties
+- **Target:** Samsung, Android 16 (API 36), OneUI 8
+- **compileSdk:** 35, **minSdk:** 26
+
+---
+
+## Afhankelijkheden
+
+### Externe afhankelijkheden
+
+```
+Deezer API (api.deezer.com)
+  └── Geen auth nodig, volledig open
+  └── Rate limit: niet gedocumenteerd, in praktijk ruim voldoende
+  └── Risico: API kan wijzigen/verdwijnen — geen SLA
+
+Android System APIs
+  ├── RingtoneManager — system ringtone instellen
+  ├── MediaStore — audio registreren als ringtone/notification
+  ├── ContactsContract — contacten lezen + per-contact ringtone
+  ├── NotificationListenerService — SMS/WhatsApp interceptie
+  ├── WorkManager — periodieke background tasks
+  └── Settings.System — WRITE_SETTINGS permissie check
+```
+
+### Interne afhankelijkheden (feature → technisch)
+
+```
+F1 Zoeken ──────────→ T1 DeezerApi
+    │                  T2 RingtoneEngine (direct instellen)
+    └────────────────→ T3 Room (opslaan in playlist)
+
+F2 Bibliotheek ─────→ T3 Room (tracks lezen/verwijderen)
+    └────────────────→ T2 RingtoneEngine (instellen vanuit bibliotheek)
+
+F3 Toewijzingen ────→ T3 Room (assignments CRUD)
+    ├────────────────→ T6 Contacten (contact selectie)
+    ├── Telefoon ────→ T2 RingtoneEngine + T6 ContactsContract
+    ├── Notificatie ─→ T2 RingtoneEngine (TYPE_NOTIFICATION)
+    ├── SMS ─────────→ T5 NotificationService
+    └── WhatsApp ────→ T5 NotificationService
+
+F4 Schema ──────────→ T4 WorkManager
+    ├────────────────→ T3 Room (assignments + tracks lezen)
+    ├────────────────→ T1 DeezerApi (on-the-fly download als lokaal ontbreekt)
+    └────────────────→ T2 RingtoneEngine (ringtone instellen)
+
+F5 Permissies ──────→ Android Settings intents (geen eigen technische component)
+```
+
+### Permissie-afhankelijkheden
+
+| Permissie | Nodig voor | Type |
+|-----------|-----------|------|
+| `INTERNET` | T1 (Deezer API), T2 (MP3 download) | Normaal |
+| `WRITE_SETTINGS` | T2 (system ringtone instellen) | Speciaal (user-grant) |
+| `READ_CONTACTS` | T6 (contacten lezen) | Runtime |
+| `WRITE_CONTACTS` | T6 (per-contact ringtone) | Runtime |
+| `READ_MEDIA_AUDIO` | T2 (MediaStore audio) | Runtime (Android 13+) |
+| `POST_NOTIFICATIONS` | Notificaties bij ringtone wissel | Runtime (Android 13+) |
+| `RECEIVE_BOOT_COMPLETED` | T4 (WorkManager na reboot) | Normaal |
+| `BIND_NOTIFICATION_LISTENER_SERVICE` | T5 (SMS/WhatsApp interceptie) | Speciaal (user-grant) |
+
+---
+
+## Overlappingen
+
+### Functionele overlappingen
+
+| Overlap | Componenten | Toelichting |
+|---------|------------|-------------|
+| **Ringtone instellen** | F1 (Zoeken), F2 (Bibliotheek), F3 (Toewijzingen), F4 (Schema) | Alle vier de features kunnen een ringtone instellen — allen via T2 RingtoneEngine. F1/F2 = handmatig direct, F3 = via assignment lookup, F4 = via WorkManager |
+| **Track opslaan** | F1 (→ playlist), F2 (lezen) | F1 schrijft tracks naar Room, F2 leest ze. Zelfde tabel `saved_tracks` |
+| **Contact selectie** | F3 (toewijzing aanmaken), T5 (notificatie matching) | F3 selecteert contact via ContactsRepository, T5 matcht op contactnaam uit notificatie. **Risico:** naamverschil (bijv. "Mama" in telefoon vs "Ma" in WhatsApp) |
+| **Modus-logica (FIXED/RANDOM)** | F3 (UI keuze), T4 (Worker uitvoering), T5 (NotificationService) | Zelfde Mode enum, maar de resolutie-logica (welke track?) is gedupliceerd in T4 en T5. **Refactor-kandidaat:** gedeelde `TrackResolver` |
+
+### Technische overlappingen
+
+| Overlap | Componenten | Toelichting |
+|---------|------------|-------------|
+| **MP3 download** | T2 (RingtoneEngine), T4 (Worker), T5 (NotificationService) | Alle drie downloaden MP3's. T4 en T5 gebruiken T2, maar hebben ook eigen download-logica voor on-the-fly resolve. **Refactor-kandidaat:** centraliseer in T2 |
+| **Track → File resolve** | T4 (RingtoneWorker.doWork), T5 (NotificationService.resolveTrackFile) | Identieke logica: saved track → check localPath → download indien nodig. **Refactor-kandidaat:** extract naar gedeelde `TrackResolver` |
+| **MediaStore registratie** | T2 (addToMediaStore, addToMediaStoreNotification) | Twee methoden die bijna identiek zijn (verschil: IS_RINGTONE vs IS_NOTIFICATION). **Refactor-kandidaat:** één methode met parameter |
+| **OkHttp client** | T1 (DeezerApi), T2 (RingtoneEngine) | Twee aparte OkHttpClient instances. **Refactor-kandidaat:** gedeelde singleton |
+
+### Samsung/OneUI specifieke overlappingen
+
+| Aandachtspunt | Componenten | Toelichting |
+|---------------|------------|-------------|
+| **Batterij-optimalisatie** | T4 (WorkManager), T5 (NotificationListenerService) | Beide worden door Samsung agressief gekilld. Beide vereisen battery optimization whitelisting. **Eén permissie-flow** in F5 kan beide afdekken |
+| **Restricted settings** | T5 (NotificationListener) | Samsung OneUI kan NotificationListenerService blokkeren achter "Restricted settings". Mogelijk ADB commando nodig (zie AndroidCallManagement ervaring met targetSdk 36→35) |
+
+---
+
 ## Architectuur
 
 ```
 RandomRingtone/
-├── CLAUDE.md                    # Dit bestand
-├── version.json                 # Versie metadata
+├── CLAUDE.md                        # Dit bestand
+├── version.json                     # Versie metadata
 ├── app/
 │   └── src/main/
 │       ├── java/nl/icthorse/randomringtone/
-│       │   ├── MainActivity.kt          # Entry point + navigation
+│       │   ├── MainActivity.kt              # Entry point + 4-tab navigation
 │       │   ├── ui/
 │       │   │   ├── screens/
-│       │   │   │   ├── PlaylistScreen.kt    # Spotify playlist selectie
-│       │   │   │   ├── ScheduleScreen.kt    # Schema instellingen
-│       │   │   │   └── SettingsScreen.kt    # App instellingen + permissies
+│       │   │   │   ├── PlaylistScreen.kt    # F1: Deezer zoeken + instellen/opslaan
+│       │   │   │   ├── LibraryScreen.kt     # F2: Opgeslagen tracks per playlist
+│       │   │   │   ├── AssignmentScreen.kt  # F3+F4: Toewijzingen + schema
+│       │   │   │   └── SettingsScreen.kt    # F5: Permissies + app info
 │       │   │   └── theme/
-│       │   │       └── Theme.kt             # Material 3 + Dynamic Color
-│       │   ├── auth/                        # (toekomst: Spotify OAuth PKCE)
+│       │   │       └── Theme.kt             # T7: Material 3 + Dynamic Color
 │       │   ├── data/
-│       │   │   ├── DeezerApi.kt             # Deezer API client (geen auth nodig)
-│       │   │   ├── RingtoneDb.kt            # Room database
-│       │   │   └── RingtoneManager.kt       # MP3 download + ringtone instellen
-│       │   └── worker/
-│       │       └── RingtoneWorker.kt        # WorkManager scheduled swap
+│       │   │   ├── DeezerApi.kt             # T1: Deezer API client
+│       │   │   ├── RingtoneDb.kt            # T3: Room database + entities + DAO's
+│       │   │   ├── RingtoneManager.kt       # T2: MP3 download + ringtone engine
+│       │   │   └── ContactsRepository.kt    # T6: Contacten lezen + ringtone set
+│       │   ├── service/
+│       │   │   └── NotificationService.kt   # T5: SMS/WhatsApp interceptie
+│       │   ├── worker/
+│       │   │   └── RingtoneWorker.kt        # T4: Periodieke ringtone swap
+│       │   └── auth/                        # (toekomst: Spotify OAuth PKCE)
+│       ├── res/
+│       │   ├── drawable/ic_launcher.xml     # App icon (muzieknoot vector)
+│       │   └── values/
+│       │       ├── strings.xml
+│       │       └── themes.xml
 │       └── AndroidManifest.xml
 ├── build.gradle.kts
 ├── app/build.gradle.kts
@@ -52,45 +251,6 @@ RandomRingtone/
 ├── gradle/libs.versions.toml
 └── .gitignore
 ```
-
----
-
-## Technische Details
-
-### Deezer Integratie (primair)
-- **API:** Deezer API (https://api.deezer.com/) — **volledig open, geen auth nodig**
-- **Geen API key, geen account, geen OAuth vereist**
-- **Preview audio:** `preview` veld in track objects — 30 sec MP3, directe URL
-- **Alle tracks hebben een preview** (in tegenstelling tot Spotify)
-- **Endpoints:** `/search?q=...`, `/playlist/{id}`, `/track/{id}`, `/artist/{id}/top`
-
-### Spotify Integratie (toekomstige optie)
-- **API:** Spotify Web API (https://api.spotify.com/v1/)
-- **Auth:** OAuth 2.0 PKCE flow (geen server nodig, geen client secret)
-- **Callback URI:** `randomringtone://spotify-callback`
-- **Vereist:** Spotify Developer App op developer.spotify.com
-- **Caveat:** Niet alle tracks hebben een preview_url
-
-### Ringtone Management
-- **Permissie:** `WRITE_SETTINGS` — vereist speciale user-grant via `Settings.ACTION_MANAGE_WRITE_SETTINGS`
-- **API:** `RingtoneManager.setActualDefaultRingtoneUri()` met `TYPE_RINGTONE`
-- **Storage:** MP3's opgeslagen in app-interne storage (`filesDir/ringtones/`)
-- **ContentProvider:** MP3 moet via `MediaStore` of `FileProvider` beschikbaar zijn voor het systeem
-
-### Schema & Willekeurig
-- **WorkManager:** `PeriodicWorkRequest` voor schema (min. interval 15 min)
-- **Opties:** bij elke oproep, elk uur, elke dag, handmatig
-- **Samsung OneUI 8:** Battery optimization whitelisting nodig voor betrouwbare WorkManager executie
-
-### Ringtone Duur
-- Telefoon gaat standaard **20 seconden** over voordat voicemail inschakelt
-- Spotify preview is 30 sec — ruim voldoende, geen trimming nodig
-- Optioneel in toekomstige versie: instelbare preview-duur
-
-### Target Platform
-- **Primair:** Samsung, Android 16 (API 36), OneUI 8
-- **compileSdk:** 35 (bump naar 36 wanneer SDK beschikbaar)
-- **minSdk:** 26 (Android 8 — breed compatibel)
 
 ---
 
@@ -148,7 +308,7 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 - **Thema:** Iconische muzikanten
 - Elke build krijgt een **unieke** codenaam gebaseerd op het gekozen thema.
 - Uniqueness check: nooit een naam of versie hergebruiken.
-- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0)
+- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0)
 
 ---
 
@@ -167,34 +327,40 @@ Wanneer de gebruiker "over en uit" zegt:
 
 ## Roadmap
 
-### v0.1.0 "Jimi_Hendrix" — Scaffold + Deezer zoeken (huidig)
-- [x] Project skeleton: Gradle, Compose, Navigation, 3 tabs
-- [x] Deezer API client (zoeken, playlist, track, artiest top tracks)
-- [x] Zoekscherm met resultaten (tracks met preview)
-- [x] RingtoneManager: MP3 download + MediaStore + system ringtone instellen
-- [ ] WRITE_SETTINGS permissie flow in UI
-- [ ] "Instellen" knop koppelen aan RingtoneManager
+### v0.1.0 "Jimi_Hendrix" — Scaffold + Deezer zoeken ✅
+- [x] Project skeleton: Gradle, Compose, Navigation
+- [x] Deezer API client (zoeken, playlist, track, artiest)
+- [x] Zoekscherm met resultaten
+- [x] RingtoneManager: MP3 download + MediaStore + system ringtone
+- [x] WRITE_SETTINGS permissie flow
+- [x] Versie zichtbaar in APK naam + app
 
-### v0.2.0 — Ringtone Engine compleet
-- [ ] Instellen-knop werkend: download → MediaStore → ringtone set
-- [ ] WRITE_SETTINGS permissie flow (Settings.ACTION_MANAGE_WRITE_SETTINGS)
-- [ ] Favorieten / geselecteerde tracks opslaan (Room)
+### v0.2.0 "Freddie_Mercury" — Per-contact + 4 kanalen + playlists ✅
+- [x] Room database: assignments + saved tracks
+- [x] 4 kanalen: Telefoon, Notificatie, SMS, WhatsApp
+- [x] Per-contact en globale toewijzingen
+- [x] 2 modi: Vast en Random uit playlist
+- [x] Playlist systeem: opslaan vanuit zoekresultaten
+- [x] Bibliotheek scherm: overzicht + direct instellen
+- [x] NotificationListenerService voor SMS/WhatsApp
+- [x] WorkManager schema: handmatig/oproep/uur/dag/week
+- [x] Permissiescherm: WRITE_SETTINGS + NotificationListener
+
+### v0.3.0 — Stabilisatie + Samsung testen
 - [ ] Samsung OneUI 8 compatibiliteit testen
-
-### v0.3.0 — Schema & Willekeurig
-- [ ] WorkManager scheduled ringtone swap
-- [ ] Schema-opties: elk uur / elke dag / bij oproep / handmatig
-- [ ] Willekeurig uit favorieten pool
 - [ ] Battery optimization whitelisting (Samsung)
+- [ ] Refactor: gedeelde TrackResolver (T4/T5 overlapping)
+- [ ] Refactor: gedeelde OkHttpClient singleton
+- [ ] Refactor: MediaStore registratie unificatie
 - [ ] Notificatie bij ringtone wissel
+- [ ] Foutafhandeling: netwerk offline, download failures, tracks zonder preview
 
 ### v0.4.0 — Spotify (optioneel)
 - [ ] Spotify OAuth 2.0 PKCE login flow
 - [ ] Spotify playlists ophalen en tonen
 - [ ] Spotify preview_url downloaden (waar beschikbaar)
-- [ ] Fallback naar Deezer voor tracks zonder Spotify preview
+- [ ] Fallback naar Deezer voor tracks zonder preview
 
 ### v1.0.0 — Productie
-- [ ] Volledige flow werkend op Samsung Android 16
-- [ ] Foutafhandeling (netwerk offline, download failures)
+- [ ] Volledige flow werkend + getest op Samsung Android 16
 - [ ] APK build + Google Drive upload

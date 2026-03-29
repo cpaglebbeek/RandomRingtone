@@ -314,7 +314,7 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 - **Thema:** Iconische muzikanten
 - Elke build krijgt een **unieke** codenaam gebaseerd op het gekozen thema.
 - Uniqueness check: nooit een naam of versie hergebruiken.
-- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0), David_Bowie (v0.3.0), Amy_Winehouse (v0.4.0), Kurt_Cobain (v0.5.0)
+- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0), David_Bowie (v0.3.0), Amy_Winehouse (v0.4.0), Kurt_Cobain (v0.5.0), Janis_Joplin (v0.6.0)
 
 ---
 
@@ -382,13 +382,16 @@ Wanneer de gebruiker "over en uit" zegt:
 - [x] READ_PHONE_STATE permissie + CallStateReceiver in manifest
 - [x] Navigatie: 5 tabs (Zoeken / Bibliotheek / Playlists / Overzicht / Instellingen)
 
-### v0.6.0 — Spotify web + converter (VOLGENDE SESSIE — HIER VERDER)
-- [ ] SpotifyWebScreen: WebView met gekozen converter-site
-- [ ] Spotify URL detectie + automatische conversie
-- [ ] Converter integratie: Spotify URL → MP3 via gekozen service
-- [ ] Waveform editor integratie voor volledige nummers
+### v0.6.0 "Janis_Joplin" — Spotify Web + converter ✅
+- [x] SpotifyScreen: WebView met open.spotify.com + browse/zoekfunctie
+- [x] Track URL detectie (/track/) → "Download MP3" FAB
+- [x] Automatisch clipboard + navigatie naar gekozen converter-site
+- [x] DownloadManager interceptie → editor of bibliotheek
+- [x] Twee-fasen UI: BROWSING (Spotify) ↔ CONVERTING (converter)
+- [x] 6 tabs: Deezer / Spotify / Bibliotheek / Playlists / Overzicht / Instellingen
+- [x] Playlist-dialoog verbeterd: bestaande playlists selecteerbaar + playlist_tracks koppeling
 
-### v0.7.0 — Cloud sync
+### v0.7.0 — Cloud sync (VOLGENDE SESSIE — HIER VERDER)
 - [ ] SAF (Storage Access Framework) integratie — Google Drive, Dropbox, OneDrive
 - [ ] Upload/download/sync ringtones naar cloud-map
 - [ ] WorkManager periodieke synchronisatie

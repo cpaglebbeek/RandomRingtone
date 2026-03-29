@@ -208,7 +208,6 @@ fun SpotifyScreen(
             // Spotify WebView
             CreateWebView(
                 url = SPOTIFY_WEB_URL,
-                useSpotifyUserAgent = true,
                 onWebViewCreated = { spotifyWebView = it },
                 onPageStarted = { url -> isLoading = true; currentUrl = url },
                 onPageFinished = { url ->
@@ -410,10 +409,10 @@ private fun ConverterDialog(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
-                // Converter WebView — schone instantie, geen Spotify cookies
+                // Converter WebView — schone instantie, blokkeert Spotify redirects
                 CreateWebView(
                     url = converterUrl,
-                    useSpotifyUserAgent = false,
+                    blockSpotifyDomain = true,
                     onWebViewCreated = { converterWebView = it },
                     onPageStarted = { url -> converterLoading = true; converterCurrentUrl = url },
                     onPageFinished = { url ->
@@ -433,7 +432,7 @@ private fun ConverterDialog(
 @Composable
 private fun CreateWebView(
     url: String,
-    useSpotifyUserAgent: Boolean,
+    blockSpotifyDomain: Boolean = false,
     onWebViewCreated: (WebView) -> Unit,
     onPageStarted: (String) -> Unit,
     onPageFinished: (String) -> Unit,
@@ -451,11 +450,8 @@ private fun CreateWebView(
                 settings.displayZoomControls = false
                 settings.setSupportMultipleWindows(false)
 
-                if (useSpotifyUserAgent) {
-                    // Chrome Mobile UA — Spotify blokkeert WebView UA
-                    settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
-                }
-                // Converter WebView: standaard UA (geen Spotify spoof nodig)
+                // Chrome Mobile UA voor alle WebViews — voorkomt blokkades
+                settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
 
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
@@ -469,6 +465,14 @@ private fun CreateWebView(
                     }
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                         val requestUrl = request?.url?.toString() ?: return false
+                        // Blokkeer navigatie naar Spotify vanuit converter
+                        if (blockSpotifyDomain && (
+                            requestUrl.contains("open.spotify.com") ||
+                            requestUrl.contains("accounts.spotify.com") ||
+                            requestUrl.contains("spotify.com/login")
+                        )) {
+                            return true // Blokkeer — niet navigeren
+                        }
                         if (requestUrl.startsWith("intent://") || requestUrl.startsWith("market://")) {
                             return true
                         }

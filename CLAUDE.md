@@ -308,7 +308,7 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 - **Thema:** Iconische muzikanten
 - Elke build krijgt een **unieke** codenaam gebaseerd op het gekozen thema.
 - Uniqueness check: nooit een naam of versie hergebruiken.
-- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0)
+- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0), David_Bowie (v0.3.0), Amy_Winehouse (v0.4.0)
 
 ---
 
@@ -346,21 +346,51 @@ Wanneer de gebruiker "over en uit" zegt:
 - [x] WorkManager schema: handmatig/oproep/uur/dag/week
 - [x] Permissiescherm: WRITE_SETTINGS + NotificationListener
 
-### v0.3.0 — Stabilisatie + Samsung testen
-- [ ] Samsung OneUI 8 compatibiliteit testen
-- [ ] Battery optimization whitelisting (Samsung)
-- [ ] Refactor: gedeelde TrackResolver (T4/T5 overlapping)
-- [ ] Refactor: gedeelde OkHttpClient singleton
-- [ ] Refactor: MediaStore registratie unificatie
-- [ ] Notificatie bij ringtone wissel
-- [ ] Foutafhandeling: netwerk offline, download failures, tracks zonder preview
+### v0.3.0 "David_Bowie" — Waveform editor + opslag ✅
+- [x] AudioDecoder: MP3 → PCM amplitudes via MediaCodec
+- [x] AudioTrimmer: lossless MP3 trim via MediaExtractor + MediaMuxer
+- [x] AudioPlayer: preview afspelen van selectie
+- [x] EditorScreen: waveform + drag handles + sliders + preview + trim + opslaan
+- [x] StorageManager: configureerbare download- en ringtone-locaties (DataStore)
+- [x] Bibliotheek herwerkt: Downloads tab (trim) + Ringtones tab (instellen/playlist/delete)
+- [x] SettingsScreen: opslag sectie met paden, schijfgebruik, wissen per locatie
 
-### v0.4.0 — Spotify (optioneel)
-- [ ] Spotify OAuth 2.0 PKCE login flow
-- [ ] Spotify playlists ophalen en tonen
-- [ ] Spotify preview_url downloaden (waar beschikbaar)
-- [ ] Fallback naar Deezer voor tracks zonder preview
+### v0.4.0 "Amy_Winehouse" — Playlist tab + uitgebreid schema ✅
+- [x] Playlist entity: naam, trigger, modus, schema, contact-koppeling, actief toggle
+- [x] PlaylistTrack koppeltabel met sortOrder en CASCADE delete
+- [x] Schedule uitgebreid: 1/2/4/8/12 uur, dagelijks, wekelijks
+- [x] PlaylistManagerScreen: aanmaken, bewerken, tracks beheren, delete
+- [x] Navigatie: Zoeken / Bibliotheek / Playlists / Instellingen
+- [x] CONFLICTS.md: volledige afhankelijkheids- en conflictanalyse (7 conflicten, 10 refactoring-acties)
+
+### v0.5.0 — Conflictresolutie + Overview tab (VOLGENDE SESSIE — HIER VERDER)
+- [ ] **R1: ConflictResolver** bouwen — centrale conflictdetectie + hiërarchie-afdwinging
+- [ ] **R2: Overview tab** — per kanaal+contact tonen welke instelling actief is
+- [ ] **R3-R4: Migreer NotificationService + RingtoneWorker naar PlaylistDao**
+- [ ] **R5: EVERY_CALL implementeren** — PhoneStateListener + lastPlayedTrackId dedup
+- [ ] **R6: Enforce 1-actief-per-kanaal+scope** — auto-deactiveer conflicterende playlists
+- [ ] **R7: Legacy AssignmentScreen verwijderen**
+- [ ] **R8: TrackResolver extracten** (dedup T4/T5 code)
+
+### v0.6.0 — Spotify web + converter
+- [ ] SpotifyWebScreen: WebView met open.spotify.com, track URL detectie
+- [ ] Converter integratie: Spotify URL → MP3 via converter site
+- [ ] Waveform editor integratie voor volledige nummers
+
+### v0.7.0 — Cloud sync
+- [ ] SAF (Storage Access Framework) integratie — Google Drive, Dropbox, OneDrive
+- [ ] Upload/download/sync ringtones naar cloud-map
+- [ ] WorkManager periodieke synchronisatie
+
+### v0.8.0 — Stabilisatie + Samsung testen
+- [ ] Samsung OneUI 8 compatibiliteit testen
+- [ ] Battery optimization whitelisting
+- [ ] Refactor: OkHttpClient singleton, MediaStore unificatie
+- [ ] Pre-download bij playlist activering (offline support)
+- [ ] Notificatie bij ringtone wissel
+- [ ] Foutafhandeling: netwerk offline, download failures
 
 ### v1.0.0 — Productie
 - [ ] Volledige flow werkend + getest op Samsung Android 16
+- [ ] Alle conflicten opgelost, Overview tab toont correcte staat
 - [ ] APK build + Google Drive upload

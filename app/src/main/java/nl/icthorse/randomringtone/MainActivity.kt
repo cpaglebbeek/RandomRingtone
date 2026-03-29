@@ -7,9 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -20,6 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import nl.icthorse.randomringtone.data.AppRingtoneManager
 import nl.icthorse.randomringtone.data.RingtoneDatabase
 import nl.icthorse.randomringtone.ui.screens.AssignmentScreen
+import nl.icthorse.randomringtone.ui.screens.LibraryScreen
 import nl.icthorse.randomringtone.ui.screens.PlaylistScreen
 import nl.icthorse.randomringtone.ui.screens.SettingsScreen
 import nl.icthorse.randomringtone.ui.theme.RandomRingtoneTheme
@@ -48,6 +47,7 @@ fun RandomRingtoneApp() {
 
     val tabs = listOf(
         Triple("search", "Zoeken", Icons.Default.MusicNote),
+        Triple("library", "Bibliotheek", Icons.Default.LibraryMusic),
         Triple("assignments", "Toewijzingen", Icons.Default.Tune),
         Triple("settings", "Instellingen", Icons.Default.Settings),
     )
@@ -95,6 +95,13 @@ fun RandomRingtoneApp() {
                     ringtoneManager = ringtoneManager,
                     snackbarHostState = snackbarHostState,
                     db = db
+                )
+            }
+            composable("library") {
+                LibraryScreen(
+                    db = db,
+                    ringtoneManager = ringtoneManager,
+                    snackbarHostState = snackbarHostState
                 )
             }
             composable("assignments") {

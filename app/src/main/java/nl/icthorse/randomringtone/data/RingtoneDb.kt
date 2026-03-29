@@ -13,6 +13,14 @@ enum class Mode {
     FIXED, RANDOM
 }
 
+enum class Schedule {
+    MANUAL,        // Alleen handmatig wisselen
+    EVERY_CALL,    // Bij elke oproep/notificatie
+    EVERY_HOUR,    // Elk uur
+    EVERY_DAY,     // Elke dag
+    EVERY_WEEK     // Elke week
+}
+
 // --- Type Converters ---
 
 class Converters {
@@ -20,6 +28,8 @@ class Converters {
     @TypeConverter fun toChannel(value: String): Channel = Channel.valueOf(value)
     @TypeConverter fun fromMode(value: Mode): String = value.name
     @TypeConverter fun toMode(value: String): Mode = Mode.valueOf(value)
+    @TypeConverter fun fromSchedule(value: Schedule): String = value.name
+    @TypeConverter fun toSchedule(value: String): Schedule = Schedule.valueOf(value)
 }
 
 // --- Entities ---
@@ -31,6 +41,7 @@ data class RingtoneAssignment(
     val contactName: String? = null,      // display name (null = "Globaal")
     val channel: Channel,
     val mode: Mode,
+    val schedule: Schedule = Schedule.EVERY_CALL,  // wanneer wisselt random ringtone
     val fixedTrackId: Long? = null,       // Deezer track ID (bij FIXED)
     val playlistName: String? = null      // playlist naam (bij RANDOM)
 )
@@ -105,7 +116,7 @@ interface SavedTrackDao {
 
 @Database(
     entities = [RingtoneAssignment::class, SavedTrack::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -123,7 +134,8 @@ abstract class RingtoneDatabase : RoomDatabase() {
                     context.applicationContext,
                     RingtoneDatabase::class.java,
                     "randomringtone.db"
-                ).build().also { INSTANCE = it }
+                ).fallbackToDestructiveMigration()
+                .build().also { INSTANCE = it }
             }
         }
     }

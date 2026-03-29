@@ -101,6 +101,54 @@ class AppRingtoneManager(private val context: Context) {
     }
 
     /**
+     * Stel een MP3 in als notificatie geluid (globaal).
+     */
+    suspend fun setAsNotification(track: DeezerTrack, file: File): Boolean = withContext(Dispatchers.IO) {
+        if (!Settings.System.canWrite(context)) return@withContext false
+
+        val uri = addToMediaStoreNotification(track, file) ?: return@withContext false
+        AndroidRingtoneManager.setActualDefaultRingtoneUri(
+            context,
+            AndroidRingtoneManager.TYPE_NOTIFICATION,
+            uri
+        )
+        true
+    }
+
+    /**
+     * Voeg MP3 toe aan MediaStore en return de URI (publieke methode voor worker).
+     */
+    fun addToMediaStorePublic(track: DeezerTrack, file: File): Uri? {
+        return addToMediaStore(track, file)
+    }
+
+    private fun addToMediaStoreNotification(track: DeezerTrack, file: File): Uri? {
+        val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.DISPLAY_NAME, "notif_${track.artist.name} - ${track.titleShort}")
+            put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg")
+            put(MediaStore.Audio.Media.IS_RINGTONE, false)
+            put(MediaStore.Audio.Media.IS_NOTIFICATION, true)
+            put(MediaStore.Audio.Media.IS_ALARM, false)
+            put(MediaStore.Audio.Media.IS_MUSIC, false)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Audio.Media.RELATIVE_PATH, "${Environment.DIRECTORY_NOTIFICATIONS}/RandomRingtone")
+            }
+        }
+
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        }
+
+        val uri = context.contentResolver.insert(collection, values) ?: return null
+        context.contentResolver.openOutputStream(uri)?.use { output ->
+            file.inputStream().use { input -> input.copyTo(output) }
+        }
+        return uri
+    }
+
+    /**
      * Check of de app WRITE_SETTINGS permissie heeft.
      */
     fun canWriteSettings(): Boolean = Settings.System.canWrite(context)

@@ -158,8 +158,8 @@ private fun AssignmentCard(
                 )
                 Text(
                     text = when (assignment.mode) {
-                        Mode.FIXED -> trackName ?: "Vast nummer"
-                        Mode.RANDOM -> "Random uit: ${assignment.playlistName}"
+                        Mode.FIXED -> trackName ?: "Vast nummer (kies via Zoeken)"
+                        Mode.RANDOM -> "Random uit: ${assignment.playlistName} — ${assignment.schedule.displayName()}"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -191,6 +191,7 @@ private fun AddAssignmentDialog(
     var selectedContact by remember { mutableStateOf<ContactInfo?>(null) }
     var selectedChannel by remember { mutableStateOf(Channel.CALL) }
     var selectedMode by remember { mutableStateOf(Mode.FIXED) }
+    var selectedSchedule by remember { mutableStateOf(Schedule.EVERY_CALL) }
     var selectedPlaylist by remember { mutableStateOf("") }
     var contacts by remember { mutableStateOf<List<ContactInfo>>(emptyList()) }
     var playlists by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -302,6 +303,25 @@ private fun AddAssignmentDialog(
                     }
                 }
 
+                // Schema selectie (bij RANDOM)
+                if (selectedMode == Mode.RANDOM) {
+                    Text("Wanneer wisselen:", style = MaterialTheme.typography.labelLarge)
+                    Column {
+                        Schedule.entries.forEach { schedule ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = selectedSchedule == schedule,
+                                    onClick = { selectedSchedule = schedule }
+                                )
+                                Text(
+                                    text = schedule.displayName(),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                }
+
                 if (selectedMode == Mode.FIXED) {
                     Text(
                         "Na opslaan: kies een track via het Zoeken-tabblad",
@@ -320,8 +340,11 @@ private fun AddAssignmentDialog(
                             contactName = if (isGlobal) null else selectedContact?.name,
                             channel = selectedChannel,
                             mode = selectedMode,
+                            schedule = if (selectedMode == Mode.RANDOM) selectedSchedule else Schedule.MANUAL,
                             playlistName = if (selectedMode == Mode.RANDOM) selectedPlaylist else null
                         )
+                        // Start WorkManager schedules
+                        nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
                         db.assignmentDao().insert(assignment)
                         onSaved()
                     }
@@ -353,4 +376,12 @@ private fun Channel.shortName(): String = when (this) {
     Channel.NOTIFICATION -> "Notif."
     Channel.SMS -> "SMS"
     Channel.WHATSAPP -> "WA"
+}
+
+private fun Schedule.displayName(): String = when (this) {
+    Schedule.MANUAL -> "Handmatig"
+    Schedule.EVERY_CALL -> "Bij elke oproep"
+    Schedule.EVERY_HOUR -> "Elk uur"
+    Schedule.EVERY_DAY -> "Elke dag"
+    Schedule.EVERY_WEEK -> "Elke week"
 }

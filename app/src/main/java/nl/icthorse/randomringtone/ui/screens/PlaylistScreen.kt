@@ -33,6 +33,14 @@ fun PlaylistScreen(
     val api = remember { DeezerApi() }
     val context = LocalContext.current
 
+    // Laad bestaande playlists voor het "opslaan" dialoog
+    var existingPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        if (db != null) {
+            existingPlaylists = db.playlistDao().getAll()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -165,9 +173,11 @@ fun PlaylistScreen(
                                 }
                             }
                         },
-                        onSaveToPlaylist = if (db != null) { playlistName ->
+                        existingPlaylists = existingPlaylists,
+                        onSaveToPlaylist = if (db != null) { playlistId, playlistName ->
                             scope.launch {
                                 val file = ringtoneManager.downloadPreview(track)
+                                // Sla track op in saved_tracks
                                 db.savedTrackDao().insert(
                                     SavedTrack(
                                         deezerTrackId = track.id,
@@ -178,8 +188,23 @@ fun PlaylistScreen(
                                         playlistName = playlistName
                                     )
                                 )
+                                // Link aan playlist via playlist_tracks
+                                val targetPlaylistId = if (playlistId != null) {
+                                    playlistId
+                                } else {
+                                    // Nieuwe playlist aanmaken
+                                    db.playlistDao().insert(
+                                        Playlist(name = playlistName)
+                                    )
+                                }
+                                val sortOrder = db.playlistTrackDao().getNextSortOrder(targetPlaylistId)
+                                db.playlistTrackDao().insert(
+                                    PlaylistTrack(targetPlaylistId, track.id, sortOrder)
+                                )
+                                // Refresh playlist lijst
+                                existingPlaylists = db.playlistDao().getAll()
                                 snackbarHostState.showSnackbar(
-                                    "Opgeslagen in '$playlistName': ${track.artist.name} - ${track.titleShort}"
+                                    "Toegevoegd aan '$playlistName': ${track.artist.name} - ${track.titleShort}"
                                 )
                             }
                         } else null
@@ -195,10 +220,13 @@ private fun TrackItem(
     track: DeezerTrack,
     onEdit: (() -> Unit)? = null,
     onSetRingtone: () -> Unit,
-    onSaveToPlaylist: ((String) -> Unit)? = null
+    existingPlaylists: List<Playlist> = emptyList(),
+    onSaveToPlaylist: ((Long?, String) -> Unit)? = null
 ) {
     var showPlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
+    var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
+    var createNew by remember { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -247,32 +275,94 @@ private fun TrackItem(
 
     if (showPlaylistDialog && onSaveToPlaylist != null) {
         AlertDialog(
-            onDismissRequest = { showPlaylistDialog = false },
-            title = { Text("Opslaan in playlist") },
+            onDismissRequest = {
+                showPlaylistDialog = false
+                selectedPlaylist = null
+                createNew = false
+                newPlaylistName = ""
+            },
+            title = { Text("Toevoegen aan playlist") },
             text = {
-                OutlinedTextField(
-                    value = newPlaylistName,
-                    onValueChange = { newPlaylistName = it },
-                    label = { Text("Playlist naam") },
-                    placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Bestaande playlists
+                    if (existingPlaylists.isNotEmpty()) {
+                        Text("Bestaande playlists:", style = MaterialTheme.typography.labelLarge)
+                        existingPlaylists.forEach { playlist ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                RadioButton(
+                                    selected = selectedPlaylist == playlist && !createNew,
+                                    onClick = {
+                                        selectedPlaylist = playlist
+                                        createNew = false
+                                    }
+                                )
+                                Text(
+                                    text = playlist.name,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    }
+
+                    // Nieuwe playlist optie
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        RadioButton(
+                            selected = createNew,
+                            onClick = {
+                                createNew = true
+                                selectedPlaylist = null
+                            }
+                        )
+                        Text(
+                            text = "Nieuwe playlist",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    if (createNew) {
+                        OutlinedTextField(
+                            value = newPlaylistName,
+                            onValueChange = { newPlaylistName = it },
+                            label = { Text("Playlist naam") },
+                            placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 40.dp)
+                        )
+                    }
+                }
             },
             confirmButton = {
+                val canSave = if (createNew) newPlaylistName.isNotBlank() else selectedPlaylist != null
                 Button(
                     onClick = {
-                        if (newPlaylistName.isNotBlank()) {
-                            onSaveToPlaylist(newPlaylistName.trim())
-                            showPlaylistDialog = false
-                            newPlaylistName = ""
+                        if (createNew && newPlaylistName.isNotBlank()) {
+                            onSaveToPlaylist(null, newPlaylistName.trim())
+                        } else if (selectedPlaylist != null) {
+                            onSaveToPlaylist(selectedPlaylist!!.id, selectedPlaylist!!.name)
                         }
+                        showPlaylistDialog = false
+                        selectedPlaylist = null
+                        createNew = false
+                        newPlaylistName = ""
                     },
-                    enabled = newPlaylistName.isNotBlank()
-                ) { Text("Opslaan") }
+                    enabled = canSave
+                ) { Text("Toevoegen") }
             },
             dismissButton = {
-                TextButton(onClick = { showPlaylistDialog = false }) { Text("Annuleren") }
+                TextButton(onClick = {
+                    showPlaylistDialog = false
+                    selectedPlaylist = null
+                    createNew = false
+                    newPlaylistName = ""
+                }) { Text("Annuleren") }
             }
         )
     }

@@ -453,18 +453,34 @@ private suspend fun saveGlobalAssignment(db: RingtoneDatabase, fileInfo: FileInf
             playlistName = "_system_${channel.name.lowercase()}"
         )
     )
-    // Maak of update globale assignment
-    val existing = db.assignmentDao().getGlobalForChannel(channel)
-    if (existing != null) {
-        db.assignmentDao().update(existing.copy(mode = Mode.FIXED, fixedTrackId = trackId))
+    // Maak of hergebruik globale playlist voor dit kanaal
+    val existing = db.playlistDao().getActiveGlobalForChannel(channel)
+    if (existing.isNotEmpty()) {
+        val playlist = existing.first()
+        // Voeg track toe aan bestaande playlist
+        val sortOrder = db.playlistTrackDao().getNextSortOrder(playlist.id)
+        db.playlistTrackDao().insert(PlaylistTrack(playlist.id, trackId, sortOrder))
+        // Zet als FIXED modus met deze track
+        db.playlistDao().update(playlist.copy(mode = Mode.FIXED, lastPlayedTrackId = trackId))
     } else {
-        db.assignmentDao().insert(
-            RingtoneAssignment(
+        // Maak nieuwe FIXED playlist aan
+        val channelName = when (channel) {
+            Channel.SMS -> "SMS"
+            Channel.WHATSAPP -> "WhatsApp"
+            else -> channel.name
+        }
+        val playlistId = db.playlistDao().insert(
+            Playlist(
+                name = "$channelName ringtone",
                 channel = channel,
                 mode = Mode.FIXED,
-                fixedTrackId = trackId
+                schedule = Schedule.MANUAL,
+                isActive = true
             )
         )
+        db.playlistTrackDao().insert(PlaylistTrack(playlistId, trackId, 0))
+        // Enforce 1-actief-per-kanaal
+        ConflictResolver(db).enforceOneActivePerChannelScope(playlistId)
     }
 }
 

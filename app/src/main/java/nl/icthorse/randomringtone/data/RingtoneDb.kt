@@ -75,21 +75,6 @@ data class PlaylistTrack(
     val sortOrder: Int = 0      // Volgorde binnen playlist
 )
 
-/**
- * Legacy: directe toewijzing (wordt vervangen door Playlist, maar behouden voor backwards compat).
- */
-@Entity(tableName = "assignments")
-data class RingtoneAssignment(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val contactUri: String? = null,
-    val contactName: String? = null,
-    val channel: Channel,
-    val mode: Mode,
-    val schedule: Schedule = Schedule.EVERY_CALL,
-    val fixedTrackId: Long? = null,
-    val playlistName: String? = null
-)
-
 @Entity(tableName = "saved_tracks")
 data class SavedTrack(
     @PrimaryKey val deezerTrackId: Long,
@@ -127,6 +112,12 @@ interface PlaylistDao {
 
     @Delete
     suspend fun delete(playlist: Playlist)
+
+    @Query("UPDATE playlists SET isActive = 0 WHERE channel = :channel AND contactUri IS NULL AND id != :excludeId AND isActive = 1")
+    suspend fun deactivateOtherGlobal(channel: Channel, excludeId: Long)
+
+    @Query("UPDATE playlists SET isActive = 0 WHERE channel = :channel AND contactUri = :contactUri AND id != :excludeId AND isActive = 1")
+    suspend fun deactivateOtherForContact(channel: Channel, contactUri: String, excludeId: Long)
 }
 
 @Dao
@@ -148,36 +139,6 @@ interface PlaylistTrackDao {
 
     @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun getNextSortOrder(playlistId: Long): Int
-}
-
-@Dao
-interface AssignmentDao {
-    @Query("SELECT * FROM assignments ORDER BY contactName ASC, channel ASC")
-    suspend fun getAll(): List<RingtoneAssignment>
-
-    @Query("SELECT * FROM assignments WHERE contactUri IS NULL")
-    suspend fun getGlobal(): List<RingtoneAssignment>
-
-    @Query("SELECT * FROM assignments WHERE contactUri = :contactUri")
-    suspend fun getForContact(contactUri: String): List<RingtoneAssignment>
-
-    @Query("SELECT * FROM assignments WHERE contactUri = :contactUri AND channel = :channel LIMIT 1")
-    suspend fun getForContactAndChannel(contactUri: String, channel: Channel): RingtoneAssignment?
-
-    @Query("SELECT * FROM assignments WHERE contactUri IS NULL AND channel = :channel LIMIT 1")
-    suspend fun getGlobalForChannel(channel: Channel): RingtoneAssignment?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(assignment: RingtoneAssignment): Long
-
-    @Update
-    suspend fun update(assignment: RingtoneAssignment)
-
-    @Delete
-    suspend fun delete(assignment: RingtoneAssignment)
-
-    @Query("DELETE FROM assignments WHERE id = :id")
-    suspend fun deleteById(id: Long)
 }
 
 @Dao
@@ -210,13 +171,12 @@ interface SavedTrackDao {
 // --- Database ---
 
 @Database(
-    entities = [RingtoneAssignment::class, SavedTrack::class, Playlist::class, PlaylistTrack::class],
-    version = 3,
+    entities = [SavedTrack::class, Playlist::class, PlaylistTrack::class],
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class RingtoneDatabase : RoomDatabase() {
-    abstract fun assignmentDao(): AssignmentDao
     abstract fun savedTrackDao(): SavedTrackDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun playlistTrackDao(): PlaylistTrackDao

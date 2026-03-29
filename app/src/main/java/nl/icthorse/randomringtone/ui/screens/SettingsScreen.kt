@@ -23,7 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import nl.icthorse.randomringtone.data.AppRingtoneManager
+import nl.icthorse.randomringtone.data.SpotifyConverter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     ringtoneManager: AppRingtoneManager,
@@ -282,6 +284,86 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Spotify Converter sectie
+        Text(
+            text = "Spotify Converter",
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "Kies de service om Spotify tracks naar MP3 te converteren",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        var selectedConverterId by remember { mutableStateOf("") }
+        var converterExpanded by remember { mutableStateOf(false) }
+
+        LaunchedEffect(Unit) {
+            selectedConverterId = ringtoneManager.storage.getSpotifyConverter()
+        }
+
+        val selectedConverter = SpotifyConverter.findById(selectedConverterId)
+
+        ExposedDropdownMenuBox(
+            expanded = converterExpanded,
+            onExpandedChange = { converterExpanded = it }
+        ) {
+            OutlinedTextField(
+                value = "${selectedConverter.name} (${selectedConverter.type})",
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = converterExpanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = converterExpanded,
+                onDismissRequest = { converterExpanded = false }
+            ) {
+                SpotifyConverter.ALL.forEach { converter ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(converter.name)
+                                Text(
+                                    text = converter.type,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onClick = {
+                            selectedConverterId = converter.id
+                            converterExpanded = false
+                            scope.launch {
+                                ringtoneManager.storage.setSpotifyConverter(converter.id)
+                                snackbarHostState.showSnackbar("Converter: ${converter.name}")
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = selectedConverter.url,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // App info
         Text(text = "Over", style = MaterialTheme.typography.titleMedium)
 
@@ -290,7 +372,7 @@ fun SettingsScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 InfoRow("App", "RandomRingtone")
-                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Amy Winehouse\"")
+                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Kurt Cobain\"")
                 InfoRow("Muziekbron", "Deezer (30 sec previews)")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }

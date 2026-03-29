@@ -27,10 +27,14 @@ class StorageManager(private val context: Context) {
     companion object {
         private val KEY_DOWNLOAD_PATH = stringPreferencesKey("download_path")
         private val KEY_RINGTONE_PATH = stringPreferencesKey("ringtone_path")
+        private val KEY_SPOTIFY_CONVERTER = stringPreferencesKey("spotify_converter")
 
         // Standaard subfolders
         private const val DEFAULT_DOWNLOAD_SUBFOLDER = "downloads"
         private const val DEFAULT_RINGTONE_SUBFOLDER = "Music/RandomRingtone/Ringtones"
+
+        // Standaard Spotify converter
+        const val DEFAULT_SPOTIFY_CONVERTER = "spotifydown"
     }
 
     // --- Standaard paden ---
@@ -108,6 +112,21 @@ class StorageManager(private val context: Context) {
         }
     }
 
+    // --- Spotify Converter ---
+
+    suspend fun getSpotifyConverter(): String {
+        val saved = context.settingsStore.data.map { prefs ->
+            prefs[KEY_SPOTIFY_CONVERTER]
+        }.first()
+        return saved ?: DEFAULT_SPOTIFY_CONVERTER
+    }
+
+    suspend fun setSpotifyConverter(converterId: String) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_SPOTIFY_CONVERTER] = converterId
+        }
+    }
+
     // --- Bestandsbeheer ---
 
     /**
@@ -153,6 +172,30 @@ class StorageManager(private val context: Context) {
             downloadCount = downloadCount,
             ringtoneCount = ringtoneCount
         )
+    }
+}
+
+data class SpotifyConverter(
+    val id: String,
+    val name: String,
+    val type: String,
+    val url: String
+) {
+    companion object {
+        val ALL = listOf(
+            SpotifyConverter("spotifydown", "SpotifyDown", "Online", "https://spotifydown.com"),
+            SpotifyConverter("spotifymate", "SpotifyMate", "Online", "https://spotifymate.com"),
+            SpotifyConverter("soundloaders", "Soundloaders", "Online", "https://soundloaders.com"),
+            SpotifyConverter("spotify-downloader", "Spotify-downloader", "Online", "https://spotify-downloader.com"),
+            SpotifyConverter("spotisongdownloader", "SpotiSongDownloader", "Online", "https://spotisongdownloader.com"),
+            SpotifyConverter("spotifydownload", "Spotifydownload", "Online", "https://spotifydownload.org"),
+            SpotifyConverter("spotidown", "Spotidown", "Online", "https://spotidown.app"),
+            SpotifyConverter("keepvid", "KEEPVID", "Online", "https://keepvid.to"),
+            SpotifyConverter("spotiflyer", "SpotiFlyer", "Android", "https://github.com/Shabinder/SpotiFlyer")
+        )
+
+        fun findById(id: String): SpotifyConverter =
+            ALL.find { it.id == id } ?: ALL.first()
     }
 }
 

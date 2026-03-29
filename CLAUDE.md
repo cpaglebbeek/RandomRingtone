@@ -115,7 +115,7 @@
 
 ### T7. UI Framework
 - Jetpack Compose + Material 3 + Dynamic Color (Samsung OneUI compatible)
-- 4 tabs: Zoeken / Bibliotheek / Toewijzingen / Instellingen
+- 5 tabs: Zoeken / Bibliotheek / Playlists / Overzicht / Instellingen
 - Navigation Compose met state preservation
 - Snackbar feedback bij acties
 - **Target:** Samsung, Android 16 (API 36), OneUI 8
@@ -220,24 +220,30 @@ RandomRingtone/
 ├── app/
 │   └── src/main/
 │       ├── java/nl/icthorse/randomringtone/
-│       │   ├── MainActivity.kt              # Entry point + 4-tab navigation
+│       │   ├── MainActivity.kt              # Entry point + 5-tab navigation
 │       │   ├── ui/
 │       │   │   ├── screens/
 │       │   │   │   ├── PlaylistScreen.kt    # F1: Deezer zoeken + instellen/opslaan
 │       │   │   │   ├── LibraryScreen.kt     # F2: Opgeslagen tracks per playlist
-│       │   │   │   ├── AssignmentScreen.kt  # F3+F4: Toewijzingen + schema
-│       │   │   │   └── SettingsScreen.kt    # F5: Permissies + app info
+│       │   │   │   ├── PlaylistManagerScreen.kt # F3+F4: Playlists + triggers + schema
+│       │   │   │   ├── OverviewScreen.kt    # F6: Actieve instellingen + conflicten
+│       │   │   │   └── SettingsScreen.kt    # F5: Permissies + opslag + Spotify converter
 │       │   │   └── theme/
 │       │   │       └── Theme.kt             # T7: Material 3 + Dynamic Color
 │       │   ├── data/
 │       │   │   ├── DeezerApi.kt             # T1: Deezer API client
 │       │   │   ├── RingtoneDb.kt            # T3: Room database + entities + DAO's
 │       │   │   ├── RingtoneManager.kt       # T2: MP3 download + ringtone engine
-│       │   │   └── ContactsRepository.kt    # T6: Contacten lezen + ringtone set
+│       │   │   ├── ContactsRepository.kt    # T6: Contacten lezen + ringtone set
+│       │   │   ├── TrackResolver.kt         # T8: Gedeelde track→file resolver
+│       │   │   ├── ConflictResolver.kt      # T9: Conflictdetectie + hiërarchie
+│       │   │   └── StorageManager.kt        # T10: DataStore opslag + Spotify converter
 │       │   ├── service/
-│       │   │   └── NotificationService.kt   # T5: SMS/WhatsApp interceptie
+│       │   │   └── NotificationService.kt   # T5: SMS/WhatsApp interceptie (PlaylistDao)
 │       │   ├── worker/
-│       │   │   └── RingtoneWorker.kt        # T4: Periodieke ringtone swap
+│       │   │   └── RingtoneWorker.kt        # T4: Periodieke ringtone swap (PlaylistDao)
+│       │   ├── receiver/
+│       │   │   └── CallStateReceiver.kt     # T11: EVERY_CALL BroadcastReceiver
 │       │   └── auth/                        # (toekomst: Spotify OAuth PKCE)
 │       ├── res/
 │       │   ├── drawable/ic_launcher.xml     # App icon (muzieknoot vector)
@@ -308,7 +314,7 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 - **Thema:** Iconische muzikanten
 - Elke build krijgt een **unieke** codenaam gebaseerd op het gekozen thema.
 - Uniqueness check: nooit een naam of versie hergebruiken.
-- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0), David_Bowie (v0.3.0), Amy_Winehouse (v0.4.0)
+- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0), David_Bowie (v0.3.0), Amy_Winehouse (v0.4.0), Kurt_Cobain (v0.5.0)
 
 ---
 
@@ -363,18 +369,23 @@ Wanneer de gebruiker "over en uit" zegt:
 - [x] Navigatie: Zoeken / Bibliotheek / Playlists / Instellingen
 - [x] CONFLICTS.md: volledige afhankelijkheids- en conflictanalyse (7 conflicten, 10 refactoring-acties)
 
-### v0.5.0 — Conflictresolutie + Overview tab (VOLGENDE SESSIE — HIER VERDER)
-- [ ] **R1: ConflictResolver** bouwen — centrale conflictdetectie + hiërarchie-afdwinging
-- [ ] **R2: Overview tab** — per kanaal+contact tonen welke instelling actief is
-- [ ] **R3-R4: Migreer NotificationService + RingtoneWorker naar PlaylistDao**
-- [ ] **R5: EVERY_CALL implementeren** — PhoneStateListener + lastPlayedTrackId dedup
-- [ ] **R6: Enforce 1-actief-per-kanaal+scope** — auto-deactiveer conflicterende playlists
-- [ ] **R7: Legacy AssignmentScreen verwijderen**
-- [ ] **R8: TrackResolver extracten** (dedup T4/T5 code)
+### v0.5.0 "Kurt_Cobain" — Conflictresolutie + Overview tab + Spotify config ✅
+- [x] **R8: TrackResolver** — gedeelde track→file resolver (dedup T4/T5)
+- [x] **R1: ConflictResolver** — centrale conflictdetectie + hiërarchie-afdwinging
+- [x] **R3-R4: Migreer NotificationService + RingtoneWorker naar PlaylistDao**
+- [x] **R5: EVERY_CALL** — CallStateReceiver BroadcastReceiver + lastPlayedTrackId dedup
+- [x] **R6: Enforce 1-actief-per-kanaal+scope** — auto-deactiveer conflicterende playlists
+- [x] **R2: Overview tab** — 5e tab, per kanaal+contact actieve instellingen + conflicten
+- [x] **R7: Legacy verwijderd** — AssignmentScreen + RingtoneAssignment + AssignmentDao verwijderd
+- [x] **Spotify Converter config** — 9 converters in Instellingen dropdown (DataStore)
+- [x] DB versie 4 (destructive migration, assignments tabel verwijderd)
+- [x] READ_PHONE_STATE permissie + CallStateReceiver in manifest
+- [x] Navigatie: 5 tabs (Zoeken / Bibliotheek / Playlists / Overzicht / Instellingen)
 
-### v0.6.0 — Spotify web + converter
-- [ ] SpotifyWebScreen: WebView met open.spotify.com, track URL detectie
-- [ ] Converter integratie: Spotify URL → MP3 via converter site
+### v0.6.0 — Spotify web + converter (VOLGENDE SESSIE — HIER VERDER)
+- [ ] SpotifyWebScreen: WebView met gekozen converter-site
+- [ ] Spotify URL detectie + automatische conversie
+- [ ] Converter integratie: Spotify URL → MP3 via gekozen service
 - [ ] Waveform editor integratie voor volledige nummers
 
 ### v0.7.0 — Cloud sync

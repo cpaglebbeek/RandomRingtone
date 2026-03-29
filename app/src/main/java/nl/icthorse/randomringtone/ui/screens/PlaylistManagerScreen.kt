@@ -25,6 +25,7 @@ fun PlaylistManagerScreen(
     val context = LocalContext.current
     val contactsRepo = remember { ContactsRepository(context) }
 
+    val conflictResolver = remember { ConflictResolver(db) }
     var playlists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
     var trackCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -76,7 +77,14 @@ fun PlaylistManagerScreen(
                         trackCount = trackCounts[playlist.id] ?: 0,
                         onToggleActive = {
                             scope.launch {
-                                db.playlistDao().update(playlist.copy(isActive = !playlist.isActive))
+                                val updated = playlist.copy(isActive = !playlist.isActive)
+                                db.playlistDao().update(updated)
+                                if (updated.isActive) {
+                                    // Enforce 1-actief-per-kanaal+scope
+                                    conflictResolver.enforceOneActivePerChannelScope(updated.id)
+                                    // Schedule workers
+                                    nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
+                                }
                                 refresh()
                             }
                         },
@@ -104,16 +112,24 @@ fun PlaylistManagerScreen(
             onDismiss = { showCreateDialog = false; editPlaylist = null },
             onSave = { playlist ->
                 scope.launch {
-                    if (editPlaylist != null) {
+                    val id = if (editPlaylist != null) {
                         db.playlistDao().update(playlist)
+                        playlist.id
                     } else {
                         db.playlistDao().insert(playlist)
                     }
+                    // Enforce 1-actief-per-kanaal+scope
+                    if (playlist.isActive) {
+                        conflictResolver.enforceOneActivePerChannelScope(id)
+                    }
+                    // Schedule workers
+                    nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
+                    val wasEdit = editPlaylist != null
                     showCreateDialog = false
                     editPlaylist = null
                     refresh()
                     snackbarHostState.showSnackbar(
-                        if (editPlaylist != null) "Playlist bijgewerkt" else "Playlist '${playlist.name}' aangemaakt"
+                        if (wasEdit) "Playlist bijgewerkt" else "Playlist '${playlist.name}' aangemaakt"
                     )
                 }
             }

@@ -3,7 +3,6 @@ package nl.icthorse.randomringtone.service
 import android.app.Notification
 import android.media.AudioAttributes
 import android.media.MediaPlayer
-import android.net.Uri
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -14,6 +13,8 @@ import java.io.File
 /**
  * Onderschept notificaties van SMS en WhatsApp apps.
  * Speelt custom ringtone af op basis van afzender en kanaal.
+ *
+ * Gebruikt PlaylistDao + TrackResolver (v0.5.0: gemigreerd van legacy assignments).
  */
 class NotificationService : NotificationListenerService() {
 
@@ -21,6 +22,7 @@ class NotificationService : NotificationListenerService() {
     private var mediaPlayer: MediaPlayer? = null
     private lateinit var db: RingtoneDatabase
     private lateinit var ringtoneManager: AppRingtoneManager
+    private lateinit var trackResolver: TrackResolver
 
     companion object {
         private const val TAG = "NotificationService"
@@ -33,6 +35,7 @@ class NotificationService : NotificationListenerService() {
         super.onCreate()
         db = RingtoneDatabase.getInstance(this)
         ringtoneManager = AppRingtoneManager(this)
+        trackResolver = TrackResolver(db, ringtoneManager)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -41,18 +44,22 @@ class NotificationService : NotificationListenerService() {
         val channel = when (sbn.packageName) {
             WHATSAPP_PACKAGE -> Channel.WHATSAPP
             SAMSUNG_SMS_PACKAGE, GOOGLE_SMS_PACKAGE -> Channel.SMS
-            else -> return // Niet relevant
+            else -> return
         }
 
         val contactName = extractContactName(sbn, channel) ?: return
 
         scope.launch {
             try {
-                val assignment = findAssignment(contactName, channel) ?: return@launch
-                val trackFile = resolveTrackFile(assignment) ?: return@launch
-                playCustomSound(trackFile)
-                // Demp de originele notificatie geluid
+                val playlist = findPlaylist(contactName, channel) ?: return@launch
+                val result = trackResolver.resolveForPlaylist(playlist) ?: return@launch
+                val (file, track) = result
+
+                playCustomSound(file)
+                trackResolver.updateLastPlayed(playlist, track.deezerTrackId)
                 cancelNotificationSound(sbn)
+
+                Log.i(TAG, "$channel: ${track.artist} - ${track.title} (playlist: ${playlist.name})")
             } catch (e: Exception) {
                 Log.e(TAG, "Error handling notification for $contactName", e)
             }
@@ -76,61 +83,19 @@ class NotificationService : NotificationListenerService() {
     }
 
     /**
-     * Zoek de juiste assignment: eerst per contact, dan globaal fallback.
+     * Zoek de juiste playlist: eerst per contact, dan globaal fallback.
+     * Hiërarchie: per-contact > globaal (conform ConflictResolver).
      */
-    private suspend fun findAssignment(contactName: String, channel: Channel): RingtoneAssignment? {
-        // Zoek per-contact assignment op naam
-        val allAssignments = db.assignmentDao().getAll()
-        val contactAssignment = allAssignments.firstOrNull {
-            it.channel == channel && it.contactName.equals(contactName, ignoreCase = true)
-        }
-        if (contactAssignment != null) return contactAssignment
+    private suspend fun findPlaylist(contactName: String, channel: Channel): Playlist? {
+        // Zoek per-contact playlist op naam
+        val contactPlaylists = db.playlistDao()
+            .getActiveForContactAndChannel(contactName, channel)
+        if (contactPlaylists.isNotEmpty()) return contactPlaylists.first()
 
-        // Fallback: globale assignment
-        return db.assignmentDao().getGlobalForChannel(channel)
-    }
-
-    /**
-     * Bepaal welk track-bestand afgespeeld moet worden.
-     */
-    private suspend fun resolveTrackFile(assignment: RingtoneAssignment): File? {
-        return when (assignment.mode) {
-            Mode.FIXED -> {
-                val trackId = assignment.fixedTrackId ?: return null
-                val savedTrack = db.savedTrackDao().getById(trackId) ?: return null
-                val localPath = savedTrack.localPath
-                if (localPath != null && File(localPath).exists()) {
-                    File(localPath)
-                } else {
-                    // Download on-the-fly
-                    val deezerTrack = DeezerTrack(
-                        id = savedTrack.deezerTrackId,
-                        title = savedTrack.title,
-                        artist = DeezerArtist(name = savedTrack.artist),
-                        preview = savedTrack.previewUrl
-                    )
-                    ringtoneManager.downloadPreview(deezerTrack)
-                }
-            }
-            Mode.RANDOM -> {
-                val playlistName = assignment.playlistName ?: return null
-                val tracks = db.savedTrackDao().getByPlaylist(playlistName)
-                if (tracks.isEmpty()) return null
-                val randomTrack = tracks.random()
-                val localPath = randomTrack.localPath
-                if (localPath != null && File(localPath).exists()) {
-                    File(localPath)
-                } else {
-                    val deezerTrack = DeezerTrack(
-                        id = randomTrack.deezerTrackId,
-                        title = randomTrack.title,
-                        artist = DeezerArtist(name = randomTrack.artist),
-                        preview = randomTrack.previewUrl
-                    )
-                    ringtoneManager.downloadPreview(deezerTrack)
-                }
-            }
-        }
+        // Fallback: globale playlist
+        val globalPlaylists = db.playlistDao()
+            .getActiveGlobalForChannel(channel)
+        return globalPlaylists.firstOrNull()
     }
 
     /**
@@ -153,12 +118,11 @@ class NotificationService : NotificationListenerService() {
     }
 
     /**
-     * Probeer het originele notificatiegeluid te dempen door
-     * de notificatie opnieuw te posten zonder geluid.
+     * Probeer het originele notificatiegeluid te dempen.
      */
     private fun cancelNotificationSound(sbn: StatusBarNotification) {
         try {
-            snoozeNotification(sbn.key, 1) // Snooze 1ms = effectief cancel geluid
+            snoozeNotification(sbn.key, 1)
         } catch (_: Exception) {
             // Niet alle Android versies ondersteunen snooze
         }

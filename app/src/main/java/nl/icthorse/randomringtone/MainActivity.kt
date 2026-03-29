@@ -47,6 +47,7 @@ fun RandomRingtoneApp() {
         Triple("search", "Zoeken", Icons.Default.MusicNote),
         Triple("library", "Bibliotheek", Icons.Default.LibraryMusic),
         Triple("playlists", "Playlists", Icons.Default.QueueMusic),
+        Triple("overview", "Overzicht", Icons.Default.Dashboard),
         Triple("settings", "Instellingen", Icons.Default.Settings),
     )
 
@@ -147,6 +148,12 @@ fun RandomRingtoneApp() {
             }
             composable("playlists") {
                 PlaylistManagerScreen(
+                    db = db,
+                    snackbarHostState = snackbarHostState
+                )
+            }
+            composable("overview") {
+                OverviewScreen(
                     db = db,
                     snackbarHostState = snackbarHostState
                 )

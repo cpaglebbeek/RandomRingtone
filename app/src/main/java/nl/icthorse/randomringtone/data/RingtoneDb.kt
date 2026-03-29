@@ -15,10 +15,14 @@ enum class Mode {
 
 enum class Schedule {
     MANUAL,        // Alleen handmatig wisselen
-    EVERY_CALL,    // Bij elke oproep/notificatie
-    EVERY_HOUR,    // Elk uur
-    EVERY_DAY,     // Elke dag
-    EVERY_WEEK     // Elke week
+    EVERY_CALL,    // Bij elke inkomend/uitgaand gesprek — nooit dezelfde ringtone
+    HOURLY_1,      // Elke 1 uur
+    HOURLY_2,      // Elke 2 uur
+    HOURLY_4,      // Elke 4 uur
+    HOURLY_8,      // Elke 8 uur
+    HOURLY_12,     // Elke 12 uur
+    DAILY,         // Elke 24 uur
+    WEEKLY         // Elke week
 }
 
 // --- Type Converters ---
@@ -34,16 +38,56 @@ class Converters {
 
 // --- Entities ---
 
+/**
+ * Playlist: benoemde verzameling ringtones met trigger- en schema-configuratie.
+ */
+@Entity(tableName = "playlists")
+data class Playlist(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,                          // Playlist naam (bijv. "Rock", "Werk", "Familie")
+    val channel: Channel = Channel.CALL,       // Trigger: telefoon, sms, whatsapp, notificatie
+    val mode: Mode = Mode.RANDOM,              // Vast (eerste track) of Random
+    val schedule: Schedule = Schedule.EVERY_CALL,
+    val contactUri: String? = null,            // null = globaal, anders per-contact
+    val contactName: String? = null,
+    val isActive: Boolean = true,              // Playlist actief of gepauzeerd
+    val lastPlayedTrackId: Long? = null        // Bijhouden welke track laatst gespeeld is (voor EVERY_CALL: niet dezelfde)
+)
+
+/**
+ * Koppeltabel: welke ringtones zitten in welke playlist.
+ */
+@Entity(
+    tableName = "playlist_tracks",
+    primaryKeys = ["playlistId", "trackId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = Playlist::class,
+            parentColumns = ["id"],
+            childColumns = ["playlistId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class PlaylistTrack(
+    val playlistId: Long,
+    val trackId: Long,          // Verwijst naar SavedTrack.deezerTrackId
+    val sortOrder: Int = 0      // Volgorde binnen playlist
+)
+
+/**
+ * Legacy: directe toewijzing (wordt vervangen door Playlist, maar behouden voor backwards compat).
+ */
 @Entity(tableName = "assignments")
 data class RingtoneAssignment(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val contactUri: String? = null,       // null = globaal
-    val contactName: String? = null,      // display name (null = "Globaal")
+    val contactUri: String? = null,
+    val contactName: String? = null,
     val channel: Channel,
     val mode: Mode,
-    val schedule: Schedule = Schedule.EVERY_CALL,  // wanneer wisselt random ringtone
-    val fixedTrackId: Long? = null,       // Deezer track ID (bij FIXED)
-    val playlistName: String? = null      // playlist naam (bij RANDOM)
+    val schedule: Schedule = Schedule.EVERY_CALL,
+    val fixedTrackId: Long? = null,
+    val playlistName: String? = null
 )
 
 @Entity(tableName = "saved_tracks")
@@ -53,10 +97,58 @@ data class SavedTrack(
     val artist: String,
     val previewUrl: String,
     val localPath: String? = null,
-    val playlistName: String
+    val playlistName: String          // Legacy veld — nieuwe tracks gebruiken playlist_tracks
 )
 
 // --- DAO's ---
+
+@Dao
+interface PlaylistDao {
+    @Query("SELECT * FROM playlists ORDER BY name ASC")
+    suspend fun getAll(): List<Playlist>
+
+    @Query("SELECT * FROM playlists WHERE id = :id")
+    suspend fun getById(id: Long): Playlist?
+
+    @Query("SELECT * FROM playlists WHERE isActive = 1")
+    suspend fun getActive(): List<Playlist>
+
+    @Query("SELECT * FROM playlists WHERE isActive = 1 AND channel = :channel AND contactUri IS NULL")
+    suspend fun getActiveGlobalForChannel(channel: Channel): List<Playlist>
+
+    @Query("SELECT * FROM playlists WHERE isActive = 1 AND channel = :channel AND contactName = :contactName")
+    suspend fun getActiveForContactAndChannel(contactName: String, channel: Channel): List<Playlist>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(playlist: Playlist): Long
+
+    @Update
+    suspend fun update(playlist: Playlist)
+
+    @Delete
+    suspend fun delete(playlist: Playlist)
+}
+
+@Dao
+interface PlaylistTrackDao {
+    @Query("SELECT st.* FROM saved_tracks st INNER JOIN playlist_tracks pt ON st.deezerTrackId = pt.trackId WHERE pt.playlistId = :playlistId ORDER BY pt.sortOrder ASC")
+    suspend fun getTracksForPlaylist(playlistId: Long): List<SavedTrack>
+
+    @Query("SELECT COUNT(*) FROM playlist_tracks WHERE playlistId = :playlistId")
+    suspend fun getTrackCount(playlistId: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(playlistTrack: PlaylistTrack)
+
+    @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId AND trackId = :trackId")
+    suspend fun remove(playlistId: Long, trackId: Long)
+
+    @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId")
+    suspend fun removeAll(playlistId: Long)
+
+    @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM playlist_tracks WHERE playlistId = :playlistId")
+    suspend fun getNextSortOrder(playlistId: Long): Int
+}
 
 @Dao
 interface AssignmentDao {
@@ -99,6 +191,9 @@ interface SavedTrackDao {
     @Query("SELECT * FROM saved_tracks WHERE deezerTrackId = :trackId LIMIT 1")
     suspend fun getById(trackId: Long): SavedTrack?
 
+    @Query("SELECT * FROM saved_tracks ORDER BY artist ASC, title ASC")
+    suspend fun getAll(): List<SavedTrack>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(track: SavedTrack)
 
@@ -115,14 +210,16 @@ interface SavedTrackDao {
 // --- Database ---
 
 @Database(
-    entities = [RingtoneAssignment::class, SavedTrack::class],
-    version = 2,
+    entities = [RingtoneAssignment::class, SavedTrack::class, Playlist::class, PlaylistTrack::class],
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class RingtoneDatabase : RoomDatabase() {
     abstract fun assignmentDao(): AssignmentDao
     abstract fun savedTrackDao(): SavedTrackDao
+    abstract fun playlistDao(): PlaylistDao
+    abstract fun playlistTrackDao(): PlaylistTrackDao
 
     companion object {
         @Volatile

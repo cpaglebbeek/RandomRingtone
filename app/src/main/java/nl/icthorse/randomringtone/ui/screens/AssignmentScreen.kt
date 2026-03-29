@@ -380,8 +380,12 @@ private fun Channel.shortName(): String = when (this) {
 
 private fun Schedule.displayName(): String = when (this) {
     Schedule.MANUAL -> "Handmatig"
-    Schedule.EVERY_CALL -> "Bij elke oproep"
-    Schedule.EVERY_HOUR -> "Elk uur"
-    Schedule.EVERY_DAY -> "Elke dag"
-    Schedule.EVERY_WEEK -> "Elke week"
+    Schedule.EVERY_CALL -> "Bij elk gesprek"
+    Schedule.HOURLY_1 -> "Elk uur"
+    Schedule.HOURLY_2 -> "Elke 2 uur"
+    Schedule.HOURLY_4 -> "Elke 4 uur"
+    Schedule.HOURLY_8 -> "Elke 8 uur"
+    Schedule.HOURLY_12 -> "Elke 12 uur"
+    Schedule.DAILY -> "Dagelijks"
+    Schedule.WEEKLY -> "Wekelijks"
 }

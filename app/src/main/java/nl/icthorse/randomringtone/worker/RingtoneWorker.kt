@@ -101,20 +101,24 @@ class RingtoneWorker(
             val tags = this@RingtoneWorker.tags
 
             // Bepaal welk schedule dit is
-            val targetSchedule = when {
-                tags.contains("schedule_hourly") -> Schedule.EVERY_HOUR
-                tags.contains("schedule_daily") -> Schedule.EVERY_DAY
-                tags.contains("schedule_weekly") -> Schedule.EVERY_WEEK
+            // Bepaal welke schedules bij deze worker tag horen
+            val targetSchedules = when {
+                tags.contains("schedule_hourly") -> listOf(
+                    Schedule.HOURLY_1, Schedule.HOURLY_2, Schedule.HOURLY_4,
+                    Schedule.HOURLY_8, Schedule.HOURLY_12
+                )
+                tags.contains("schedule_daily") -> listOf(Schedule.DAILY)
+                tags.contains("schedule_weekly") -> listOf(Schedule.WEEKLY)
                 else -> return@withContext Result.success()
             }
 
-            // Zoek alle RANDOM assignments met dit schedule
+            // Zoek alle RANDOM assignments + playlists met matching schedule
             val assignments = db.assignmentDao().getAll().filter {
-                it.mode == Mode.RANDOM && it.schedule == targetSchedule
+                it.mode == Mode.RANDOM && it.schedule in targetSchedules
             }
 
             if (assignments.isEmpty()) {
-                Log.d(TAG, "No RANDOM assignments for schedule $targetSchedule")
+                Log.d(TAG, "No RANDOM assignments for schedules $targetSchedules")
                 return@withContext Result.success()
             }
 

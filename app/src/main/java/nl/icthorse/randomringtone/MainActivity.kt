@@ -46,7 +46,7 @@ fun RandomRingtoneApp() {
     val tabs = listOf(
         Triple("search", "Zoeken", Icons.Default.MusicNote),
         Triple("library", "Bibliotheek", Icons.Default.LibraryMusic),
-        Triple("assignments", "Toewijzingen", Icons.Default.Tune),
+        Triple("playlists", "Playlists", Icons.Default.QueueMusic),
         Triple("settings", "Instellingen", Icons.Default.Settings),
     )
 
@@ -145,11 +145,10 @@ fun RandomRingtoneApp() {
                     }
                 )
             }
-            composable("assignments") {
-                AssignmentScreen(
+            composable("playlists") {
+                PlaylistManagerScreen(
                     db = db,
-                    onNavigateToContactPicker = { },
-                    onNavigateToTrackPicker = { }
+                    snackbarHostState = snackbarHostState
                 )
             }
             composable("settings") {

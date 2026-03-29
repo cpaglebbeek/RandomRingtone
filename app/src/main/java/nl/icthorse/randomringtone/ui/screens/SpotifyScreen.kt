@@ -116,14 +116,32 @@ fun SpotifyScreen(
         onDispose { context.unregisterReceiver(receiver) }
     }
 
+    // Check URL + klembord voor Spotify track URLs
+    val clipboardManager = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
+
     // URL veranderd → check of het een Spotify track is
     LaunchedEffect(currentUrl) {
         val match = SPOTIFY_TRACK_REGEX.find(currentUrl)
         if (match != null && phase == SpotifyPhase.BROWSING) {
-            detectedTrackUrl = currentUrl.split("?").first() // Strip query params
+            detectedTrackUrl = currentUrl.split("?").first()
         } else if (phase == SpotifyPhase.BROWSING) {
             detectedTrackUrl = null
         }
+    }
+
+    // Klembord monitoren — als Spotify track URL gekopieerd is (bijv. via Delen)
+    LaunchedEffect(currentUrl, isLoading) {
+        if (phase != SpotifyPhase.BROWSING) return@LaunchedEffect
+        try {
+            val clip = clipboardManager.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                val clipText = clip.getItemAt(0).text?.toString() ?: ""
+                val clipMatch = SPOTIFY_TRACK_REGEX.find(clipText)
+                if (clipMatch != null && detectedTrackUrl == null) {
+                    detectedTrackUrl = clipText.split("?").first()
+                }
+            }
+        } catch (_: Exception) { /* Clipboard access kan falen op sommige versies */ }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -270,8 +288,8 @@ fun SpotifyScreen(
 
                     scope.launch {
                         snackbarHostState.showSnackbar(
-                            message = "Spotify URL gekopieerd — wordt geopend in $converterName",
-                            duration = SnackbarDuration.Short
+                            message = "Spotify URL op klembord — plak in $converterName zoekveld",
+                            duration = SnackbarDuration.Long
                         )
                     }
                 },

@@ -44,7 +44,8 @@ fun RandomRingtoneApp() {
     val snackbarHostState = remember { SnackbarHostState() }
 
     val tabs = listOf(
-        Triple("search", "Zoeken", Icons.Default.MusicNote),
+        Triple("search", "Deezer", Icons.Default.MusicNote),
+        Triple("spotify", "Spotify", Icons.Default.CloudDownload),
         Triple("library", "Bibliotheek", Icons.Default.LibraryMusic),
         Triple("playlists", "Playlists", Icons.Default.QueueMusic),
         Triple("overview", "Overzicht", Icons.Default.Dashboard),
@@ -102,6 +103,23 @@ fun RandomRingtoneApp() {
                             set("editorFilePath", file.absolutePath)
                             set("editorTrackId", track.id)
                             set("editorPreviewUrl", track.preview)
+                        }
+                        navController.navigate("editor")
+                    }
+                )
+            }
+            composable("spotify") {
+                SpotifyScreen(
+                    ringtoneManager = ringtoneManager,
+                    db = db,
+                    snackbarHostState = snackbarHostState,
+                    onOpenEditor = { title, file ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set("editorTrackTitle", title)
+                            set("editorTrackArtist", "Spotify")
+                            set("editorFilePath", file.absolutePath)
+                            set("editorTrackId", file.name.hashCode().toLong())
+                            set("editorPreviewUrl", "")
                         }
                         navController.navigate("editor")
                     }

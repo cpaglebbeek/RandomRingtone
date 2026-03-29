@@ -6,9 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,15 +15,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import nl.icthorse.randomringtone.data.AppRingtoneManager
-import nl.icthorse.randomringtone.data.DeezerApi
-import nl.icthorse.randomringtone.data.DeezerTrack
+import nl.icthorse.randomringtone.data.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistScreen(
     ringtoneManager: AppRingtoneManager,
-    snackbarHostState: SnackbarHostState
+    snackbarHostState: SnackbarHostState,
+    db: RingtoneDatabase? = null
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var tracks by remember { mutableStateOf<List<DeezerTrack>>(emptyList()) }
@@ -124,7 +121,6 @@ fun PlaylistScreen(
                         track = track,
                         onSetRingtone = {
                             scope.launch {
-                                // Check WRITE_SETTINGS permissie
                                 if (!ringtoneManager.canWriteSettings()) {
                                     snackbarHostState.showSnackbar(
                                         message = "Permissie nodig: sta 'Systeeminstellingen wijzigen' toe",
@@ -141,31 +137,36 @@ fun PlaylistScreen(
                                     }
                                     return@launch
                                 }
-
-                                // Download + instellen
                                 try {
-                                    snackbarHostState.showSnackbar(
-                                        "Downloaden: ${track.artist.name} - ${track.titleShort}...",
-                                        duration = SnackbarDuration.Short
-                                    )
                                     val file = ringtoneManager.downloadPreview(track)
                                     val success = ringtoneManager.setAsRingtone(track, file)
-                                    if (success) {
-                                        snackbarHostState.showSnackbar(
-                                            "Ringtone ingesteld: ${track.artist.name} - ${track.titleShort}"
-                                        )
-                                    } else {
-                                        snackbarHostState.showSnackbar(
-                                            "Instellen mislukt — controleer permissies"
-                                        )
-                                    }
-                                } catch (e: Exception) {
                                     snackbarHostState.showSnackbar(
-                                        "Fout: ${e.message}"
+                                        if (success) "Ringtone ingesteld: ${track.artist.name} - ${track.titleShort}"
+                                        else "Instellen mislukt — controleer permissies"
                                     )
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar("Fout: ${e.message}")
                                 }
                             }
-                        }
+                        },
+                        onSaveToPlaylist = if (db != null) { playlistName ->
+                            scope.launch {
+                                val file = ringtoneManager.downloadPreview(track)
+                                db.savedTrackDao().insert(
+                                    SavedTrack(
+                                        deezerTrackId = track.id,
+                                        title = track.titleShort.ifBlank { track.title },
+                                        artist = track.artist.name,
+                                        previewUrl = track.preview,
+                                        localPath = file.absolutePath,
+                                        playlistName = playlistName
+                                    )
+                                )
+                                snackbarHostState.showSnackbar(
+                                    "Opgeslagen in '$playlistName': ${track.artist.name} - ${track.titleShort}"
+                                )
+                            }
+                        } else null
                     )
                 }
             }
@@ -176,11 +177,13 @@ fun PlaylistScreen(
 @Composable
 private fun TrackItem(
     track: DeezerTrack,
-    onSetRingtone: () -> Unit
+    onSetRingtone: () -> Unit,
+    onSaveToPlaylist: ((String) -> Unit)? = null
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
+    var showPlaylistDialog by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -209,9 +212,46 @@ private fun TrackItem(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            if (onSaveToPlaylist != null) {
+                IconButton(onClick = { showPlaylistDialog = true }) {
+                    Icon(Icons.Default.PlaylistAdd, contentDescription = "Toevoegen aan playlist")
+                }
+            }
             FilledTonalButton(onClick = onSetRingtone) {
-                Text("Instellen")
+                Text("Ringtone")
             }
         }
+    }
+
+    if (showPlaylistDialog && onSaveToPlaylist != null) {
+        AlertDialog(
+            onDismissRequest = { showPlaylistDialog = false },
+            title = { Text("Opslaan in playlist") },
+            text = {
+                OutlinedTextField(
+                    value = newPlaylistName,
+                    onValueChange = { newPlaylistName = it },
+                    label = { Text("Playlist naam") },
+                    placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newPlaylistName.isNotBlank()) {
+                            onSaveToPlaylist(newPlaylistName.trim())
+                            showPlaylistDialog = false
+                            newPlaylistName = ""
+                        }
+                    },
+                    enabled = newPlaylistName.isNotBlank()
+                ) { Text("Opslaan") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPlaylistDialog = false }) { Text("Annuleren") }
+            }
+        )
     }
 }

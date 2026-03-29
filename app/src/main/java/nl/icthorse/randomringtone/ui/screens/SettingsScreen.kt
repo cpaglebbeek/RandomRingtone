@@ -1,8 +1,10 @@
 package nl.icthorse.randomringtone.ui.screens
 
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.text.TextUtils
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -23,12 +25,14 @@ fun SettingsScreen(ringtoneManager: AppRingtoneManager) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var canWriteSettings by remember { mutableStateOf(ringtoneManager.canWriteSettings()) }
+    var notificationAccessEnabled by remember { mutableStateOf(isNotificationListenerEnabled(context)) }
 
-    // Hercheck permissie wanneer gebruiker terugkeert van Settings
+    // Hercheck permissies wanneer gebruiker terugkeert van Settings
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 canWriteSettings = ringtoneManager.canWriteSettings()
+                notificationAccessEnabled = isNotificationListenerEnabled(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -105,6 +109,56 @@ fun SettingsScreen(ringtoneManager: AppRingtoneManager) {
             }
         }
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // NotificationListener permissie (voor SMS/WhatsApp custom ringtones)
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (notificationAccessEnabled) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = if (notificationAccessEnabled)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Notificatie-toegang",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = if (notificationAccessEnabled)
+                            "Toegestaan — SMS en WhatsApp ringtones actief"
+                        else
+                            "Vereist voor custom SMS en WhatsApp ringtones",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!notificationAccessEnabled) {
+                    FilledTonalButton(
+                        onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                            )
+                        }
+                    ) {
+                        Text("Toestaan")
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // App info
@@ -124,7 +178,7 @@ fun SettingsScreen(ringtoneManager: AppRingtoneManager) {
                     .padding(16.dp)
             ) {
                 InfoRow("App", "RandomRingtone")
-                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Jimi Hendrix\"")
+                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Freddie Mercury\"")
                 InfoRow("Muziekbron", "Deezer (30 sec previews)")
                 InfoRow("Ringtone duur", "~20 sec (voicemail timeout)")
             }
@@ -160,4 +214,14 @@ private fun InfoRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium
         )
     }
+}
+
+private fun isNotificationListenerEnabled(context: android.content.Context): Boolean {
+    val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
+    if (!TextUtils.isEmpty(flat)) {
+        val names = flat.split(":")
+        val cn = ComponentName(context, nl.icthorse.randomringtone.service.NotificationService::class.java)
+        return names.any { ComponentName.unflattenFromString(it) == cn }
+    }
+    return false
 }

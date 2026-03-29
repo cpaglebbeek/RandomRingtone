@@ -22,7 +22,8 @@ import nl.icthorse.randomringtone.data.*
 fun PlaylistScreen(
     ringtoneManager: AppRingtoneManager,
     snackbarHostState: SnackbarHostState,
-    db: RingtoneDatabase? = null
+    db: RingtoneDatabase? = null,
+    onOpenEditor: ((DeezerTrack, java.io.File) -> Unit)? = null
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var tracks by remember { mutableStateOf<List<DeezerTrack>>(emptyList()) }
@@ -119,6 +120,21 @@ fun PlaylistScreen(
                 items(previewTracks) { track ->
                     TrackItem(
                         track = track,
+                        onEdit = if (onOpenEditor != null) {
+                            {
+                                scope.launch {
+                                    try {
+                                        snackbarHostState.showSnackbar(
+                                            "Downloaden...", duration = SnackbarDuration.Short
+                                        )
+                                        val file = ringtoneManager.downloadPreview(track)
+                                        onOpenEditor(track, file)
+                                    } catch (e: Exception) {
+                                        snackbarHostState.showSnackbar("Download mislukt: ${e.message}")
+                                    }
+                                }
+                            }
+                        } else null,
                         onSetRingtone = {
                             scope.launch {
                                 if (!ringtoneManager.canWriteSettings()) {
@@ -177,6 +193,7 @@ fun PlaylistScreen(
 @Composable
 private fun TrackItem(
     track: DeezerTrack,
+    onEdit: (() -> Unit)? = null,
     onSetRingtone: () -> Unit,
     onSaveToPlaylist: ((String) -> Unit)? = null
 ) {
@@ -211,6 +228,11 @@ private fun TrackItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+            if (onEdit != null) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Bewerken")
+                }
             }
             if (onSaveToPlaylist != null) {
                 IconButton(onClick = { showPlaylistDialog = true }) {

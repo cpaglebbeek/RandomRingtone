@@ -178,7 +178,7 @@ fun SettingsScreen(ringtoneManager: AppRingtoneManager) {
                     .padding(16.dp)
             ) {
                 InfoRow("App", "RandomRingtone")
-                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Freddie Mercury\"")
+                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"David Bowie\"")
                 InfoRow("Muziekbron", "Deezer (30 sec previews)")
                 InfoRow("Ringtone duur", "~20 sec (voicemail timeout)")
             }

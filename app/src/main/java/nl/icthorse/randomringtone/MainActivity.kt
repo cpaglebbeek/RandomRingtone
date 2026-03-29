@@ -17,10 +17,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import nl.icthorse.randomringtone.data.AppRingtoneManager
 import nl.icthorse.randomringtone.data.RingtoneDatabase
-import nl.icthorse.randomringtone.ui.screens.AssignmentScreen
-import nl.icthorse.randomringtone.ui.screens.LibraryScreen
-import nl.icthorse.randomringtone.ui.screens.PlaylistScreen
-import nl.icthorse.randomringtone.ui.screens.SettingsScreen
+import nl.icthorse.randomringtone.ui.screens.*
+import java.io.File
 import nl.icthorse.randomringtone.ui.theme.RandomRingtoneTheme
 
 class MainActivity : ComponentActivity() {
@@ -94,8 +92,41 @@ fun RandomRingtoneApp() {
                 PlaylistScreen(
                     ringtoneManager = ringtoneManager,
                     snackbarHostState = snackbarHostState,
-                    db = db
+                    db = db,
+                    onOpenEditor = { track, file ->
+                        // Sla editor-params op in navigation args via route
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set("editorTrackTitle", track.titleShort.ifBlank { track.title })
+                            set("editorTrackArtist", track.artist.name)
+                            set("editorFilePath", file.absolutePath)
+                            set("editorTrackId", track.id)
+                            set("editorPreviewUrl", track.preview)
+                        }
+                        navController.navigate("editor")
+                    }
                 )
+            }
+            composable("editor") {
+                val prevEntry = navController.previousBackStackEntry
+                val title = prevEntry?.savedStateHandle?.get<String>("editorTrackTitle") ?: ""
+                val artist = prevEntry?.savedStateHandle?.get<String>("editorTrackArtist") ?: ""
+                val filePath = prevEntry?.savedStateHandle?.get<String>("editorFilePath") ?: ""
+                val trackId = prevEntry?.savedStateHandle?.get<Long>("editorTrackId") ?: 0L
+                val previewUrl = prevEntry?.savedStateHandle?.get<String>("editorPreviewUrl") ?: ""
+
+                if (filePath.isNotBlank()) {
+                    EditorScreen(
+                        trackTitle = title,
+                        trackArtist = artist,
+                        audioFile = File(filePath),
+                        deezerTrackId = trackId,
+                        previewUrl = previewUrl,
+                        db = db,
+                        ringtoneManager = ringtoneManager,
+                        snackbarHostState = snackbarHostState,
+                        onDone = { navController.popBackStack() }
+                    )
+                }
             }
             composable("library") {
                 LibraryScreen(

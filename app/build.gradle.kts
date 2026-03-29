@@ -26,6 +26,17 @@ android {
                 "proguard-rules.pro"
             )
         }
+        debug {
+            isMinifyEnabled = false
+        }
+    }
+
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "RandomRingtone-v${variant.versionName}-Jimi_Hendrix-${variant.buildType.name}.apk"
+        }
     }
 
     compileOptions {
@@ -63,7 +74,7 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
-    // Network (Spotify API + MP3 download)
+    // Network (Deezer API + MP3 download)
     implementation(libs.okhttp)
 
     // Serialization (JSON parsing)

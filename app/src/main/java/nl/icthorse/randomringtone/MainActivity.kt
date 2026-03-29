@@ -53,7 +53,7 @@ fun RandomRingtoneApp() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("RandomRingtone") },
+                title = { Text("RandomRingtone v${BuildConfig.VERSION_NAME}") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,

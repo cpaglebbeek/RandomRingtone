@@ -12,7 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -124,7 +124,7 @@ fun SettingsScreen(ringtoneManager: AppRingtoneManager) {
                     .padding(16.dp)
             ) {
                 InfoRow("App", "RandomRingtone")
-                InfoRow("Versie", "0.1.0 \"Jimi Hendrix\"")
+                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Jimi Hendrix\"")
                 InfoRow("Muziekbron", "Deezer (30 sec previews)")
                 InfoRow("Ringtone duur", "~20 sec (voicemail timeout)")
             }

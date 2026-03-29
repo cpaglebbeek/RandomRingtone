@@ -394,9 +394,8 @@ private fun SpotifyWebView(
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
                 settings.setSupportMultipleWindows(false)
-                settings.userAgentString = settings.userAgentString.replace(
-                    "wv", ""
-                ) // Sommige sites blokkeren WebView user agent
+                // Chrome desktop user agent — Spotify blokkeert WebView user agents
+                settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
 
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)

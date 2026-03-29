@@ -22,6 +22,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import nl.icthorse.randomringtone.data.AppRingtoneManager
 import nl.icthorse.randomringtone.data.SpotifyConverter
 
@@ -36,6 +41,15 @@ fun SettingsScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var canWriteSettings by remember { mutableStateOf(ringtoneManager.canWriteSettings()) }
     var notificationAccessEnabled by remember { mutableStateOf(isNotificationListenerEnabled(context)) }
+    var phoneStateGranted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED)
+    }
+
+    val phoneStatePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        phoneStateGranted = granted
+    }
 
     // Hercheck permissies wanneer gebruiker terugkeert van Settings
     DisposableEffect(lifecycleOwner) {
@@ -43,6 +57,7 @@ fun SettingsScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 canWriteSettings = ringtoneManager.canWriteSettings()
                 notificationAccessEnabled = isNotificationListenerEnabled(context)
+                phoneStateGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -162,6 +177,54 @@ fun SettingsScreen(
                             context.startActivity(
                                 Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
                             )
+                        }
+                    ) {
+                        Text("Toestaan")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // READ_PHONE_STATE permissie (voor EVERY_CALL ringtone wissel)
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (phoneStateGranted) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = if (phoneStateGranted)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Telefoonstate lezen",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = if (phoneStateGranted)
+                            "Toegestaan — ringtone wisselt na elk gesprek"
+                        else
+                            "Vereist voor 'bij elk gesprek' ringtone wissel",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!phoneStateGranted) {
+                    FilledTonalButton(
+                        onClick = {
+                            phoneStatePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
                         }
                     ) {
                         Text("Toestaan")

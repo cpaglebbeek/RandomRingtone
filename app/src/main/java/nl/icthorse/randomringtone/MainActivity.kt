@@ -72,6 +72,8 @@ fun RandomRingtoneApp() {
                         selected = selectedTab == index,
                         onClick = {
                             selectedTab = index
+                            // Pop editor van back stack als die er op zit
+                            navController.popBackStack("editor", inclusive = true)
                             navController.navigate(route) {
                                 popUpTo("search") { inclusive = false }
                                 launchSingleTop = true

@@ -73,9 +73,8 @@ fun RandomRingtoneApp() {
                         onClick = {
                             selectedTab = index
                             navController.navigate(route) {
-                                popUpTo("search") { saveState = true }
+                                popUpTo("search") { inclusive = false }
                                 launchSingleTop = true
-                                restoreState = true
                             }
                         }
                     )

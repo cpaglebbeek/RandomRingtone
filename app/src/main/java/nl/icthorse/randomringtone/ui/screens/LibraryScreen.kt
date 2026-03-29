@@ -200,7 +200,11 @@ private fun RingtonesTab(
     val context = LocalContext.current
     var showChannelDialog by remember { mutableStateOf<FileInfo?>(null) }
     var showPlaylistDialog by remember { mutableStateOf<FileInfo?>(null) }
-    var playlistName by remember { mutableStateOf("") }
+    var existingPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        existingPlaylists = db.playlistDao().getAll()
+    }
 
     if (ringtones.isEmpty()) {
         EmptyState(
@@ -314,48 +318,90 @@ private fun RingtonesTab(
         )
     }
 
-    // Playlist dialoog
+    // Playlist dialoog (met bestaande playlists)
     showPlaylistDialog?.let { fileInfo ->
+        var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
+        var createNew by remember { mutableStateOf(existingPlaylists.isEmpty()) }
+        var newPlaylistName by remember { mutableStateOf("") }
+
         AlertDialog(
             onDismissRequest = { showPlaylistDialog = null },
             title = { Text("Toevoegen aan playlist") },
             text = {
-                OutlinedTextField(
-                    value = playlistName,
-                    onValueChange = { playlistName = it },
-                    label = { Text("Playlist naam") },
-                    placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (playlistName.isNotBlank()) {
-                            scope.launch {
-                                val trackId = extractTrackId(fileInfo.file.name)
-                                db.savedTrackDao().insert(
-                                    SavedTrack(
-                                        deezerTrackId = trackId,
-                                        title = fileInfo.name,
-                                        artist = "",
-                                        previewUrl = "",
-                                        localPath = fileInfo.file.absolutePath,
-                                        playlistName = playlistName.trim()
-                                    )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (existingPlaylists.isNotEmpty()) {
+                        Text("Bestaande playlists:", style = MaterialTheme.typography.labelLarge)
+                        existingPlaylists.forEach { playlist ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                RadioButton(
+                                    selected = selectedPlaylist == playlist && !createNew,
+                                    onClick = { selectedPlaylist = playlist; createNew = false }
                                 )
-                                snackbarHostState.showSnackbar("Toegevoegd aan '${playlistName.trim()}'")
-                                showPlaylistDialog = null
-                                playlistName = ""
+                                Text(playlist.name, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        RadioButton(
+                            selected = createNew,
+                            onClick = { createNew = true; selectedPlaylist = null }
+                        )
+                        Text("Nieuwe playlist", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (createNew) {
+                        OutlinedTextField(
+                            value = newPlaylistName,
+                            onValueChange = { newPlaylistName = it },
+                            label = { Text("Playlist naam") },
+                            placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(start = 40.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                val canSave = if (createNew) newPlaylistName.isNotBlank() else selectedPlaylist != null
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val trackId = extractTrackId(fileInfo.file.name)
+                            val pName = if (createNew) newPlaylistName.trim() else selectedPlaylist!!.name
+                            db.savedTrackDao().insert(
+                                SavedTrack(
+                                    deezerTrackId = trackId,
+                                    title = fileInfo.name,
+                                    artist = "",
+                                    previewUrl = "",
+                                    localPath = fileInfo.file.absolutePath,
+                                    playlistName = pName
+                                )
+                            )
+                            // Link via playlist_tracks
+                            val playlistId = if (createNew) {
+                                db.playlistDao().insert(Playlist(name = pName))
+                            } else {
+                                selectedPlaylist!!.id
+                            }
+                            val sortOrder = db.playlistTrackDao().getNextSortOrder(playlistId)
+                            db.playlistTrackDao().insert(PlaylistTrack(playlistId, trackId, sortOrder))
+                            existingPlaylists = db.playlistDao().getAll()
+                            snackbarHostState.showSnackbar("Toegevoegd aan '$pName'")
+                            showPlaylistDialog = null
+                        }
                     },
-                    enabled = playlistName.isNotBlank()
+                    enabled = canSave
                 ) { Text("Toevoegen") }
             },
             dismissButton = {
-                TextButton(onClick = { showPlaylistDialog = null; playlistName = "" }) { Text("Annuleren") }
+                TextButton(onClick = { showPlaylistDialog = null }) { Text("Annuleren") }
             }
         )
     }

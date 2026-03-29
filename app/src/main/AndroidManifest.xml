@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Spotify API calls + MP3 download -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Set system ringtone -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+
+    <!-- Audio file access (Android 13+) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- Notifications for ringtone changes -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- WorkManager: keep scheduled tasks alive -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.RandomRingtone">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.RandomRingtone">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Spotify OAuth callback -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="randomringtone"
+                    android:host="spotify-callback" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

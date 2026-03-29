@@ -13,9 +13,11 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import nl.icthorse.randomringtone.data.AppRingtoneManager
 import nl.icthorse.randomringtone.ui.screens.PlaylistScreen
 import nl.icthorse.randomringtone.ui.screens.ScheduleScreen
 import nl.icthorse.randomringtone.ui.screens.SettingsScreen
@@ -38,6 +40,9 @@ class MainActivity : ComponentActivity() {
 fun RandomRingtoneApp() {
     val navController = rememberNavController()
     var selectedTab by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val ringtoneManager = remember { AppRingtoneManager(context) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val tabs = listOf(
         Triple("playlists", "Playlists", Icons.Default.MusicNote),
@@ -55,6 +60,7 @@ fun RandomRingtoneApp() {
                 )
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar {
                 tabs.forEachIndexed { index, (route, label, icon) ->
@@ -82,9 +88,16 @@ fun RandomRingtoneApp() {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            composable("playlists") { PlaylistScreen() }
+            composable("playlists") {
+                PlaylistScreen(
+                    ringtoneManager = ringtoneManager,
+                    snackbarHostState = snackbarHostState
+                )
+            }
             composable("schedule") { ScheduleScreen() }
-            composable("settings") { SettingsScreen() }
+            composable("settings") {
+                SettingsScreen(ringtoneManager = ringtoneManager)
+            }
         }
     }
 }

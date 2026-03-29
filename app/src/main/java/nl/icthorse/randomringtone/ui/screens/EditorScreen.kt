@@ -13,12 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.audio.AudioDecoder
@@ -48,16 +45,28 @@ fun EditorScreen(
     var endFraction by remember { mutableFloatStateOf(0f) }
     val player = remember { AudioPlayer() }
     var isPlaying by remember { mutableStateOf(false) }
+
+    // Dialoog state
+    var showRingtoneDialog by remember { mutableStateOf(false) }
     var showSaveDialog by remember { mutableStateOf(false) }
-    var playlistName by remember { mutableStateOf("") }
+    var ringtoneName by remember { mutableStateOf(trackTitle) }
+
+    // Bestaande playlists laden
+    var existingPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        existingPlaylists = db.playlistDao().getAll()
+    }
 
     // Laad waveform data
     LaunchedEffect(audioFile) {
-        waveformData = AudioDecoder.extractWaveform(audioFile)
-        waveformData?.let { data ->
-            // Standaard: eerste 20 sec selecteren
-            val defaultEndMs = minOf(20_000L, data.durationMs)
-            endFraction = defaultEndMs.toFloat() / data.durationMs.toFloat()
+        try {
+            waveformData = AudioDecoder.extractWaveform(audioFile)
+            waveformData?.let { data ->
+                val defaultEndMs = minOf(20_000L, data.durationMs)
+                endFraction = defaultEndMs.toFloat() / data.durationMs.toFloat()
+            }
+        } catch (e: Exception) {
+            snackbarHostState.showSnackbar("Fout bij laden audio: ${e.message}")
         }
         isLoading = false
     }
@@ -184,33 +193,11 @@ fun EditorScreen(
                         Text(if (isPlaying) "Stop" else "Preview")
                     }
 
-                    // Direct als ringtone
+                    // Direct als ringtone — vraagt eerst om naam
                     Button(
                         onClick = {
-                            scope.launch {
-                                player.stop()
-                                isPlaying = false
-                                try {
-                                    val trimmedFile = File(
-                                        audioFile.parentFile,
-                                        "trimmed_${audioFile.name}"
-                                    )
-                                    AudioTrimmer.trim(audioFile, trimmedFile, startMs, endMs)
-                                    val deezerTrack = DeezerTrack(
-                                        id = deezerTrackId,
-                                        title = trackTitle,
-                                        artist = DeezerArtist(name = trackArtist),
-                                        preview = previewUrl
-                                    )
-                                    val success = ringtoneManager.setAsRingtone(deezerTrack, trimmedFile)
-                                    snackbarHostState.showSnackbar(
-                                        if (success) "Ringtone ingesteld!"
-                                        else "Instellen mislukt — controleer permissies"
-                                    )
-                                } catch (e: Exception) {
-                                    snackbarHostState.showSnackbar("Fout: ${e.message}")
-                                }
-                            }
+                            ringtoneName = trackTitle
+                            showRingtoneDialog = true
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -229,23 +216,22 @@ fun EditorScreen(
                 ) {
                     Icon(Icons.Default.LibraryAdd, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Opslaan in bibliotheek")
+                    Text("Opslaan in playlist")
                 }
             }
         }
     }
 
-    // Save to playlist dialog
-    if (showSaveDialog) {
+    // === RINGTONE NAAM DIALOOG ===
+    if (showRingtoneDialog) {
         AlertDialog(
-            onDismissRequest = { showSaveDialog = false },
-            title = { Text("Opslaan in playlist") },
+            onDismissRequest = { showRingtoneDialog = false },
+            title = { Text("Ringtone instellen") },
             text = {
                 OutlinedTextField(
-                    value = playlistName,
-                    onValueChange = { playlistName = it },
-                    label = { Text("Playlist naam") },
-                    placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
+                    value = ringtoneName,
+                    onValueChange = { ringtoneName = it },
+                    label = { Text("Naam voor ringtone") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -253,39 +239,148 @@ fun EditorScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        if (playlistName.isNotBlank()) {
-                            scope.launch {
-                                waveformData?.let { data ->
-                                    val startMs = (startFraction * data.durationMs).toLong()
-                                    val endMs = (endFraction * data.durationMs).toLong()
+                        showRingtoneDialog = false
+                        scope.launch {
+                            player.stop()
+                            isPlaying = false
+                            try {
+                                val data = waveformData ?: return@launch
+                                val startMs = (startFraction * data.durationMs).toLong()
+                                val endMs = (endFraction * data.durationMs).toLong()
 
-                                    // Trim en sla op
-                                    val trimmedFile = File(
-                                        audioFile.parentFile,
-                                        "lib_${deezerTrackId}_${playlistName.trim()}.mp3"
-                                    )
-                                    AudioTrimmer.trim(audioFile, trimmedFile, startMs, endMs)
+                                val trimDir = ringtoneManager.storage.getDownloadDir()
+                                val trimmedFile = File(trimDir, "trimmed_${System.currentTimeMillis()}.mp3")
+                                AudioTrimmer.trim(audioFile, trimmedFile, startMs, endMs)
 
-                                    db.savedTrackDao().insert(
-                                        SavedTrack(
-                                            deezerTrackId = deezerTrackId,
-                                            title = trackTitle,
-                                            artist = trackArtist,
-                                            previewUrl = previewUrl,
-                                            localPath = trimmedFile.absolutePath,
-                                            playlistName = playlistName.trim()
-                                        )
-                                    )
-                                    snackbarHostState.showSnackbar(
-                                        "Opgeslagen in '${playlistName.trim()}' (${formatTime(endMs - startMs)})"
-                                    )
-                                }
-                                showSaveDialog = false
-                                playlistName = ""
+                                val name = ringtoneName.trim().ifBlank { trackTitle }
+                                val deezerTrack = DeezerTrack(
+                                    id = deezerTrackId,
+                                    title = name,
+                                    titleShort = name,
+                                    artist = DeezerArtist(name = trackArtist),
+                                    preview = previewUrl
+                                )
+                                val success = ringtoneManager.setAsRingtone(deezerTrack, trimmedFile)
+                                snackbarHostState.showSnackbar(
+                                    if (success) "Ringtone ingesteld: $name"
+                                    else "Instellen mislukt — controleer permissies"
+                                )
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Fout: ${e.message}")
                             }
                         }
                     },
-                    enabled = playlistName.isNotBlank()
+                    enabled = ringtoneName.isNotBlank()
+                ) { Text("Instellen") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRingtoneDialog = false }) { Text("Annuleren") }
+            }
+        )
+    }
+
+    // === OPSLAAN IN PLAYLIST DIALOOG (met bestaande playlists) ===
+    if (showSaveDialog) {
+        var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
+        var createNew by remember { mutableStateOf(existingPlaylists.isEmpty()) }
+        var newPlaylistName by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showSaveDialog = false },
+            title = { Text("Opslaan in playlist") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Bestaande playlists
+                    if (existingPlaylists.isNotEmpty()) {
+                        Text("Bestaande playlists:", style = MaterialTheme.typography.labelLarge)
+                        existingPlaylists.forEach { playlist ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                RadioButton(
+                                    selected = selectedPlaylist == playlist && !createNew,
+                                    onClick = { selectedPlaylist = playlist; createNew = false }
+                                )
+                                Text(playlist.name, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    }
+
+                    // Nieuwe playlist
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        RadioButton(
+                            selected = createNew,
+                            onClick = { createNew = true; selectedPlaylist = null }
+                        )
+                        Text("Nieuwe playlist", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (createNew) {
+                        OutlinedTextField(
+                            value = newPlaylistName,
+                            onValueChange = { newPlaylistName = it },
+                            label = { Text("Playlist naam") },
+                            placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().padding(start = 40.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                val canSave = if (createNew) newPlaylistName.isNotBlank() else selectedPlaylist != null
+                Button(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                val data = waveformData ?: return@launch
+                                val startMs = (startFraction * data.durationMs).toLong()
+                                val endMs = (endFraction * data.durationMs).toLong()
+                                val pName = if (createNew) newPlaylistName.trim() else selectedPlaylist!!.name
+
+                                // Trim naar ringtone dir
+                                val trimDir = ringtoneManager.storage.getDownloadDir()
+                                val trimmedFile = File(trimDir, "lib_${deezerTrackId}_${pName}.mp3")
+                                AudioTrimmer.trim(audioFile, trimmedFile, startMs, endMs)
+
+                                // Sla op in saved_tracks
+                                db.savedTrackDao().insert(
+                                    SavedTrack(
+                                        deezerTrackId = deezerTrackId,
+                                        title = trackTitle,
+                                        artist = trackArtist,
+                                        previewUrl = previewUrl,
+                                        localPath = trimmedFile.absolutePath,
+                                        playlistName = pName
+                                    )
+                                )
+
+                                // Link aan playlist via playlist_tracks
+                                val playlistId = if (createNew) {
+                                    db.playlistDao().insert(Playlist(name = pName))
+                                } else {
+                                    selectedPlaylist!!.id
+                                }
+                                val sortOrder = db.playlistTrackDao().getNextSortOrder(playlistId)
+                                db.playlistTrackDao().insert(
+                                    PlaylistTrack(playlistId, deezerTrackId, sortOrder)
+                                )
+
+                                existingPlaylists = db.playlistDao().getAll()
+                                snackbarHostState.showSnackbar(
+                                    "Opgeslagen in '$pName' (${formatTime(endMs - startMs)})"
+                                )
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Fout bij opslaan: ${e.message}")
+                            }
+                            showSaveDialog = false
+                        }
+                    },
+                    enabled = canSave
                 ) { Text("Opslaan") }
             },
             dismissButton = {
@@ -340,7 +435,6 @@ private fun WaveformView(
             val center = canvasHeight / 2
             val barWidth = canvasWidth / amplitudes.size.coerceAtLeast(1)
 
-            // Teken waveform bars
             amplitudes.forEachIndexed { index, amplitude ->
                 val x = index * barWidth
                 val fraction = index.toFloat() / amplitudes.size
@@ -356,7 +450,6 @@ private fun WaveformView(
                 )
             }
 
-            // Selectie achtergrond
             val startX = startFraction * canvasWidth
             val endX = endFraction * canvasWidth
             drawRect(
@@ -365,21 +458,8 @@ private fun WaveformView(
                 size = Size(endX - startX, canvasHeight)
             )
 
-            // Handles (verticale lijnen)
-            drawLine(
-                color = handleColor,
-                start = Offset(startX, 0f),
-                end = Offset(startX, canvasHeight),
-                strokeWidth = 4f
-            )
-            drawLine(
-                color = handleColor,
-                start = Offset(endX, 0f),
-                end = Offset(endX, canvasHeight),
-                strokeWidth = 4f
-            )
-
-            // Handle bolletjes
+            drawLine(color = handleColor, start = Offset(startX, 0f), end = Offset(startX, canvasHeight), strokeWidth = 4f)
+            drawLine(color = handleColor, start = Offset(endX, 0f), end = Offset(endX, canvasHeight), strokeWidth = 4f)
             drawCircle(color = handleColor, radius = 8f, center = Offset(startX, center))
             drawCircle(color = handleColor, radius = 8f, center = Offset(endX, center))
         }

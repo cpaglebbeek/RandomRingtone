@@ -278,11 +278,13 @@ fun SpotifyScreen(
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     clipboard.setPrimaryClip(ClipData.newPlainText("Spotify URL", trackUrl))
 
-                    // Navigeer naar converter
+                    // Navigeer naar converter — wis cookies zodat Spotify sessie
+                    // de converter-site niet naar spotify.com redirect
                     phase = SpotifyPhase.CONVERTING
+                    CookieManager.getInstance().removeAllCookies(null)
+                    CookieManager.getInstance().flush()
+                    webView?.clearCache(false)
 
-                    // Probeer de URL direct in de converter te injecteren
-                    // Veel converters accepteren de URL als zoekterm in hun URL
                     val targetUrl = buildConverterUrl(converterUrl, trackUrl)
                     webView?.loadUrl(targetUrl)
 

@@ -23,3 +23,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 16 | 0.6.10 | Janis_Joplin | Try | 2026-03-29 | Ja |
 | 17 | 0.6.11 | Janis_Joplin | Turtle_Blues | 2026-03-30 | Nee |
 | 18 | 0.6.12 | Janis_Joplin | Half_Moon | 2026-03-30 | Nee |
+| 19 | 0.6.13 | Janis_Joplin | Bye_Bye_Baby | 2026-03-30 | Nee |

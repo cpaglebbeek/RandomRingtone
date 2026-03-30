@@ -137,21 +137,26 @@ fun SpotifyScreen(
         }
     }
 
-    // Klembord monitoren — Spotify "Delen" kopieert track URL
-    // Skip URLs die al verwerkt zijn (naar converter gestuurd)
-    LaunchedEffect(currentUrl, isLoading) {
-        if (showConverter) return@LaunchedEffect
-        try {
-            val clip = clipboardManager.primaryClip
-            if (clip != null && clip.itemCount > 0) {
-                val clipText = clip.getItemAt(0).text?.toString() ?: ""
-                val clipMatch = SPOTIFY_TRACK_REGEX.find(clipText)
-                val clipUrl = clipText.split("?").first()
-                if (clipMatch != null && detectedTrackUrl == null && clipUrl !in processedClipUrls) {
-                    detectedTrackUrl = clipUrl
+    // Klembord LIVE monitoren — reageert direct als Spotify "Delen → Link kopiëren" wordt gebruikt
+    DisposableEffect(Unit) {
+        val listener = ClipboardManager.OnPrimaryClipChangedListener {
+            if (showConverter) return@OnPrimaryClipChangedListener
+            try {
+                val clip = clipboardManager.primaryClip
+                if (clip != null && clip.itemCount > 0) {
+                    val clipText = clip.getItemAt(0).text?.toString() ?: ""
+                    val clipMatch = SPOTIFY_TRACK_REGEX.find(clipText)
+                    if (clipMatch != null) {
+                        val clipUrl = clipText.split("?").first()
+                        if (clipUrl !in processedClipUrls) {
+                            detectedTrackUrl = clipUrl
+                        }
+                    }
                 }
-            }
-        } catch (_: Exception) { }
+            } catch (_: Exception) { }
+        }
+        clipboardManager.addPrimaryClipChangedListener(listener)
+        onDispose { clipboardManager.removePrimaryClipChangedListener(listener) }
     }
 
     // === SPOTIFY BROWSE UI ===

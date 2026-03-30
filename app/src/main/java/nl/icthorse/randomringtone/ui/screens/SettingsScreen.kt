@@ -28,7 +28,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import nl.icthorse.randomringtone.data.AppRingtoneManager
-import nl.icthorse.randomringtone.data.SpotifyConverter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -344,86 +343,6 @@ fun SettingsScreen(
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Reset naar standaard locaties") }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Spotify Converter sectie
-        Text(
-            text = "Spotify Converter",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-            text = "Kies de service om Spotify tracks naar MP3 te converteren",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        var selectedConverterId by remember { mutableStateOf("") }
-        var converterExpanded by remember { mutableStateOf(false) }
-
-        LaunchedEffect(Unit) {
-            selectedConverterId = ringtoneManager.storage.getSpotifyConverter()
-        }
-
-        val selectedConverter = SpotifyConverter.findById(selectedConverterId)
-
-        ExposedDropdownMenuBox(
-            expanded = converterExpanded,
-            onExpandedChange = { converterExpanded = it }
-        ) {
-            OutlinedTextField(
-                value = "${selectedConverter.name} (${selectedConverter.type})",
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = converterExpanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor()
-            )
-            ExposedDropdownMenu(
-                expanded = converterExpanded,
-                onDismissRequest = { converterExpanded = false }
-            ) {
-                SpotifyConverter.ALL.forEach { converter ->
-                    DropdownMenuItem(
-                        text = {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(converter.name)
-                                Text(
-                                    text = converter.type,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        },
-                        onClick = {
-                            selectedConverterId = converter.id
-                            converterExpanded = false
-                            scope.launch {
-                                ringtoneManager.storage.setSpotifyConverter(converter.id)
-                                snackbarHostState.showSnackbar("Converter: ${converter.name}")
-                            }
-                        }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Text(
-            text = selectedConverter.url,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary
-        )
 
         Spacer(modifier = Modifier.height(24.dp))
 

@@ -1,9 +1,9 @@
 {
   "project": "RandomRingtone",
-  "version": "0.6.10",
-  "versionCode": 16,
+  "version": "0.6.12",
+  "versionCode": 18,
   "codename": "Janis_Joplin",
-  "releaseName": "Try",
+  "releaseName": "Half_Moon",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-03-30",

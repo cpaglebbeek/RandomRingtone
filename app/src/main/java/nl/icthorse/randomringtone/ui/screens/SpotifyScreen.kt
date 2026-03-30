@@ -65,6 +65,7 @@ fun SpotifyScreen(
 
     // Track detectie
     var detectedTrackUrl by remember { mutableStateOf<String?>(null) }
+    var processedClipUrls by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     // Converter dialoog
     var showConverter by remember { mutableStateOf(false) }
@@ -137,14 +138,17 @@ fun SpotifyScreen(
     }
 
     // Klembord monitoren — Spotify "Delen" kopieert track URL
+    // Skip URLs die al verwerkt zijn (naar converter gestuurd)
     LaunchedEffect(currentUrl, isLoading) {
+        if (showConverter) return@LaunchedEffect
         try {
             val clip = clipboardManager.primaryClip
             if (clip != null && clip.itemCount > 0) {
                 val clipText = clip.getItemAt(0).text?.toString() ?: ""
                 val clipMatch = SPOTIFY_TRACK_REGEX.find(clipText)
-                if (clipMatch != null && detectedTrackUrl == null) {
-                    detectedTrackUrl = clipText.split("?").first()
+                val clipUrl = clipText.split("?").first()
+                if (clipMatch != null && detectedTrackUrl == null && clipUrl !in processedClipUrls) {
+                    detectedTrackUrl = clipUrl
                 }
             }
         } catch (_: Exception) { }
@@ -226,9 +230,12 @@ fun SpotifyScreen(
             ExtendedFloatingActionButton(
                 onClick = {
                     val trackUrl = detectedTrackUrl ?: return@ExtendedFloatingActionButton
+                    // Markeer als verwerkt zodat FAB niet opnieuw verschijnt voor deze URL
+                    processedClipUrls = processedClipUrls + trackUrl
                     // Kopieer Spotify URL naar clipboard
                     clipboardManager.setPrimaryClip(ClipData.newPlainText("Spotify URL", trackUrl))
-                    // Open converter in aparte dialoog
+                    // Reset detectie en open converter
+                    detectedTrackUrl = null
                     showConverter = true
                     scope.launch {
                         snackbarHostState.showSnackbar(

@@ -330,6 +330,7 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 ### Releasenamen
 - **Thema:** Nummer van de artiest die als buildnaam dient
 - Elke individuele release krijgt een unieke releasenaam (bijv. v0.6.x = nummers van Janis Joplin).
+- **Uitputting:** Als alle bekende nummers van een artiest op zijn → nieuwe artiest kiezen als buildnaam (ook als de major versie niet verandert). De volgende releases krijgen dan nummers van de nieuwe artiest.
 - Zie `RELEASES.md` voor volledige lijst.
 
 ### Buglijst & Release Info

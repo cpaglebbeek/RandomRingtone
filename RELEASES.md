@@ -20,4 +20,6 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 13 | 0.6.7 | Janis_Joplin | Kozmic_Blues | 2026-03-29 | Nee |
 | 14 | 0.6.8 | Janis_Joplin | Get_It_While_You_Can | 2026-03-29 | Nee |
 | 15 | 0.6.9 | Janis_Joplin | Move_Over | 2026-03-29 | Nee |
-| 16 | 0.6.10 | Janis_Joplin | Try | 2026-03-29 | Nee |
+| 16 | 0.6.10 | Janis_Joplin | Try | 2026-03-29 | Ja |
+| 17 | 0.6.11 | Janis_Joplin | Turtle_Blues | 2026-03-30 | Nee |
+| 18 | 0.6.12 | Janis_Joplin | Half_Moon | 2026-03-30 | Nee |

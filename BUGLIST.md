@@ -17,3 +17,4 @@
 | 13 | Editor: twee losse flows (Ringtone/Playlist) — niet geconsolideerd | Groen | 0.6.8 | 0.6.9 | FIXED |
 | 14 | Editor opent bij Spotify tab na eerdere bewerking | Groen | 0.6.9 | 0.6.10 | FIXED |
 | 15 | EVERY_CALL: ringtone wisselt niet — READ_PHONE_STATE niet aangevraagd | Geel | 0.6.9 | 0.6.10 | FIXED |
+| 16 | Klembord caching: FAB verschijnt voor oude/verwerkte Spotify URLs | Groen | 0.6.10 | 0.6.11 | FIXED |

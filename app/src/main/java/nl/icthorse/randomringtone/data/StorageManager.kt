@@ -316,6 +316,7 @@ data class SpotifyConverter(
             SpotifyConverter("spotifydownload", "Spotifydownload", "Online", "https://spotifydownload.org"),
             SpotifyConverter("spotidown", "Spotidown", "Online", "https://spotidown.app"),
             SpotifyConverter("keepvid", "KEEPVID", "Online", "https://keepvid.to"),
+            SpotifyConverter("spotmate", "SpotMate", "Online", "https://spotmate.online/en1"),
             SpotifyConverter("spotiflyer", "SpotiFlyer", "Android", "https://github.com/Shabinder/SpotiFlyer")
         )
 

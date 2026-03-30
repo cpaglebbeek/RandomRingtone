@@ -55,6 +55,15 @@ data class PlaylistTrackBackup(
     val sortOrder: Int
 )
 
+@Serializable
+data class PlaylistExport(
+    val version: Int = 1,
+    val exportDate: String,
+    val playlist: PlaylistBackup,
+    val tracks: List<TrackBackup>,
+    val playlistTracks: List<PlaylistTrackBackup>
+)
+
 data class BackupProgress(
     val phase: String,
     val current: Int,
@@ -284,6 +293,107 @@ class BackupManager(private val context: Context) {
             json.decodeFromString<BackupMeta>(readSafFile(metaFile))
         } catch (_: Exception) {
             null
+        }
+    }
+
+    // --- Individuele playlist export/import ---
+
+    /**
+     * Exporteer één playlist naar JSON string.
+     */
+    suspend fun exportPlaylist(playlistId: Long, db: RingtoneDatabase): String? = withContext(Dispatchers.IO) {
+        try {
+            val playlist = db.playlistDao().getById(playlistId) ?: return@withContext null
+            val playlistTracks = db.playlistTrackDao().getAll().filter { it.playlistId == playlistId }
+            val trackIds = playlistTracks.map { it.trackId }.toSet()
+            val tracks = db.savedTrackDao().getAll().filter { it.deezerTrackId in trackIds }
+
+            val export = PlaylistExport(
+                exportDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
+                playlist = PlaylistBackup(
+                    playlist.id, playlist.name, playlist.channel.name, playlist.mode.name,
+                    playlist.schedule.name, playlist.contactUri, playlist.contactName,
+                    playlist.isActive, playlist.lastPlayedTrackId
+                ),
+                tracks = tracks.map { TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName) },
+                playlistTracks = playlistTracks.map { PlaylistTrackBackup(it.playlistId, it.trackId, it.sortOrder) }
+            )
+
+            json.encodeToString(export)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Schrijf playlist export JSON naar een SAF URI.
+     */
+    suspend fun writePlaylistExport(uri: Uri, jsonContent: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { os ->
+                os.write(jsonContent.toByteArray(Charsets.UTF_8))
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Importeer een playlist vanuit een SAF URI.
+     * Tracks worden toegevoegd (REPLACE bij conflict), playlist krijgt unieke naam.
+     */
+    suspend fun importPlaylist(uri: Uri, db: RingtoneDatabase): BackupResult = withContext(Dispatchers.IO) {
+        try {
+            val jsonContent = context.contentResolver.openInputStream(uri)?.use { input ->
+                input.bufferedReader().readText()
+            } ?: return@withContext BackupResult(false, "Kan bestand niet lezen")
+
+            val export = json.decodeFromString<PlaylistExport>(jsonContent)
+
+            // Insert tracks (REPLACE bij conflict)
+            val tracks = export.tracks.map {
+                SavedTrack(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName)
+            }
+            db.savedTrackDao().insertAll(tracks)
+
+            // Unieke playlist naam genereren
+            val existingNames = db.playlistDao().getAll().map { it.name }.toSet()
+            var newName = export.playlist.name
+            var counter = 1
+            while (newName in existingNames) {
+                newName = "${export.playlist.name} ($counter)"
+                counter++
+            }
+
+            // Insert playlist met nieuw ID
+            val newPlaylistId = db.playlistDao().insert(
+                Playlist(
+                    id = 0, // auto-generate
+                    name = newName,
+                    channel = Channel.valueOf(export.playlist.channel),
+                    mode = Mode.valueOf(export.playlist.mode),
+                    schedule = Schedule.valueOf(export.playlist.schedule),
+                    contactUri = export.playlist.contactUri,
+                    contactName = export.playlist.contactName,
+                    isActive = false, // altijd inactief bij import
+                    lastPlayedTrackId = null
+                )
+            )
+
+            // Insert playlist_tracks met nieuw playlist ID
+            for (pt in export.playlistTracks) {
+                db.playlistTrackDao().insert(PlaylistTrack(newPlaylistId, pt.trackId, pt.sortOrder))
+            }
+
+            BackupResult(
+                success = true,
+                message = "Playlist '$newName' geimporteerd (${tracks.size} tracks)",
+                trackCount = tracks.size,
+                playlistCount = 1
+            )
+        } catch (e: Exception) {
+            BackupResult(false, "Import mislukt: ${e.message}")
         }
     }
 

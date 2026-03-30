@@ -21,3 +21,5 @@
 | 17 | Spotify branch: Deezer tab nog zichtbaar (main APK i.p.v. spotify branch) | Groen | 0.6.11 | 0.6.12 | FIXED |
 | 18 | Klembord niet gedetecteerd na Spotify Delen — LaunchedEffect niet op clipboard change | Geel | 0.6.11 | 0.6.13 | FIXED |
 | 19 | Spotify download bestandsnaam "spotify_<timestamp>" i.p.v. track+artiest | Groen | 0.6.13 | 0.6.14 | FIXED |
+| 20 | Scope (Globaal/Per contact) niet zichtbaar bij Random modus — dialoog niet scrollbaar | Groen | 0.7.0 | 0.7.1 | FIXED |
+| 21 | Contact selectie: tekstveld i.p.v. zoekbare lijst met contacten | Groen | 0.1.0 | 0.7.1 | FIXED |

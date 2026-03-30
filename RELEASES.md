@@ -29,3 +29,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 22 | 0.7.1 | Prince | Kiss | 2026-03-30 | Nee |
 | 23 | 0.7.2 | Prince | 1999 | 2026-03-30 | Nee |
 | 24 | 0.7.3 | Prince | Lets_Go_Crazy | 2026-03-30 | Nee |
+| 25 | 0.7.4 | Prince | When_Doves_Cry | 2026-03-30 | Nee |

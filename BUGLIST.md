@@ -23,3 +23,4 @@
 | 19 | Spotify download bestandsnaam "spotify_<timestamp>" i.p.v. track+artiest | Groen | 0.6.13 | 0.6.14 | FIXED |
 | 20 | Scope (Globaal/Per contact) niet zichtbaar bij Random modus — dialoog niet scrollbaar | Groen | 0.7.0 | 0.7.1 | FIXED |
 | 21 | Contact selectie: tekstveld i.p.v. zoekbare lijst met contacten | Groen | 0.1.0 | 0.7.1 | FIXED |
+| 22 | Crash bij Playlists/Bibliotheek tab — Room DB schema mismatch na branch merge | Geel | 0.7.3 | 0.7.4 | FIXED |

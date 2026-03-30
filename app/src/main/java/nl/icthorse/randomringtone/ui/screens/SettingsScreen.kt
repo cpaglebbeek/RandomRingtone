@@ -545,7 +545,7 @@ fun SettingsScreen(
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 InfoRow("App", "RandomRingtone")
                 InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Prince\"")
-                InfoRow("Release", "Lets_Go_Crazy (Build 24)")
+                InfoRow("Release", "When_Doves_Cry (Build 25)")
                 InfoRow("Muziekbron", "Spotify Web + converter")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }

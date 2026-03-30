@@ -205,8 +205,7 @@ abstract class RingtoneDatabase : RoomDatabase() {
                     RingtoneDatabase::class.java,
                     "randomringtone.db"
                 )
-                // Geen fallbackToDestructiveMigration() meer — data blijft behouden bij updates.
-                // Voeg expliciete migraties toe: .addMigrations(MIGRATION_4_5, ...)
+                .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }
         }

@@ -19,6 +19,13 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
 
+private enum class BackupProvider(val label: String) {
+    GOOGLE_DRIVE("Google Drive"),
+    DROPBOX("Dropbox"),
+    ONEDRIVE("OneDrive"),
+    ICT_HORSE("iCt Horse")
+}
+
 @Composable
 fun BackupScreen(
     ringtoneManager: AppRingtoneManager,
@@ -29,7 +36,9 @@ fun BackupScreen(
     val scope = rememberCoroutineScope()
     val storage = ringtoneManager.storage
     val backupManager = remember { BackupManager(context) }
+    val ictHorseClient = remember { IctHorseBackupClient(context) }
 
+    var selectedProvider by remember { mutableStateOf(BackupProvider.ICT_HORSE) }
     var backupUri by remember { mutableStateOf("") }
     var backupMeta by remember { mutableStateOf<BackupMeta?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -38,7 +47,7 @@ fun BackupScreen(
     var progressTotal by remember { mutableIntStateOf(0) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
 
-    // Load saved backup URI + bestaande backup info
+    // Load saved state
     LaunchedEffect(Unit) {
         backupUri = storage.getBackupUri() ?: ""
         if (backupUri.isNotBlank()) {
@@ -46,7 +55,23 @@ fun BackupScreen(
         }
     }
 
-    // SAF directory picker
+    // Load iCt Horse status wanneer provider geselecteerd
+    LaunchedEffect(selectedProvider) {
+        if (selectedProvider == BackupProvider.ICT_HORSE) {
+            try {
+                val status = ictHorseClient.getStatus()
+                backupMeta = status.meta
+            } catch (_: Exception) {
+                backupMeta = null
+            }
+        } else if (backupUri.isNotBlank()) {
+            backupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+        } else {
+            backupMeta = null
+        }
+    }
+
+    // SAF directory picker (voor GDrive/Dropbox/OneDrive)
     val directoryPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
@@ -63,6 +88,13 @@ fun BackupScreen(
         }
     }
 
+    // Progress handler
+    val onProgress: (BackupProgress) -> Unit = { p ->
+        progressPhase = p.phase
+        progressCurrent = p.current
+        progressTotal = p.total
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -72,37 +104,80 @@ fun BackupScreen(
     ) {
         Text("Backup & Restore", style = MaterialTheme.typography.headlineMedium)
 
-        // === Backup Locatie ===
+        // === Provider keuze ===
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Backup locatie", style = MaterialTheme.typography.titleMedium)
-                }
-
-                if (backupUri.isNotBlank()) {
-                    val displayPath = Uri.parse(backupUri).lastPathSegment ?: backupUri
-                    Text(
-                        text = displayPath,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Text(
-                        text = "Niet ingesteld",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Button(
-                    onClick = { directoryPicker.launch(null) },
-                    enabled = !isProcessing
+                Text("Backup provider", style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (backupUri.isBlank()) "Kies map" else "Wijzig map")
+                    BackupProvider.entries.forEach { provider ->
+                        FilterChip(
+                            selected = selectedProvider == provider,
+                            onClick = { selectedProvider = provider },
+                            label = { Text(provider.label, style = MaterialTheme.typography.labelSmall) },
+                            enabled = !isProcessing
+                        )
+                    }
+                }
+            }
+        }
+
+        // === Provider-specifieke config ===
+        if (selectedProvider == BackupProvider.ICT_HORSE) {
+            // iCt Horse: auto-geconfigureerd
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Cloud, contentDescription = null, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("iCt Horse Cloud", style = MaterialTheme.typography.titleMedium)
+                    }
+                    Text(
+                        "icthorse.nl/randomringtone/",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Automatisch gekoppeld aan dit apparaat",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        } else {
+            // SAF providers: map kiezen
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("${selectedProvider.label} map", style = MaterialTheme.typography.titleMedium)
+                    }
+
+                    if (backupUri.isNotBlank()) {
+                        Text(
+                            text = Uri.parse(backupUri).lastPathSegment ?: backupUri,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            text = "Niet ingesteld — kies een map in ${selectedProvider.label}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Button(
+                        onClick = { directoryPicker.launch(null) },
+                        enabled = !isProcessing
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (backupUri.isBlank()) "Kies map" else "Wijzig map")
+                    }
                 }
             }
         }
@@ -117,11 +192,10 @@ fun BackupScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Laatste backup", style = MaterialTheme.typography.titleMedium)
                     }
-
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("Datum: ${meta.backupDate}")
                     Text("App versie: ${meta.appVersion}")
-                    Text("Tracks: ${meta.trackCount} | Playlists: ${meta.playlistCount} | Koppelingen: ${meta.playlistTrackCount}")
+                    Text("Tracks: ${meta.trackCount} | Playlists: ${meta.playlistCount}")
                     Text("Bestanden: ${meta.downloadFileCount} downloads + ${meta.ringtoneFileCount} ringtones")
                 }
             }
@@ -139,16 +213,15 @@ fun BackupScreen(
                         progress = { if (progressTotal > 0) progressCurrent.toFloat() / progressTotal else 0f },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text(
-                        "$progressCurrent / $progressTotal",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+                    Text("$progressCurrent / $progressTotal", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
 
         // === Actieknoppen ===
+        val canBackup = if (selectedProvider == BackupProvider.ICT_HORSE) true else backupUri.isNotBlank()
+        val canRestore = canBackup && backupMeta != null
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -157,50 +230,40 @@ fun BackupScreen(
                 onClick = {
                     scope.launch {
                         isProcessing = true
-                        val result = backupManager.backup(
-                            backupUri = Uri.parse(backupUri),
-                            db = db,
-                            storage = storage,
-                            onProgress = { p ->
-                                progressPhase = p.phase
-                                progressCurrent = p.current
-                                progressTotal = p.total
-                            }
-                        )
+                        val result = if (selectedProvider == BackupProvider.ICT_HORSE) {
+                            ictHorseClient.backup(db, storage, backupManager, onProgress)
+                        } else {
+                            backupManager.backup(Uri.parse(backupUri), db, storage, onProgress)
+                        }
                         isProcessing = false
                         if (result.success) {
-                            backupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+                            // Refresh meta
+                            backupMeta = if (selectedProvider == BackupProvider.ICT_HORSE) {
+                                try { ictHorseClient.getStatus().meta } catch (_: Exception) { null }
+                            } else {
+                                backupManager.readBackupInfo(Uri.parse(backupUri))
+                            }
                         }
                         snackbarHostState.showSnackbar(result.message)
                     }
                 },
-                enabled = backupUri.isNotBlank() && !isProcessing,
+                enabled = canBackup && !isProcessing,
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Backup maken")
+                Text("Backup")
             }
 
             OutlinedButton(
                 onClick = { showRestoreConfirm = true },
-                enabled = backupUri.isNotBlank() && backupMeta != null && !isProcessing,
+                enabled = canRestore && !isProcessing,
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Herstellen")
             }
-        }
-
-        // === Uitleg ===
-        if (backupUri.isBlank()) {
-            Text(
-                "Kies een map op je telefoon of in een cloud-app (Google Drive, Dropbox, OneDrive) " +
-                    "om backups op te slaan. De cloud-app moet geinstalleerd zijn op je telefoon.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 
@@ -212,7 +275,7 @@ fun BackupScreen(
             title = { Text("Backup herstellen?") },
             text = {
                 Text(
-                    "Dit vervangt ALLE huidige data (tracks, playlists, bestanden) met de backup. " +
+                    "Dit vervangt ALLE huidige data met de backup van ${selectedProvider.label}. " +
                         "Dit kan niet ongedaan worden gemaakt.\n\n" +
                         "Backup van: ${backupMeta?.backupDate ?: "?"}\n" +
                         "Tracks: ${backupMeta?.trackCount ?: 0}\n" +
@@ -225,32 +288,27 @@ fun BackupScreen(
                         showRestoreConfirm = false
                         scope.launch {
                             isProcessing = true
-                            val result = backupManager.restore(
-                                backupUri = Uri.parse(backupUri),
-                                db = db,
-                                storage = storage,
-                                onProgress = { p ->
-                                    progressPhase = p.phase
-                                    progressCurrent = p.current
-                                    progressTotal = p.total
-                                }
-                            )
+                            val result = if (selectedProvider == BackupProvider.ICT_HORSE) {
+                                ictHorseClient.restore(db, storage, onProgress)
+                            } else {
+                                backupManager.restore(Uri.parse(backupUri), db, storage, onProgress)
+                            }
                             isProcessing = false
                             if (result.success) {
-                                backupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+                                backupMeta = if (selectedProvider == BackupProvider.ICT_HORSE) {
+                                    try { ictHorseClient.getStatus().meta } catch (_: Exception) { null }
+                                } else {
+                                    backupManager.readBackupInfo(Uri.parse(backupUri))
+                                }
                             }
                             snackbarHostState.showSnackbar(result.message)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Herstellen")
-                }
+                ) { Text("Herstellen") }
             },
             dismissButton = {
-                TextButton(onClick = { showRestoreConfirm = false }) {
-                    Text("Annuleren")
-                }
+                TextButton(onClick = { showRestoreConfirm = false }) { Text("Annuleren") }
             }
         )
     }

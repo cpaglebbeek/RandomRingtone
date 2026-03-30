@@ -27,3 +27,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 20 | 0.6.14 | Janis_Joplin | To_Love_Somebody | 2026-03-30 | Nee |
 | 21 | 0.7.0 | Prince | Purple_Rain | 2026-03-30 | Nee |
 | 22 | 0.7.1 | Prince | Kiss | 2026-03-30 | Nee |
+| 23 | 0.7.2 | Prince | 1999 | 2026-03-30 | Nee |

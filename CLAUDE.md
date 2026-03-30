@@ -295,13 +295,24 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 - **WhatIf bij builds:** Geef vóór elke build een stap-voor-stap analyse. Vraag daarna om akkoord.
 - **Change Detection:** Controleer `git status` vóór elke build. Geen wijzigingen → meld dit, vraag of force build gewenst is.
 - **Scope:** `build` slaat ALTIJD op het actieve project — nooit impliciet andere projecten meenemen.
-- **Android:** APK naamgeving `RandomRingtone-v[Version]-[Codename]-[BuildType].apk` → kopieer naar `/Users/christian/Downloads` na succesvolle build. `JAVA_HOME=/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`
+- **Android:** APK naamgeving `RandomRingtone-v[Version]-[Codename]-[ReleaseName]-[BuildType].apk` → kopieer naar `/Users/christian/Downloads` na succesvolle build. `JAVA_HOME=/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`
 
 ---
 
 ## Versioning Mandate
 - Elke functionele of technische wijziging → versienummer verhogen **vóór** build of sync.
-- Bestanden bijwerken: `version.json` en `app/build.gradle.kts` (versionName + versionCode).
+- Elke bugfix → minimaal +0.0.1.
+- Bestanden bijwerken: `version.json` en `app/build.gradle.kts` (versionName + versionCode + releaseName).
+
+### Drie identifiers per release
+| Identifier | Scope | Voorbeeld | Uniek per |
+|------------|-------|-----------|-----------|
+| Versienummer | Semantisch | 0.6.10 | Release |
+| Buildnummer (versionCode) | Incrementeel | 16 | Release |
+| Buildnaam (codenaam) | Per major versie | Janis_Joplin | Major versie |
+| Releasenaam | Per individuele release | Try | Release |
+
+**Regel:** Buildnummer + releasenaam = unieke combinatie = equivalent aan versienummer.
 
 ### Semantische versioning
 | Impact | Versie-increment | Kleurcode |
@@ -310,11 +321,20 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 | Design/functioneel | +0.1.0 | Oranje |
 | Architectonisch/Major | +1.0.0 | Rood |
 
-### Thematische Codenamen
+### Thematische Codenamen (buildnamen)
 - **Thema:** Iconische muzikanten
-- Elke build krijgt een **unieke** codenaam gebaseerd op het gekozen thema.
+- Eén codenaam per major versie (bijv. v0.6.x = Janis_Joplin).
 - Uniqueness check: nooit een naam of versie hergebruiken.
 - **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0), David_Bowie (v0.3.0), Amy_Winehouse (v0.4.0), Kurt_Cobain (v0.5.0), Janis_Joplin (v0.6.0)
+
+### Releasenamen
+- **Thema:** Nummer van de artiest die als buildnaam dient
+- Elke individuele release krijgt een unieke releasenaam (bijv. v0.6.x = nummers van Janis Joplin).
+- Zie `RELEASES.md` voor volledige lijst.
+
+### Buglijst & Release Info
+- **BUGLIST.md:** Per bug: beschrijving, kleur, gevonden in, gefixt in, status (OPEN/FIXED)
+- **RELEASES.md:** Per release: build, versie, buildnaam, releasenaam, datum, stabiel (ja/nee)
 
 ---
 

@@ -325,6 +325,8 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 - **Thema:** Iconische muzikanten
 - Eén codenaam per major versie (bijv. v0.6.x = Janis_Joplin).
 - Uniqueness check: nooit een naam of versie hergebruiken.
+- **Nieuwe buildnaam protocol:** Bij functionele wijzigingen (+0.1.0 of hoger) altijd overleggen met gebruiker of een nieuwe artiest als buildnaam nodig is. Bij bugfixes (+0.0.1) blijft de huidige artiest.
+- **Grootte-inschatting:** Bij elke build een inschatting geven (klein/middel/groot) als input voor de buildnaam-beslissing.
 - **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0), David_Bowie (v0.3.0), Amy_Winehouse (v0.4.0), Kurt_Cobain (v0.5.0), Janis_Joplin (v0.6.0)
 
 ### Releasenamen

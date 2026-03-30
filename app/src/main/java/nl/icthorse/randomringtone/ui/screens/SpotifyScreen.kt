@@ -56,6 +56,13 @@ fun SpotifyScreen(
     // Converter config
     var converterUrl by remember { mutableStateOf("") }
     var converterName by remember { mutableStateOf("") }
+    var useDirectApi by remember { mutableStateOf(false) }
+
+    // Direct API state
+    val spotMateClient = remember { SpotMateDirectClient() }
+    var isDirectDownloading by remember { mutableStateOf(false) }
+    var directDownloadPhase by remember { mutableStateOf("") }
+    var directDownloadProgress by remember { mutableFloatStateOf(0f) }
 
     // Spotify WebView state
     var spotifyWebView by remember { mutableStateOf<WebView?>(null) }
@@ -82,6 +89,7 @@ fun SpotifyScreen(
         val converter = SpotifyConverter.findById(converterId)
         converterUrl = converter.url
         converterName = converter.name
+        useDirectApi = ringtoneManager.storage.isDirectApiEnabled()
     }
 
     // Download completion receiver
@@ -240,7 +248,7 @@ fun SpotifyScreen(
 
         // FAB: "Download MP3"
         AnimatedVisibility(
-            visible = detectedTrackUrl != null && !showConverter,
+            visible = detectedTrackUrl != null && !showConverter && !isDirectDownloading,
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         ) {
             ExtendedFloatingActionButton(
@@ -257,24 +265,86 @@ fun SpotifyScreen(
                         detectedTrackName = ""
                         detectedArtist = ""
                     }
-                    // Markeer als verwerkt zodat FAB niet opnieuw verschijnt voor deze URL
+                    // Markeer als verwerkt
                     processedClipUrls = processedClipUrls + trackUrl
-                    // Kopieer Spotify URL naar clipboard
-                    clipboardManager.setPrimaryClip(ClipData.newPlainText("Spotify URL", trackUrl))
-                    // Reset detectie en open converter
                     detectedTrackUrl = null
-                    showConverter = true
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            message = "Spotify URL op klembord — plak in $converterName zoekveld",
-                            duration = SnackbarDuration.Long
-                        )
+
+                    if (useDirectApi) {
+                        // === DIRECTE API DOWNLOAD ===
+                        isDirectDownloading = true
+                        scope.launch {
+                            val result = spotMateClient.downloadTrack(
+                                spotifyUrl = trackUrl,
+                                destDir = ringtoneManager.storage.getDownloadDir(),
+                                onProgress = { phase, progress ->
+                                    directDownloadPhase = phase
+                                    directDownloadProgress = progress
+                                }
+                            )
+                            isDirectDownloading = false
+                            if (result.success && result.file != null) {
+                                lastDownloadedFile = result.file
+                                showActionsDialog = true
+                                // Update track naam/artiest vanuit API metadata
+                                if (result.trackInfo != null) {
+                                    detectedTrackName = result.trackInfo.name
+                                    detectedArtist = result.trackInfo.artist
+                                }
+                            } else {
+                                snackbarHostState.showSnackbar(
+                                    result.error ?: "Download mislukt — probeer WebView converter"
+                                )
+                            }
+                        }
+                    } else {
+                        // === WEBVIEW CONVERTER FLOW ===
+                        clipboardManager.setPrimaryClip(ClipData.newPlainText("Spotify URL", trackUrl))
+                        showConverter = true
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = "Spotify URL op klembord — plak in $converterName zoekveld",
+                                duration = SnackbarDuration.Long
+                            )
+                        }
                     }
                 },
                 icon = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
-                text = { Text("Download MP3") },
+                text = { Text(if (useDirectApi) "Direct downloaden" else "Download MP3") },
                 containerColor = MaterialTheme.colorScheme.primary
             )
+        }
+
+        // Directe download voortgang overlay
+        if (isDirectDownloading) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
+                        Text(
+                            text = directDownloadPhase,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = { directDownloadProgress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 

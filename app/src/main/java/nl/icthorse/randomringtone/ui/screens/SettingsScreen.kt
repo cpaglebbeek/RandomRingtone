@@ -597,6 +597,51 @@ fun SettingsScreen(
             color = MaterialTheme.colorScheme.primary
         )
 
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Directe API download toggle
+        var directApiEnabled by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            directApiEnabled = ringtoneManager.storage.isDirectApiEnabled()
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Directe download (SpotMate API)",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = if (directApiEnabled)
+                            "MP3 wordt automatisch gedownload zonder converter-site"
+                        else
+                            "Handmatig via converter WebView",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = directApiEnabled,
+                    onCheckedChange = { enabled ->
+                        directApiEnabled = enabled
+                        scope.launch {
+                            ringtoneManager.storage.setDirectApiEnabled(enabled)
+                            snackbarHostState.showSnackbar(
+                                if (enabled) "Directe API download ingeschakeld"
+                                else "WebView converter ingeschakeld"
+                            )
+                        }
+                    }
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // App info
@@ -608,7 +653,7 @@ fun SettingsScreen(
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 InfoRow("App", "RandomRingtone")
                 InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Prince\"")
-                InfoRow("Release", "Little_Red_Corvette (Build 26)")
+                InfoRow("Release", "Raspberry_Beret (Build 27)")
                 InfoRow("Muziekbron", "Spotify Web + converter")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }

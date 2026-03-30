@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Environment
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -31,6 +32,7 @@ class StorageManager(private val context: Context) {
         private val KEY_RINGTONE_PATH = stringPreferencesKey("ringtone_path")
         private val KEY_SPOTIFY_CONVERTER = stringPreferencesKey("spotify_converter")
         private val KEY_BACKUP_URI = stringPreferencesKey("backup_uri")
+        private val KEY_DIRECT_API = booleanPreferencesKey("use_direct_api")
 
         // Standaard subfolders
         private const val DEFAULT_DOWNLOAD_SUBFOLDER = "downloads"
@@ -141,6 +143,20 @@ class StorageManager(private val context: Context) {
     suspend fun setBackupUri(uri: String) {
         context.settingsStore.edit { prefs ->
             prefs[KEY_BACKUP_URI] = uri
+        }
+    }
+
+    // --- Directe API download ---
+
+    suspend fun isDirectApiEnabled(): Boolean {
+        return context.settingsStore.data.map { prefs ->
+            prefs[KEY_DIRECT_API] ?: false
+        }.first()
+    }
+
+    suspend fun setDirectApiEnabled(enabled: Boolean) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_DIRECT_API] = enabled
         }
     }
 

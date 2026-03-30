@@ -328,7 +328,7 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 - Uniqueness check: nooit een naam of versie hergebruiken.
 - **Nieuwe buildnaam protocol:** Bij functionele wijzigingen (+0.1.0 of hoger) altijd overleggen met gebruiker of een nieuwe artiest als buildnaam nodig is. Bij bugfixes (+0.0.1) blijft de huidige artiest.
 - **Grootte-inschatting:** Bij elke build een inschatting geven (klein/middel/groot) als input voor de buildnaam-beslissing.
-- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0), David_Bowie (v0.3.0), Amy_Winehouse (v0.4.0), Kurt_Cobain (v0.5.0), Janis_Joplin (v0.6.0)
+- **Gebruikte codenamen:** Jimi_Hendrix (v0.1.0), Freddie_Mercury (v0.2.0), David_Bowie (v0.3.0), Amy_Winehouse (v0.4.0), Kurt_Cobain (v0.5.0), Janis_Joplin (v0.6.0), Prince (v0.7.0)
 
 ### Releasenamen
 - **Thema:** Nummer van de artiest die als buildnaam dient
@@ -415,10 +415,18 @@ Wanneer de gebruiker "over en uit" zegt:
 - [x] 6 tabs: Deezer / Spotify / Bibliotheek / Playlists / Overzicht / Instellingen
 - [x] Playlist-dialoog verbeterd: bestaande playlists selecteerbaar + playlist_tracks koppeling
 
-### v0.7.0 — Cloud sync (VOLGENDE SESSIE — HIER VERDER)
-- [ ] SAF (Storage Access Framework) integratie — Google Drive, Dropbox, OneDrive
-- [ ] Upload/download/sync ringtones naar cloud-map
-- [ ] WorkManager periodieke synchronisatie
+### v0.7.0 "Prince" — Backup/Restore + Locatie picker + Data persistentie ✅
+- [x] **Backup/Restore tab:** SAF (`ACTION_OPEN_DOCUMENT_TREE`) → cloud-map kiezen (GDrive/Dropbox/OneDrive)
+- [x] BackupManager: tracks + ringtones + database export (JSON) → SAF URI
+- [x] Restore: lees van SAF URI → importeer bestanden + database
+- [x] Persistent SAF URI via `takePersistableUriPermission()`
+- [x] **Locatie picker:** SAF directory picker i.p.v. tekstveld bij download/ringtone locatie
+- [x] Bij wijziging locatie: dialoog kopiëren/verplaatsen/niets voor bestaande bestanden
+- [x] StorageManager: `moveFilesTo()` + `copyFilesTo()` methoden
+- [x] **Data persistentie:** destructive migration verwijderd, lokale auto-backup (filesDir/auto_backup/)
+- [x] Auto-restore bij startup als DB leeg + backup beschikbaar
+- [x] 7 tabs: Deezer / Spotify / Bibliotheek / Playlists / Overzicht / Backup / Instellingen
+- [x] **Spotify download naamgeving:** `spotify_mp3_<track>-<artiest>.mp3` i.p.v. timestamp
 
 ### v0.8.0 — Stabilisatie + Samsung testen
 - [ ] Samsung OneUI 8 compatibiliteit testen
@@ -432,3 +440,11 @@ Wanneer de gebruiker "over en uit" zegt:
 - [ ] Volledige flow werkend + getest op Samsung Android 16
 - [ ] Alle conflicten opgelost, Overview tab toont correcte staat
 - [ ] APK build + Google Drive upload
+
+---
+
+## Mogelijke Features (Geparkeerd)
+
+| Feature | Beschrijving | Oorsprong | Impact |
+|---------|-------------|-----------|--------|
+| Synced Playlists (Spotify sync) | Playlist type LOCAL/SYNCED. SYNCED koppelt aan Spotify playlist via OAuth 2.0 PKCE. SpotifyAuthManager, SpotifyApiClient, PlaylistSyncWorker. DB migratie: Playlist + `type`/`spotifyPlaylistId`/`lastSyncedAt`, SavedTrack + `spotifyTrackId`. UI: keuze LOCAL/SYNCED → login → playlist picker. | Sessie 2026-03-30 | Oranje (+0.1.0) |

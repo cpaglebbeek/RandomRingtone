@@ -20,3 +20,4 @@
 | 16 | Klembord caching: FAB verschijnt voor oude/verwerkte Spotify URLs | Groen | 0.6.10 | 0.6.11 | FIXED |
 | 17 | Spotify branch: Deezer tab nog zichtbaar (main APK i.p.v. spotify branch) | Groen | 0.6.11 | 0.6.12 | FIXED |
 | 18 | Klembord niet gedetecteerd na Spotify Delen — LaunchedEffect niet op clipboard change | Geel | 0.6.11 | 0.6.13 | FIXED |
+| 19 | Spotify download bestandsnaam "spotify_<timestamp>" i.p.v. track+artiest | Groen | 0.6.13 | 0.6.14 | FIXED |

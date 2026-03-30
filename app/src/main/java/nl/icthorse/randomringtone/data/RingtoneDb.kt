@@ -2,6 +2,8 @@ package nl.icthorse.randomringtone.data
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 // --- Enums ---
 
@@ -128,6 +130,9 @@ interface PlaylistTrackDao {
     @Query("SELECT COUNT(*) FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun getTrackCount(playlistId: Long): Int
 
+    @Query("SELECT * FROM playlist_tracks")
+    suspend fun getAll(): List<PlaylistTrack>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(playlistTrack: PlaylistTrack)
 
@@ -185,13 +190,23 @@ abstract class RingtoneDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: RingtoneDatabase? = null
 
+        // Toekomstige migraties hier toevoegen (v4 → v5, etc.)
+        // Voorbeeld:
+        // val MIGRATION_4_5 = object : Migration(4, 5) {
+        //     override fun migrate(db: SupportSQLiteDatabase) {
+        //         db.execSQL("ALTER TABLE playlists ADD COLUMN newField TEXT")
+        //     }
+        // }
+
         fun getInstance(context: Context): RingtoneDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(
                     context.applicationContext,
                     RingtoneDatabase::class.java,
                     "randomringtone.db"
-                ).fallbackToDestructiveMigration()
+                )
+                // Geen fallbackToDestructiveMigration() meer — data blijft behouden bij updates.
+                // Voeg expliciete migraties toe: .addMigrations(MIGRATION_4_5, ...)
                 .build().also { INSTANCE = it }
             }
         }

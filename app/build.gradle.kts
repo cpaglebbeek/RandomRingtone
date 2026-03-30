@@ -14,8 +14,8 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.6.11"
+        versionCode = 21
+        versionName = "0.7.0"
     }
 
     buildTypes {
@@ -35,7 +35,7 @@ android {
         val variant = this
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "RandomRingtone-v${variant.versionName}-Janis_Joplin-Turtle_Blues-${variant.buildType.name}.apk"
+            output.outputFileName = "RandomRingtone-v${variant.versionName}-Prince-Purple_Rain-${variant.buildType.name}.apk"
         }
     }
 
@@ -79,6 +79,9 @@ dependencies {
 
     // Serialization (JSON parsing)
     implementation(libs.kotlinx.serialization.json)
+
+    // SAF (DocumentFile voor backup naar cloud)
+    implementation(libs.documentfile)
 
     // Core
     implementation(libs.core.ktx)

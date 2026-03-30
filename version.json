@@ -1,9 +1,9 @@
 {
   "project": "RandomRingtone",
-  "version": "0.6.11",
-  "versionCode": 17,
-  "codename": "Janis_Joplin",
-  "releaseName": "Turtle_Blues",
+  "version": "0.7.0",
+  "versionCode": 21,
+  "codename": "Prince",
+  "releaseName": "Purple_Rain",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-03-30",

@@ -211,6 +211,70 @@ class StorageManager(private val context: Context) {
     }
 
     /**
+     * Scan bestaande MP3 bestanden in download- en ringtone-mappen.
+     * Herkent: download_<id>.mp3, ringtone_<id>.mp3, ringtone_<id>_<playlist>.mp3,
+     * spotify_mp3_<track>-<artiest>.mp3
+     * @return lijst van SavedTrack objecten
+     */
+    suspend fun scanExistingFiles(): List<ScannedFile> = withContext(Dispatchers.IO) {
+        val results = mutableListOf<ScannedFile>()
+        val seen = mutableSetOf<Long>()
+
+        // Scan ringtones map
+        getRingtoneDir().listFiles()?.filter { it.isFile && it.name.endsWith(".mp3") }?.forEach { file ->
+            val parsed = parseFileName(file)
+            if (parsed != null && parsed.trackId !in seen) {
+                seen.add(parsed.trackId)
+                results.add(parsed.copy(localPath = file.absolutePath, source = "ringtone"))
+            }
+        }
+
+        // Scan downloads map
+        getDownloadDir().listFiles()?.filter { it.isFile && it.name.endsWith(".mp3") }?.forEach { file ->
+            val parsed = parseFileName(file)
+            if (parsed != null && parsed.trackId !in seen) {
+                seen.add(parsed.trackId)
+                results.add(parsed.copy(localPath = file.absolutePath, source = "download"))
+            }
+        }
+
+        results
+    }
+
+    private fun parseFileName(file: File): ScannedFile? {
+        val name = file.nameWithoutExtension
+
+        // download_<id>
+        val downloadMatch = Regex("^download_(\\d+)$").matchEntire(name)
+        if (downloadMatch != null) {
+            val id = downloadMatch.groupValues[1].toLongOrNull() ?: return null
+            return ScannedFile(trackId = id, title = "Track $id", artist = "Onbekend", localPath = "")
+        }
+
+        // ringtone_<id> of ringtone_<id>_<playlist>
+        val ringtoneMatch = Regex("^ringtone_(\\d+)(?:_(.+))?$").matchEntire(name)
+        if (ringtoneMatch != null) {
+            val id = ringtoneMatch.groupValues[1].toLongOrNull() ?: return null
+            val playlist = ringtoneMatch.groupValues[2].ifBlank { null }
+            return ScannedFile(trackId = id, title = "Track $id", artist = "Onbekend",
+                localPath = "", playlistName = playlist)
+        }
+
+        // spotify_mp3_<track>-<artiest>
+        val spotifyMatch = Regex("^spotify_mp3_(.+)-(.+)$").matchEntire(name)
+        if (spotifyMatch != null) {
+            val track = spotifyMatch.groupValues[1].replace("_", " ").trim()
+            val artist = spotifyMatch.groupValues[2].replace("_", " ").trim()
+            val id = name.hashCode().toLong().let { if (it < 0) -it else it }
+            return ScannedFile(trackId = id, title = track, artist = artist, localPath = "")
+        }
+
+        // Onbekend formaat — gebruik bestandsnaam als titel
+        val id = name.hashCode().toLong().let { if (it < 0) -it else it }
+        return ScannedFile(trackId = id, title = name.replace("_", " "), artist = "Onbekend", localPath = "")
+    }
+
+    /**
      * Bereken schijfgebruik per map.
      */
     suspend fun getDiskUsage(): DiskUsage {
@@ -226,6 +290,15 @@ class StorageManager(private val context: Context) {
         )
     }
 }
+
+data class ScannedFile(
+    val trackId: Long,
+    val title: String,
+    val artist: String,
+    val localPath: String,
+    val playlistName: String? = null,
+    val source: String = ""
+)
 
 data class SpotifyConverter(
     val id: String,

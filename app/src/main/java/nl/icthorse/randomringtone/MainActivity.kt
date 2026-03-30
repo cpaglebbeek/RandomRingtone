@@ -184,6 +184,7 @@ fun RandomRingtoneApp() {
             composable("settings") {
                 SettingsScreen(
                     ringtoneManager = ringtoneManager,
+                    db = db,
                     snackbarHostState = snackbarHostState
                 )
             }

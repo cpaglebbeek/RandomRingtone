@@ -28,6 +28,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.AppRingtoneManager
+import nl.icthorse.randomringtone.data.RingtoneDatabase
+import nl.icthorse.randomringtone.data.SavedTrack
 import nl.icthorse.randomringtone.data.SpotifyConverter
 import java.io.File
 
@@ -35,6 +37,7 @@ import java.io.File
 @Composable
 fun SettingsScreen(
     ringtoneManager: AppRingtoneManager,
+    db: RingtoneDatabase? = null,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
 ) {
     val context = LocalContext.current
@@ -384,6 +387,66 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth()
         ) { Text("Reset naar standaard locaties") }
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Scan bestanden knop
+        if (db != null) {
+            var isScanning by remember { mutableStateOf(false) }
+            var scanResult by remember { mutableStateOf("") }
+
+            OutlinedButton(
+                onClick = {
+                    isScanning = true
+                    scanResult = ""
+                    scope.launch {
+                        try {
+                            val scanned = ringtoneManager.storage.scanExistingFiles()
+                            if (scanned.isEmpty()) {
+                                scanResult = "Geen bestanden gevonden"
+                            } else {
+                                var added = 0
+                                for (sf in scanned) {
+                                    val existing = db.savedTrackDao().getById(sf.trackId)
+                                    if (existing == null) {
+                                        db.savedTrackDao().insert(
+                                            SavedTrack(
+                                                deezerTrackId = sf.trackId,
+                                                title = sf.title,
+                                                artist = sf.artist,
+                                                previewUrl = "",
+                                                localPath = sf.localPath,
+                                                playlistName = sf.playlistName ?: "Gescand"
+                                            )
+                                        )
+                                        added++
+                                    }
+                                }
+                                scanResult = "$added van ${scanned.size} bestanden toegevoegd"
+                            }
+                            diskUsage = ringtoneManager.storage.getDiskUsage()
+                        } catch (e: Exception) {
+                            scanResult = "Scan mislukt: ${e.message}"
+                        } finally {
+                            isScanning = false
+                        }
+                        snackbarHostState.showSnackbar(scanResult)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isScanning
+            ) {
+                if (isScanning) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Scannen...")
+                } else {
+                    Icon(Icons.Default.SearchOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Scan bestanden naar bibliotheek")
+                }
+            }
+        }
+
         // FileMoveDialog — Downloads
         if (pendingDownloadPath != null) {
             FileMoveDialog(
@@ -545,7 +608,7 @@ fun SettingsScreen(
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 InfoRow("App", "RandomRingtone")
                 InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Prince\"")
-                InfoRow("Release", "When_Doves_Cry (Build 25)")
+                InfoRow("Release", "Little_Red_Corvette (Build 26)")
                 InfoRow("Muziekbron", "Spotify Web + converter")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }

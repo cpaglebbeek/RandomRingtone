@@ -437,7 +437,7 @@ fun SettingsScreen(
                 InfoRow("App", "RandomRingtone")
                 InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Janis Joplin\"")
                 InfoRow("Release", "Try (Build 16)")
-                InfoRow("Muziekbron", "Deezer (30 sec previews)")
+                InfoRow("Muziekbron", "Spotify Web + converter")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }
         }

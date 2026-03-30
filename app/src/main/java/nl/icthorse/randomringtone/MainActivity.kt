@@ -44,8 +44,7 @@ fun RandomRingtoneApp() {
     val snackbarHostState = remember { SnackbarHostState() }
 
     val tabs = listOf(
-        Triple("search", "Deezer", Icons.Default.MusicNote),
-        Triple("spotify", "Spotify", Icons.Default.CloudDownload),
+        Triple("spotify", "Zoeken", Icons.Default.CloudDownload),
         Triple("library", "Bibliotheek", Icons.Default.LibraryMusic),
         Triple("playlists", "Playlists", Icons.Default.QueueMusic),
         Triple("overview", "Overzicht", Icons.Default.Dashboard),
@@ -75,7 +74,7 @@ fun RandomRingtoneApp() {
                             // Pop editor van back stack als die er op zit
                             navController.popBackStack("editor", inclusive = true)
                             navController.navigate(route) {
-                                popUpTo("search") { inclusive = false }
+                                popUpTo("spotify") { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
@@ -86,29 +85,11 @@ fun RandomRingtoneApp() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = "search",
+            startDestination = "spotify",
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            composable("search") {
-                PlaylistScreen(
-                    ringtoneManager = ringtoneManager,
-                    snackbarHostState = snackbarHostState,
-                    db = db,
-                    onOpenEditor = { track, file ->
-                        // Sla editor-params op in navigation args via route
-                        navController.currentBackStackEntry?.savedStateHandle?.apply {
-                            set("editorTrackTitle", track.titleShort.ifBlank { track.title })
-                            set("editorTrackArtist", track.artist.name)
-                            set("editorFilePath", file.absolutePath)
-                            set("editorTrackId", track.id)
-                            set("editorPreviewUrl", track.preview)
-                        }
-                        navController.navigate("editor")
-                    }
-                )
-            }
             composable("spotify") {
                 SpotifyScreen(
                     ringtoneManager = ringtoneManager,

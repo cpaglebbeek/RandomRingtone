@@ -42,13 +42,18 @@ class TrackResolver(
 
     /**
      * Zorg dat het audiobestand voor een SavedTrack beschikbaar is.
-     * Checkt localPath eerst, downloadt on-the-fly via Deezer preview indien nodig.
+     * Checkt localPath eerst. Als previewUrl beschikbaar is (Deezer),
+     * downloadt on-the-fly. Spotify tracks hebben geen previewUrl
+     * en zijn alleen beschikbaar als lokaal bestand.
      */
     suspend fun resolveTrackFile(track: SavedTrack): File? {
         val localPath = track.localPath
         if (localPath != null && File(localPath).exists()) {
             return File(localPath)
         }
+
+        // Alleen on-the-fly download als er een preview URL is (Deezer tracks)
+        if (track.previewUrl.isBlank()) return null
 
         return try {
             val deezerTrack = track.toDeezerTrack()

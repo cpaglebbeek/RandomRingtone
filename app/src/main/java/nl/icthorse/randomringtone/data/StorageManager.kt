@@ -7,8 +7,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.io.File
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "storage_settings")
@@ -28,6 +30,7 @@ class StorageManager(private val context: Context) {
         private val KEY_DOWNLOAD_PATH = stringPreferencesKey("download_path")
         private val KEY_RINGTONE_PATH = stringPreferencesKey("ringtone_path")
         private val KEY_SPOTIFY_CONVERTER = stringPreferencesKey("spotify_converter")
+        private val KEY_BACKUP_URI = stringPreferencesKey("backup_uri")
 
         // Standaard subfolders
         private const val DEFAULT_DOWNLOAD_SUBFOLDER = "downloads"
@@ -127,6 +130,20 @@ class StorageManager(private val context: Context) {
         }
     }
 
+    // --- Backup URI ---
+
+    suspend fun getBackupUri(): String? {
+        return context.settingsStore.data.map { prefs ->
+            prefs[KEY_BACKUP_URI]
+        }.first()
+    }
+
+    suspend fun setBackupUri(uri: String) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_BACKUP_URI] = uri
+        }
+    }
+
     // --- Bestandsbeheer ---
 
     /**
@@ -156,6 +173,41 @@ class StorageManager(private val context: Context) {
      */
     suspend fun clearRingtones() {
         getRingtoneDir().listFiles()?.forEach { it.delete() }
+    }
+
+    /**
+     * Kopieer alle bestanden van oldDir naar newDir.
+     * @return aantal gekopieerde bestanden
+     */
+    suspend fun copyFilesToNewDir(oldDir: File, newDir: File): Int = withContext(Dispatchers.IO) {
+        newDir.mkdirs()
+        var count = 0
+        oldDir.listFiles()?.filter { it.isFile }?.forEach { file ->
+            file.copyTo(File(newDir, file.name), overwrite = true)
+            count++
+        }
+        count
+    }
+
+    /**
+     * Verplaats alle bestanden van oldDir naar newDir.
+     * @return aantal verplaatste bestanden
+     */
+    suspend fun moveFilesToNewDir(oldDir: File, newDir: File): Int = withContext(Dispatchers.IO) {
+        newDir.mkdirs()
+        var count = 0
+        oldDir.listFiles()?.filter { it.isFile }?.forEach { file ->
+            val dest = File(newDir, file.name)
+            if (file.renameTo(dest)) {
+                count++
+            } else {
+                // Fallback: copy + delete (cross-filesystem move)
+                file.copyTo(dest, overwrite = true)
+                file.delete()
+                count++
+            }
+        }
+        count
     }
 
     /**

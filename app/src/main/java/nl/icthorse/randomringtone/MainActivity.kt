@@ -16,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import nl.icthorse.randomringtone.data.AppRingtoneManager
+import nl.icthorse.randomringtone.data.BackupManager
 import nl.icthorse.randomringtone.data.RingtoneDatabase
 import nl.icthorse.randomringtone.ui.screens.*
 import java.io.File
@@ -41,13 +42,28 @@ fun RandomRingtoneApp() {
     val context = LocalContext.current
     val ringtoneManager = remember { AppRingtoneManager(context) }
     val db = remember { RingtoneDatabase.getInstance(context) }
+    val backupManager = remember { BackupManager(context) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Auto-restore bij startup als DB leeg is + auto-backup bestaat
+    LaunchedEffect(Unit) {
+        val restored = backupManager.autoRestoreFromLocal(db, ringtoneManager.storage)
+        if (restored) {
+            snackbarHostState.showSnackbar("Data hersteld vanuit lokale backup")
+        }
+    }
+
+    // Auto-backup bij elke tab-wissel (debounced, lightweight)
+    LaunchedEffect(selectedTab) {
+        backupManager.autoBackupToLocal(db, ringtoneManager.storage)
+    }
 
     val tabs = listOf(
         Triple("spotify", "Zoeken", Icons.Default.CloudDownload),
         Triple("library", "Bibliotheek", Icons.Default.LibraryMusic),
         Triple("playlists", "Playlists", Icons.Default.QueueMusic),
         Triple("overview", "Overzicht", Icons.Default.Dashboard),
+        Triple("backup", "Backup", Icons.Default.Cloud),
         Triple("settings", "Instellingen", Icons.Default.Settings),
     )
 
@@ -154,6 +170,13 @@ fun RandomRingtoneApp() {
             }
             composable("overview") {
                 OverviewScreen(
+                    db = db,
+                    snackbarHostState = snackbarHostState
+                )
+            }
+            composable("backup") {
+                BackupScreen(
+                    ringtoneManager = ringtoneManager,
                     db = db,
                     snackbarHostState = snackbarHostState
                 )

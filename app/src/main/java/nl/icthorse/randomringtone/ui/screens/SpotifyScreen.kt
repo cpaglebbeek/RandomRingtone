@@ -66,6 +66,8 @@ fun SpotifyScreen(
     // Track detectie
     var detectedTrackUrl by remember { mutableStateOf<String?>(null) }
     var processedClipUrls by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var detectedTrackName by remember { mutableStateOf("") }
+    var detectedArtist by remember { mutableStateOf("") }
 
     // Converter dialoog
     var showConverter by remember { mutableStateOf(false) }
@@ -100,9 +102,18 @@ fun SpotifyScreen(
                             if (localUri != null) {
                                 val file = File(Uri.parse(localUri).path ?: return)
                                 scope.launch {
+                                    val destName = if (detectedTrackName.isNotBlank() && detectedArtist.isNotBlank()) {
+                                        val sanitized = "${detectedTrackName}-${detectedArtist}"
+                                            .replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+                                            .replace(Regex("_+"), "_")
+                                            .trim('_')
+                                        "spotify_mp3_${sanitized}.mp3"
+                                    } else {
+                                        "spotify_mp3_${System.currentTimeMillis()}.mp3"
+                                    }
                                     val destFile = File(
                                         ringtoneManager.storage.getDownloadDir(),
-                                        "spotify_${System.currentTimeMillis()}.mp3"
+                                        destName
                                     )
                                     file.copyTo(destFile, overwrite = true)
                                     lastDownloadedFile = destFile
@@ -235,6 +246,17 @@ fun SpotifyScreen(
             ExtendedFloatingActionButton(
                 onClick = {
                     val trackUrl = detectedTrackUrl ?: return@ExtendedFloatingActionButton
+                    // Extract track naam en artiest uit Spotify page title
+                    val pageTitle = spotifyWebView?.title ?: ""
+                    val titleMatch = Regex("^(.+?)\\s*[-–—]\\s*(?:song(?:\\s+and\\s+lyrics)?\\s+by\\s+)?(.+?)\\s*\\|\\s*Spotify")
+                        .find(pageTitle)
+                    if (titleMatch != null) {
+                        detectedTrackName = titleMatch.groupValues[1].trim()
+                        detectedArtist = titleMatch.groupValues[2].trim()
+                    } else {
+                        detectedTrackName = ""
+                        detectedArtist = ""
+                    }
                     // Markeer als verwerkt zodat FAB niet opnieuw verschijnt voor deze URL
                     processedClipUrls = processedClipUrls + trackUrl
                     // Kopieer Spotify URL naar clipboard

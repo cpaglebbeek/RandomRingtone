@@ -1,8 +1,14 @@
 package nl.icthorse.randomringtone.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -25,6 +31,7 @@ fun PlaylistManagerScreen(
     val context = LocalContext.current
     val contactsRepo = remember { ContactsRepository(context) }
 
+    val backupManager = remember { BackupManager(context) }
     val conflictResolver = remember { ConflictResolver(db) }
     var playlists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
     var trackCounts by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
@@ -41,6 +48,42 @@ fun PlaylistManagerScreen(
 
     LaunchedEffect(Unit) { refresh() }
 
+    // Export/Import state
+    var pendingExportPlaylist by remember { mutableStateOf<Playlist?>(null) }
+    var pendingExportJson by remember { mutableStateOf<String?>(null) }
+
+    // SAF export: maak bestand aan
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null && pendingExportJson != null) {
+            scope.launch {
+                val success = backupManager.writePlaylistExport(uri, pendingExportJson!!)
+                pendingExportJson = null
+                pendingExportPlaylist = null
+                snackbarHostState.showSnackbar(
+                    if (success) "Playlist geexporteerd" else "Export mislukt"
+                )
+            }
+        } else {
+            pendingExportJson = null
+            pendingExportPlaylist = null
+        }
+    }
+
+    // SAF import: kies bestand
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val result = backupManager.importPlaylist(uri, db)
+                refresh()
+                snackbarHostState.showSnackbar(result.message)
+            }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -48,10 +91,17 @@ fun PlaylistManagerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Playlists", style = MaterialTheme.typography.headlineMedium)
-            FilledTonalButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Nieuw")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
+                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Import")
+                }
+                FilledTonalButton(onClick = { showCreateDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Nieuw")
+                }
             }
         }
 
@@ -75,6 +125,19 @@ fun PlaylistManagerScreen(
                     PlaylistCard(
                         playlist = playlist,
                         trackCount = trackCounts[playlist.id] ?: 0,
+                        onExport = {
+                            scope.launch {
+                                val jsonContent = backupManager.exportPlaylist(playlist.id, db)
+                                if (jsonContent != null) {
+                                    pendingExportPlaylist = playlist
+                                    pendingExportJson = jsonContent
+                                    val safeName = playlist.name.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+                                    exportLauncher.launch("playlist_${safeName}.json")
+                                } else {
+                                    snackbarHostState.showSnackbar("Export mislukt")
+                                }
+                            }
+                        },
                         onToggleActive = {
                             scope.launch {
                                 val updated = playlist.copy(isActive = !playlist.isActive)
@@ -157,6 +220,7 @@ fun PlaylistManagerScreen(
 private fun PlaylistCard(
     playlist: Playlist,
     trackCount: Int,
+    onExport: () -> Unit,
     onToggleActive: () -> Unit,
     onEdit: () -> Unit,
     onAddTracks: () -> Unit,
@@ -226,6 +290,10 @@ private fun PlaylistCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Bewerk", style = MaterialTheme.typography.labelMedium)
                 }
+                OutlinedButton(onClick = onExport) {
+                    Icon(Icons.Default.FileUpload, contentDescription = null,
+                        modifier = Modifier.size(16.dp))
+                }
                 OutlinedButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = null,
                         modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
@@ -266,7 +334,9 @@ private fun PlaylistEditDialog(
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
             ) {
                 // Naam
                 OutlinedTextField(
@@ -288,6 +358,64 @@ private fun PlaylistEditDialog(
                     }
                 }
 
+                // Scope (vóór modus zodat het altijd zichtbaar is)
+                Text("Scope:", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = isGlobal, onClick = { isGlobal = true; selectedContact = null },
+                        label = { Text("Globaal") })
+                    FilterChip(selected = !isGlobal, onClick = { isGlobal = false },
+                        label = { Text("Per contact") })
+                }
+
+                if (!isGlobal) {
+                    // Zoekbaar contactveld
+                    OutlinedTextField(
+                        value = if (selectedContact != null) selectedContact!!.name else contactQuery,
+                        onValueChange = { contactQuery = it; selectedContact = null },
+                        label = { Text("Zoek contact") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                        trailingIcon = {
+                            if (contactQuery.isNotBlank() || selectedContact != null) {
+                                IconButton(onClick = { contactQuery = ""; selectedContact = null }) {
+                                    Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Contactenlijst (gefilterd)
+                    val filtered = contacts.filter {
+                        contactQuery.isBlank() || it.name.contains(contactQuery, ignoreCase = true)
+                    }.take(8)
+
+                    if (selectedContact == null && filtered.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                filtered.forEach { c ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { selectedContact = c; contactQuery = c.name }
+                                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Person, contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(c.name, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Modus
                 Text("Modus:", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -306,31 +434,6 @@ private fun PlaylistEditDialog(
                                 RadioButton(selected = schedule == s, onClick = { schedule = s })
                                 Text(s.displayLabel(), style = MaterialTheme.typography.bodyMedium)
                             }
-                        }
-                    }
-                }
-
-                // Scope
-                Text("Scope:", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = isGlobal, onClick = { isGlobal = true; selectedContact = null },
-                        label = { Text("Globaal") })
-                    FilterChip(selected = !isGlobal, onClick = { isGlobal = false },
-                        label = { Text("Per contact") })
-                }
-
-                if (!isGlobal) {
-                    OutlinedTextField(
-                        value = selectedContact?.name ?: contactQuery,
-                        onValueChange = { contactQuery = it; selectedContact = null; showContactList = true },
-                        label = { Text("Contact") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (showContactList && contactQuery.isNotBlank()) {
-                        contacts.filter { it.name.contains(contactQuery, ignoreCase = true) }.take(5).forEach { c ->
-                            TextButton(onClick = {
-                                selectedContact = c; contactQuery = c.name; showContactList = false
-                            }) { Text(c.name) }
                         }
                     }
                 }

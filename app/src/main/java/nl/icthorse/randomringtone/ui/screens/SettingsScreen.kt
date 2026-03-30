@@ -1,34 +1,35 @@
 package nl.icthorse.randomringtone.ui.screens
 
+import android.Manifest
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.Settings
 import android.text.TextUtils
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.AppRingtoneManager
 import nl.icthorse.randomringtone.data.SpotifyConverter
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -246,14 +247,43 @@ fun SettingsScreen(
         var downloadPath by remember { mutableStateOf("") }
         var ringtonePath by remember { mutableStateOf("") }
         var diskUsage by remember { mutableStateOf<nl.icthorse.randomringtone.data.DiskUsage?>(null) }
-        var editDownloadPath by remember { mutableStateOf(false) }
-        var editRingtonePath by remember { mutableStateOf(false) }
-        var tempPath by remember { mutableStateOf("") }
+
+        // SAF picker state
+        var pendingDownloadPath by remember { mutableStateOf<String?>(null) }
+        var pendingRingtonePath by remember { mutableStateOf<String?>(null) }
+        var isMovingFiles by remember { mutableStateOf(false) }
 
         LaunchedEffect(Unit) {
             downloadPath = ringtoneManager.storage.getDownloadDir().absolutePath
             ringtonePath = ringtoneManager.storage.getRingtoneDir().absolutePath
             diskUsage = ringtoneManager.storage.getDiskUsage()
+        }
+
+        // SAF directory pickers
+        val downloadDirPicker = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocumentTree()
+        ) { uri ->
+            if (uri != null) {
+                val path = safUriToFilePath(uri)
+                if (path != null && path != downloadPath) {
+                    pendingDownloadPath = path
+                } else if (path == null) {
+                    scope.launch { snackbarHostState.showSnackbar("Kies een lokale map (geen cloud)") }
+                }
+            }
+        }
+
+        val ringtoneDirPicker = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocumentTree()
+        ) { uri ->
+            if (uri != null) {
+                val path = safUriToFilePath(uri)
+                if (path != null && path != ringtonePath) {
+                    pendingRingtonePath = path
+                } else if (path == null) {
+                    scope.launch { snackbarHostState.showSnackbar("Kies een lokale map (geen cloud)") }
+                }
+            }
         }
 
         // Downloads locatie
@@ -273,10 +303,14 @@ fun SettingsScreen(
                     )
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = {
-                        tempPath = downloadPath
-                        editDownloadPath = true
-                    }) { Text("Wijzig") }
+                    TextButton(
+                        onClick = { downloadDirPicker.launch(null) },
+                        enabled = !isMovingFiles
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Wijzig")
+                    }
                     TextButton(onClick = {
                         scope.launch {
                             ringtoneManager.clearDownloads()
@@ -307,10 +341,14 @@ fun SettingsScreen(
                     )
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = {
-                        tempPath = ringtonePath
-                        editRingtonePath = true
-                    }) { Text("Wijzig") }
+                    TextButton(
+                        onClick = { ringtoneDirPicker.launch(null) },
+                        enabled = !isMovingFiles
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Wijzig")
+                    }
                     TextButton(onClick = {
                         scope.launch {
                             ringtoneManager.clearRingtones()
@@ -339,11 +377,82 @@ fun SettingsScreen(
                     ringtoneManager.storage.resetToDefaults()
                     downloadPath = ringtoneManager.storage.getDownloadDir().absolutePath
                     ringtonePath = ringtoneManager.storage.getRingtoneDir().absolutePath
+                    diskUsage = ringtoneManager.storage.getDiskUsage()
                     snackbarHostState.showSnackbar("Paden gereset naar standaard")
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Reset naar standaard locaties") }
+
+        // FileMoveDialog — Downloads
+        if (pendingDownloadPath != null) {
+            FileMoveDialog(
+                title = "Download locatie wijzigen",
+                oldPath = downloadPath,
+                newPath = pendingDownloadPath!!,
+                fileCount = diskUsage?.downloadCount ?: 0,
+                onDismiss = { pendingDownloadPath = null },
+                onAction = { action ->
+                    val newPath = pendingDownloadPath!!
+                    val oldDir = File(downloadPath)
+                    val newDir = File(newPath)
+                    pendingDownloadPath = null
+                    scope.launch {
+                        isMovingFiles = true
+                        when (action) {
+                            FileMoveAction.COPY -> {
+                                val count = ringtoneManager.storage.copyFilesToNewDir(oldDir, newDir)
+                                snackbarHostState.showSnackbar("$count bestanden gekopieerd")
+                            }
+                            FileMoveAction.MOVE -> {
+                                val count = ringtoneManager.storage.moveFilesToNewDir(oldDir, newDir)
+                                snackbarHostState.showSnackbar("$count bestanden verplaatst")
+                            }
+                            FileMoveAction.SKIP -> { /* alleen pad wijzigen */ }
+                        }
+                        ringtoneManager.storage.setDownloadDir(newPath)
+                        downloadPath = newPath
+                        diskUsage = ringtoneManager.storage.getDiskUsage()
+                        isMovingFiles = false
+                    }
+                }
+            )
+        }
+
+        // FileMoveDialog — Ringtones
+        if (pendingRingtonePath != null) {
+            FileMoveDialog(
+                title = "Ringtone locatie wijzigen",
+                oldPath = ringtonePath,
+                newPath = pendingRingtonePath!!,
+                fileCount = diskUsage?.ringtoneCount ?: 0,
+                onDismiss = { pendingRingtonePath = null },
+                onAction = { action ->
+                    val newPath = pendingRingtonePath!!
+                    val oldDir = File(ringtonePath)
+                    val newDir = File(newPath)
+                    pendingRingtonePath = null
+                    scope.launch {
+                        isMovingFiles = true
+                        when (action) {
+                            FileMoveAction.COPY -> {
+                                val count = ringtoneManager.storage.copyFilesToNewDir(oldDir, newDir)
+                                snackbarHostState.showSnackbar("$count bestanden gekopieerd")
+                            }
+                            FileMoveAction.MOVE -> {
+                                val count = ringtoneManager.storage.moveFilesToNewDir(oldDir, newDir)
+                                snackbarHostState.showSnackbar("$count bestanden verplaatst")
+                            }
+                            FileMoveAction.SKIP -> { /* alleen pad wijzigen */ }
+                        }
+                        ringtoneManager.storage.setRingtoneDir(newPath)
+                        ringtonePath = newPath
+                        diskUsage = ringtoneManager.storage.getDiskUsage()
+                        isMovingFiles = false
+                    }
+                }
+            )
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -435,45 +544,13 @@ fun SettingsScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 InfoRow("App", "RandomRingtone")
-                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Janis Joplin\"")
-                InfoRow("Release", "Bye_Bye_Baby (Build 19)")
+                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Prince\"")
+                InfoRow("Release", "Lets_Go_Crazy (Build 24)")
                 InfoRow("Muziekbron", "Spotify Web + converter")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }
         }
 
-        // Pad-bewerk dialogen
-        if (editDownloadPath) {
-            PathEditDialog(
-                title = "Download locatie",
-                currentPath = tempPath,
-                onDismiss = { editDownloadPath = false },
-                onSave = { newPath ->
-                    scope.launch {
-                        ringtoneManager.storage.setDownloadDir(newPath)
-                        downloadPath = newPath
-                        editDownloadPath = false
-                        snackbarHostState.showSnackbar("Download locatie bijgewerkt")
-                    }
-                }
-            )
-        }
-
-        if (editRingtonePath) {
-            PathEditDialog(
-                title = "Ringtone locatie",
-                currentPath = tempPath,
-                onDismiss = { editRingtonePath = false },
-                onSave = { newPath ->
-                    scope.launch {
-                        ringtoneManager.storage.setRingtoneDir(newPath)
-                        ringtonePath = newPath
-                        editRingtonePath = false
-                        snackbarHostState.showSnackbar("Ringtone locatie bijgewerkt")
-                    }
-                }
-            )
-        }
     }
 }
 
@@ -497,37 +574,79 @@ private fun InfoRow(label: String, value: String) {
     }
 }
 
-@Composable
-private fun PathEditDialog(
-    title: String,
-    currentPath: String,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit
-) {
-    var path by remember { mutableStateOf(currentPath) }
+private enum class FileMoveAction { COPY, MOVE, SKIP }
 
+@Composable
+private fun FileMoveDialog(
+    title: String,
+    oldPath: String,
+    newPath: String,
+    fileCount: Int,
+    onDismiss: () -> Unit,
+    onAction: (FileMoveAction) -> Unit
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.DriveFileMove, contentDescription = null) },
         title = { Text(title) },
         text = {
-            OutlinedTextField(
-                value = path,
-                onValueChange = { path = it },
-                label = { Text("Pad") },
-                singleLine = false,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Van:", style = MaterialTheme.typography.labelMedium)
+                Text(oldPath, style = MaterialTheme.typography.bodySmall)
+                Text("Naar:", style = MaterialTheme.typography.labelMedium)
+                Text(newPath, style = MaterialTheme.typography.bodySmall)
+                if (fileCount > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Er zijn $fileCount bestanden op de huidige locatie.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
         },
         confirmButton = {
-            Button(
-                onClick = { onSave(path.trim()) },
-                enabled = path.isNotBlank()
-            ) { Text("Opslaan") }
+            if (fileCount > 0) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Button(onClick = { onAction(FileMoveAction.MOVE) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.DriveFileMove, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Verplaatsen")
+                    }
+                    OutlinedButton(onClick = { onAction(FileMoveAction.COPY) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Kopieren")
+                    }
+                    TextButton(onClick = { onAction(FileMoveAction.SKIP) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Alleen pad wijzigen")
+                    }
+                }
+            } else {
+                Button(onClick = { onAction(FileMoveAction.SKIP) }) {
+                    Text("Pad wijzigen")
+                }
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Annuleren") }
         }
     )
+}
+
+/**
+ * Converteer SAF tree URI naar lokaal bestandspad.
+ * Werkt voor primaire externe opslag (bijv. /storage/emulated/0/...).
+ */
+private fun safUriToFilePath(uri: Uri): String? {
+    return try {
+        val docId = DocumentsContract.getTreeDocumentId(uri)
+        val parts = docId.split(":", limit = 2)
+        if (parts.size == 2 && parts[0] == "primary") {
+            "${Environment.getExternalStorageDirectory().absolutePath}/${parts[1]}"
+        } else null
+    } catch (_: Exception) {
+        null
+    }
 }
 
 private fun isNotificationListenerEnabled(context: android.content.Context): Boolean {

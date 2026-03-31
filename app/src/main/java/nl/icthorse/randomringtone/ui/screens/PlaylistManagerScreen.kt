@@ -1,8 +1,11 @@
 package nl.icthorse.randomringtone.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -321,11 +324,26 @@ private fun PlaylistEditDialog(
         if (existing?.contactUri != null) ContactInfo(existing.contactUri, existing.contactName ?: "") else null
     ) }
     var contactQuery by remember { mutableStateOf(existing?.contactName ?: "") }
-    var showContactList by remember { mutableStateOf(false) }
     var contacts by remember { mutableStateOf<List<ContactInfo>>(emptyList()) }
+    var contactsPermissionGranted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(
+            contactsRepo.context, Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED)
+    }
+
+    val contactsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        contactsPermissionGranted = granted
+        if (granted) {
+            try { contacts = contactsRepo.getContacts() } catch (_: Exception) {}
+        }
+    }
 
     LaunchedEffect(Unit) {
-        try { contacts = contactsRepo.getContacts() } catch (_: Exception) {}
+        if (contactsPermissionGranted) {
+            try { contacts = contactsRepo.getContacts() } catch (_: Exception) {}
+        }
     }
 
     AlertDialog(
@@ -367,7 +385,23 @@ private fun PlaylistEditDialog(
                         label = { Text("Per contact") })
                 }
 
-                if (!isGlobal) {
+                if (!isGlobal && !contactsPermissionGranted) {
+                    // Permissie nog niet verleend
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text("Contacten-permissie vereist", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            FilledTonalButton(onClick = {
+                                contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                            }) { Text("Permissie verlenen") }
+                        }
+                    }
+                }
+
+                if (!isGlobal && contactsPermissionGranted) {
                     // Zoekbaar contactveld
                     OutlinedTextField(
                         value = if (selectedContact != null) selectedContact!!.name else contactQuery,

@@ -14,7 +14,7 @@ data class ContactInfo(
 /**
  * Leest contacten en stelt per-contact ringtone in via ContactsContract.
  */
-class ContactsRepository(private val context: Context) {
+class ContactsRepository(val context: Context) {
 
     /**
      * Haal alle contacten op met een telefoonnummer.

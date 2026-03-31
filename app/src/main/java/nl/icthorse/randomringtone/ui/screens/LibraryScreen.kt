@@ -43,15 +43,17 @@ fun LibraryScreen(
 
     fun refresh() {
         scope.launch {
-            val dlDir = ringtoneManager.storage.getDownloadDir()
-            downloads = (dlDir.listFiles() ?: emptyArray())
-                .filter { it.extension == "mp3" }
-                .sortedByDescending { it.lastModified() }
-                .map { FileInfo(it, it.nameWithoutExtension, formatFileSize(it.length())) }
-
             val rtDir = ringtoneManager.storage.getRingtoneDir()
             ringtones = (rtDir.listFiles() ?: emptyArray())
                 .filter { it.extension == "mp3" || it.extension == "m4a" }
+                .sortedByDescending { it.lastModified() }
+                .map { FileInfo(it, it.nameWithoutExtension, formatFileSize(it.length())) }
+
+            // Downloads: filter bestanden die al in ringtones staan (zelfde naam)
+            val ringtoneNames = ringtones.map { it.file.name }.toSet()
+            val dlDir = ringtoneManager.storage.getDownloadDir()
+            downloads = (dlDir.listFiles() ?: emptyArray())
+                .filter { it.extension == "mp3" && it.name !in ringtoneNames }
                 .sortedByDescending { it.lastModified() }
                 .map { FileInfo(it, it.nameWithoutExtension, formatFileSize(it.length())) }
 

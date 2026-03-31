@@ -32,3 +32,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 25 | 0.7.4 | Prince | When_Doves_Cry | 2026-03-30 | Nee |
 | 26 | 0.7.5 | Prince | Little_Red_Corvette | 2026-03-30 | Nee |
 | 27 | 0.7.6 | Prince | Raspberry_Beret | 2026-03-30 | Nee |
+| 28 | 0.7.7 | Prince | Sign_O_The_Times | 2026-03-31 | Nee |

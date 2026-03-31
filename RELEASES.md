@@ -34,3 +34,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 27 | 0.7.6 | Prince | Raspberry_Beret | 2026-03-30 | Nee |
 | 28 | 0.7.7 | Prince | Sign_O_The_Times | 2026-03-31 | Nee |
 | 29 | 0.7.8 | Prince | I_Wanna_Be_Your_Lover | 2026-03-31 | Nee |
+| 30 | 0.7.9 | Prince | Cream | 2026-03-31 | Nee |

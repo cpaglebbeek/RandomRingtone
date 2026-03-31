@@ -26,3 +26,4 @@
 | 22 | Crash bij Playlists/Bibliotheek tab — Room DB schema mismatch na branch merge | Geel | 0.7.3 | 0.7.4 | FIXED |
 | 23 | Contact selectie werkt niet — READ_CONTACTS permissie niet gevraagd, getContacts() op main thread, geen feedback | Geel | 0.7.3 | 0.7.8 | FIXED |
 | 24 | Bibliotheek: Downloads en Ringtones tonen dezelfde bestanden | Groen | 0.7.5 | 0.7.7 | FIXED |
+| 25 | Contacten laden mislukt: LOOKUP_KEY ontbreekt in cursor projection | Groen | 0.7.8 | 0.7.9 | FIXED |

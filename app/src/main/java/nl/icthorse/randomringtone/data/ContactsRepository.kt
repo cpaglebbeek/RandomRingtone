@@ -25,7 +25,8 @@ class ContactsRepository(val context: Context) {
             ContactsContract.Contacts._ID,
             ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
             ContactsContract.Contacts.PHOTO_URI,
-            ContactsContract.Contacts.HAS_PHONE_NUMBER
+            ContactsContract.Contacts.HAS_PHONE_NUMBER,
+            ContactsContract.Contacts.LOOKUP_KEY
         )
 
         context.contentResolver.query(

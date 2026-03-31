@@ -314,7 +314,7 @@ fun EditorScreen(
                                 isPlaying = false
 
                                 // 1. Trim
-                                val trimDir = ringtoneManager.storage.getDownloadDir()
+                                val trimDir = ringtoneManager.storage.getRingtoneDir()
                                 val trimmedFile = File(trimDir, "${name.replace(Regex("[^a-zA-Z0-9_\\- ]"), "_")}.mp3")
                                 AudioTrimmer.trim(audioFile, trimmedFile, startMs, endMs)
 

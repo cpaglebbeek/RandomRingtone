@@ -27,3 +27,5 @@
 | 23 | Contact selectie werkt niet — READ_CONTACTS permissie niet gevraagd, getContacts() op main thread, geen feedback | Geel | 0.7.3 | 0.7.8 | FIXED |
 | 24 | Bibliotheek: Downloads en Ringtones tonen dezelfde bestanden | Groen | 0.7.5 | 0.7.7 | FIXED |
 | 25 | Contacten laden mislukt: LOOKUP_KEY ontbreekt in cursor projection | Groen | 0.7.8 | 0.7.9 | FIXED |
+| 26 | Getrimde ringtones verschijnen niet in Ringtones bibliotheek — opgeslagen in download dir i.p.v. ringtone dir | Groen | 0.7.9 | 0.7.10 | FIXED |
+| 27 | Playlists niet effectief — random rotatie werkt niet doordat bestanden in tijdelijke download dir staan | Groen | 0.7.9 | 0.7.10 | FIXED |

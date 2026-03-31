@@ -49,8 +49,8 @@ class StorageManager(private val context: Context) {
 
     private val defaultRingtoneDir: File
         get() = File(
-            Environment.getExternalStorageDirectory(),
-            DEFAULT_RINGTONE_SUBFOLDER
+            context.getExternalFilesDir(Environment.DIRECTORY_MUSIC),
+            "RandomRingtone/Ringtones"
         ).apply { mkdirs() }
 
     // --- Huidige paden ophalen ---

@@ -37,3 +37,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 30 | 0.7.9 | Prince | Cream | 2026-03-31 | Nee |
 | 31 | 0.7.10 | Prince | Diamonds_And_Pearls | 2026-03-31 | Nee |
 | 32 | 0.7.11 | Prince | Controversy | 2026-03-31 | Nee |
+| 33 | 0.7.12 | Prince | Pop_Life | 2026-04-01 | Nee |

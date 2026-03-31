@@ -30,3 +30,4 @@
 | 26 | Getrimde ringtones verschijnen niet in Ringtones bibliotheek — opgeslagen in download dir i.p.v. ringtone dir | Groen | 0.7.9 | 0.7.10 | FIXED |
 | 27 | Playlists niet effectief — random rotatie werkt niet doordat bestanden in tijdelijke download dir staan | Groen | 0.7.9 | 0.7.10 | FIXED |
 | 28 | Spotify WebView: "werkt niet als je beveiligde inhoud blokkeert" — DRM/EME niet ingeschakeld | Groen | 0.7.10 | 0.7.11 | FIXED |
+| 29 | Bibliotheek scan toont geen bestanden — File.listFiles() faalt op shared external storage (scoped storage) | Groen | 0.7.11 | 0.7.12 | FIXED |

@@ -36,3 +36,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 29 | 0.7.8 | Prince | I_Wanna_Be_Your_Lover | 2026-03-31 | Nee |
 | 30 | 0.7.9 | Prince | Cream | 2026-03-31 | Nee |
 | 31 | 0.7.10 | Prince | Diamonds_And_Pearls | 2026-03-31 | Nee |
+| 32 | 0.7.11 | Prince | Controversy | 2026-03-31 | Nee |

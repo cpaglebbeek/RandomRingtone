@@ -553,6 +553,7 @@ private fun CreateWebView(
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
                 settings.setSupportMultipleWindows(false)
+                settings.mediaPlaybackRequiresUserGesture = false
 
                 // Chrome Mobile UA voor alle WebViews — voorkomt blokkades
                 settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
@@ -584,7 +585,11 @@ private fun CreateWebView(
                     }
                 }
 
-                webChromeClient = WebChromeClient()
+                webChromeClient = object : WebChromeClient() {
+                    override fun onPermissionRequest(request: android.webkit.PermissionRequest) {
+                        request.grant(request.resources)
+                    }
+                }
 
                 if (onDownloadStart != null) {
                     setDownloadListener { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->

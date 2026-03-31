@@ -325,25 +325,42 @@ private fun PlaylistEditDialog(
     ) }
     var contactQuery by remember { mutableStateOf(existing?.contactName ?: "") }
     var contacts by remember { mutableStateOf<List<ContactInfo>>(emptyList()) }
+    var contactsLoading by remember { mutableStateOf(false) }
+    var contactsError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     var contactsPermissionGranted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(
             contactsRepo.context, Manifest.permission.READ_CONTACTS
         ) == PackageManager.PERMISSION_GRANTED)
     }
 
+    fun loadContacts() {
+        contactsLoading = true
+        contactsError = null
+        scope.launch {
+            try {
+                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    contactsRepo.getContacts()
+                }
+                contacts = result
+                contactsError = if (result.isEmpty()) "Geen contacten gevonden" else null
+            } catch (e: Exception) {
+                contactsError = "Contacten laden mislukt: ${e.message}"
+            } finally {
+                contactsLoading = false
+            }
+        }
+    }
+
     val contactsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         contactsPermissionGranted = granted
-        if (granted) {
-            try { contacts = contactsRepo.getContacts() } catch (_: Exception) {}
-        }
+        if (granted) loadContacts()
     }
 
     LaunchedEffect(Unit) {
-        if (contactsPermissionGranted) {
-            try { contacts = contactsRepo.getContacts() } catch (_: Exception) {}
-        }
+        if (contactsPermissionGranted) loadContacts()
     }
 
     AlertDialog(
@@ -402,47 +419,71 @@ private fun PlaylistEditDialog(
                 }
 
                 if (!isGlobal && contactsPermissionGranted) {
-                    // Zoekbaar contactveld
-                    OutlinedTextField(
-                        value = if (selectedContact != null) selectedContact!!.name else contactQuery,
-                        onValueChange = { contactQuery = it; selectedContact = null },
-                        label = { Text("Zoek contact") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                        trailingIcon = {
-                            if (contactQuery.isNotBlank() || selectedContact != null) {
-                                IconButton(onClick = { contactQuery = ""; selectedContact = null }) {
-                                    Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(20.dp))
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Contactenlijst (gefilterd)
-                    val filtered = contacts.filter {
-                        contactQuery.isBlank() || it.name.contains(contactQuery, ignoreCase = true)
-                    }.take(8)
-
-                    if (selectedContact == null && filtered.isNotEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    // Loading indicator
+                    if (contactsLoading) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                filtered.forEach { c ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { selectedContact = c; contactQuery = c.name }
-                                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Default.Person, contentDescription = null,
-                                            modifier = Modifier.size(20.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Text(c.name, style = MaterialTheme.typography.bodyMedium)
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Contacten laden...", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+
+                    // Error feedback
+                    if (contactsError != null && !contactsLoading) {
+                        Text(
+                            text = contactsError!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    // Zoekbaar contactveld
+                    if (contacts.isNotEmpty()) {
+                        OutlinedTextField(
+                            value = if (selectedContact != null) selectedContact!!.name else contactQuery,
+                            onValueChange = { contactQuery = it; selectedContact = null },
+                            label = { Text("Zoek contact (${contacts.size} contacten)") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                            trailingIcon = {
+                                if (contactQuery.isNotBlank() || selectedContact != null) {
+                                    IconButton(onClick = { contactQuery = ""; selectedContact = null }) {
+                                        Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Contactenlijst (gefilterd)
+                        val filtered = contacts.filter {
+                            contactQuery.isBlank() || it.name.contains(contactQuery, ignoreCase = true)
+                        }.take(10)
+
+                        if (selectedContact == null && filtered.isNotEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    filtered.forEach { c ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { selectedContact = c; contactQuery = c.name }
+                                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Person, contentDescription = null,
+                                                modifier = Modifier.size(20.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Text(c.name, style = MaterialTheme.typography.bodyMedium)
+                                        }
                                     }
                                 }
                             }

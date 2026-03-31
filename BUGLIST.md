@@ -24,5 +24,5 @@
 | 20 | Scope (Globaal/Per contact) niet zichtbaar bij Random modus — dialoog niet scrollbaar | Groen | 0.7.0 | 0.7.1 | FIXED |
 | 21 | Contact selectie: tekstveld i.p.v. zoekbare lijst met contacten | Groen | 0.1.0 | 0.7.1 | FIXED |
 | 22 | Crash bij Playlists/Bibliotheek tab — Room DB schema mismatch na branch merge | Geel | 0.7.3 | 0.7.4 | FIXED |
-| 23 | Contact selectie werkt niet — READ_CONTACTS permissie niet gevraagd | Groen | 0.7.3 | 0.7.7 | FIXED |
+| 23 | Contact selectie werkt niet — READ_CONTACTS permissie niet gevraagd, getContacts() op main thread, geen feedback | Geel | 0.7.3 | 0.7.8 | FIXED |
 | 24 | Bibliotheek: Downloads en Ringtones tonen dezelfde bestanden | Groen | 0.7.5 | 0.7.7 | FIXED |

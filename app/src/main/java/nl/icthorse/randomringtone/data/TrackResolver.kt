@@ -139,24 +139,39 @@ class TrackResolver(
         db.playlistDao().update(playlist.copy(lastPlayedTrackId = trackId))
     }
 
+    data class ApplyResult(val success: Boolean, val error: String? = null)
+
     /**
      * Pas de ringtone direct toe voor een CALL playlist.
      * Per-contact: ContactsContract.CUSTOM_RINGTONE
      * Globaal: system default ringtone
+     * Retourneert ApplyResult met foutmelding bij falen.
      */
-    suspend fun applyCallPlaylist(playlist: Playlist): Boolean {
-        if (playlist.channel != Channel.CALL) return false
-        val result = resolveForPlaylist(playlist) ?: return false
+    suspend fun applyCallPlaylist(playlist: Playlist): ApplyResult {
+        if (playlist.channel != Channel.CALL) return ApplyResult(false, "Geen CALL playlist")
+
+        val tracks = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
+        if (tracks.isEmpty()) return ApplyResult(false, "Playlist heeft geen tracks (voeg eerst nummers toe)")
+
+        val result = resolveForPlaylist(playlist)
+        if (result == null) return ApplyResult(false, "Geen track beschikbaar (bestand niet gevonden op schijf of in MediaStore)")
+
         val (file, track) = result
+        if (!file.exists()) return ApplyResult(false, "Bestand bestaat niet: ${file.absolutePath}")
+
         val deezerTrack = track.toDeezerTrack()
 
         return if (playlist.contactUri != null) {
             val uri = ringtoneManager.addToMediaStorePublic(deezerTrack, file)
-            if (uri != null && context != null) {
-                ContactsRepository(context).setContactRingtone(playlist.contactUri, uri)
-            } else false
+            if (uri == null) return ApplyResult(false, "MediaStore registratie mislukt voor ${file.name}")
+            if (context == null) return ApplyResult(false, "Geen context beschikbaar")
+            val set = ContactsRepository(context).setContactRingtone(playlist.contactUri, uri)
+            if (set) ApplyResult(true)
+            else ApplyResult(false, "ContactsContract update mislukt voor ${playlist.contactName} (uri=${playlist.contactUri})")
         } else {
-            ringtoneManager.setAsRingtone(deezerTrack, file)
+            val set = ringtoneManager.setAsRingtone(deezerTrack, file)
+            if (set) ApplyResult(true)
+            else ApplyResult(false, "Systeem ringtone instellen mislukt (WRITE_SETTINGS permissie?)")
         }
     }
 }

@@ -151,10 +151,10 @@ fun PlaylistManagerScreen(
                                     // Direct ringtone instellen voor CALL playlists
                                     if (updated.channel == Channel.CALL) {
                                         val resolver = TrackResolver(db, AppRingtoneManager(context), context)
-                                        val applied = resolver.applyCallPlaylist(updated)
+                                        val result = resolver.applyCallPlaylist(updated)
                                         val target = if (updated.contactUri != null) updated.contactName ?: "contact" else "globaal"
-                                        if (applied) snackbarHostState.showSnackbar("Ringtone ingesteld voor $target")
-                                        else snackbarHostState.showSnackbar("Ringtone instellen mislukt voor $target")
+                                        if (result.success) snackbarHostState.showSnackbar("Ringtone ingesteld voor $target")
+                                        else snackbarHostState.showSnackbar("Mislukt ($target): ${result.error}", duration = SnackbarDuration.Long)
                                     }
                                     // Schedule workers
                                     nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
@@ -200,7 +200,10 @@ fun PlaylistManagerScreen(
                             val saved = db.playlistDao().getById(id)
                             if (saved != null) {
                                 val resolver = TrackResolver(db, AppRingtoneManager(context), context)
-                                resolver.applyCallPlaylist(saved)
+                                val result = resolver.applyCallPlaylist(saved)
+                                if (!result.success) {
+                                    snackbarHostState.showSnackbar("Ringtone: ${result.error}", duration = SnackbarDuration.Long)
+                                }
                             }
                         }
                     }

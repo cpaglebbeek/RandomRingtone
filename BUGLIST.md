@@ -46,3 +46,4 @@
 | 42 | MediaStore fallback vindt niets — READ_MEDIA_AUDIO permissie niet op runtime aangevraagd (Android 13+ vereist dit) | Rood | 0.7.22 | 0.7.23 | FIXED |
 | 43 | AddTracksDialog toont alle mediabestanden — geen filter op bestaande lokale bestanden, MediaStore scan voegt te veel toe | Groen | 0.7.23 | 0.7.24 | FIXED |
 | 44 | Per-contact ringtone werkt niet — resolveTrackFile() faalt op scoped storage + ringtone niet gezet bij activering | Geel | 0.7.24 | 0.7.25 | FIXED |
+| 45 | applyCallPlaylist mislukt zonder diagnostiek — geen zicht op welke stap faalt (tracks, file, MediaStore, ContactsContract) | Oranje | 0.7.25 | 0.7.26 | FIXED |

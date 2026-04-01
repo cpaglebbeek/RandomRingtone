@@ -57,3 +57,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 50 | 0.7.29 | Prince | Condition_Of_The_Heart | 2026-04-01 | Nee |
 | 51 | 0.7.30 | Prince | Erotic_City | 2026-04-01 | Nee |
 | 52 | 0.7.31 | Prince | Dirty_Mind | 2026-04-01 | Nee |
+| 53 | 0.7.32 | Prince | Uptown | 2026-04-01 | Nee |

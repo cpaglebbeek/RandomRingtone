@@ -49,8 +49,10 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // Single point of truth: één lijst uit DB
-    var libraryItems by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
+    // Single point of truth: DB-gedreven, gesplitst op bestandsnaam
+    var downloads by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
+    var ringtones by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     // Scan state
     var isScanning by remember { mutableStateOf(false) }
@@ -74,14 +76,13 @@ fun LibraryScreen(
     // Delete dialoog state
     var showDeleteDialog by remember { mutableStateOf<LibraryItem?>(null) }
 
-    // === SINGLE POINT OF TRUTH: refresh uit DB ===
+    // === SINGLE POINT OF TRUTH: refresh uit DB, split op bestandsnaam ===
     fun refresh() {
         scope.launch {
-            libraryItems = db.savedTrackDao().getAll()
+            val allItems = db.savedTrackDao().getAll()
                 .filter { track ->
                     val path = track.localPath
                     if (path == null || path.isBlank()) return@filter false
-                    // Single Point of Truth: alleen app-eigen bestanden
                     val name = File(path).name.lowercase()
                     path.contains("RandomRingtone", ignoreCase = true) ||
                         name.startsWith("spotify_mp3_") ||
@@ -100,6 +101,10 @@ fun LibraryScreen(
                         isScanned = true
                     )
                 }
+
+            // Split op bestandsnaam: ringtone_* = ringtone, rest = download
+            ringtones = allItems.filter { it.file.name.lowercase().startsWith("ringtone_") }
+            downloads = allItems.filter { !it.file.name.lowercase().startsWith("ringtone_") }
         }
     }
 
@@ -248,10 +253,10 @@ fun LibraryScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         // Header + Scan knop
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Bibliotheek (${libraryItems.size})",
+            Text("Bibliotheek",
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.weight(1f))
             FilledTonalButton(
@@ -269,23 +274,34 @@ fun LibraryScreen(
             }
         }
 
-        // Unified track list — single point of truth
-        if (libraryItems.isEmpty()) {
-            EmptyState(
-                icon = Icons.Default.LibraryMusic,
-                title = "Bibliotheek is leeg",
-                subtitle = "Download nummers via Spotify en druk op Scan"
-            )
+        // Tabs: Downloads / Ringtones
+        TabRow(selectedTabIndex = selectedTab) {
+            Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
+                text = { Text("Downloads (${downloads.size})") },
+                icon = { Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp)) })
+            Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
+                text = { Text("Ringtones (${ringtones.size})") },
+                icon = { Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp)) })
+        }
+
+        val items = if (selectedTab == 0) downloads else ringtones
+        val emptyIcon = if (selectedTab == 0) Icons.Default.Download else Icons.Default.MusicNote
+        val emptyTitle = if (selectedTab == 0) "Geen downloads" else "Geen ringtones"
+        val emptySubtitle = if (selectedTab == 0) "Download nummers via Spotify en druk op Scan" else "Trim een download via de editor"
+
+        if (items.isEmpty()) {
+            EmptyState(icon = emptyIcon, title = emptyTitle, subtitle = emptySubtitle)
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                items(libraryItems, key = { it.trackId }) { item ->
+                items(items, key = { it.trackId }) { item ->
                     LibraryCard(
                         item = item,
                         actions = {
-                            if (onOpenEditor != null) {
+                            if (onOpenEditor != null && selectedTab == 0) {
+                                // Trim knop alleen bij downloads
                                 IconButton(onClick = {
                                     onOpenEditor.invoke(item.title, item.artist, item.file, item.trackId, "")
                                 }) {

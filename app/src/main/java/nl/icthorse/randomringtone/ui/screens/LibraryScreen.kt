@@ -133,9 +133,16 @@ fun LibraryScreen(
                             scope.launch {
                                 val existing = db.savedTrackDao().getById(item.trackId)
                                 if (existing != null) db.savedTrackDao().delete(existing)
-                                item.file.delete()
+                                val deleted = item.file.delete()
                                 refresh()
-                                snackbarHostState.showSnackbar("Permanent verwijderd: ${item.title}")
+                                if (deleted) {
+                                    snackbarHostState.showSnackbar("Permanent verwijderd: ${item.title}")
+                                } else {
+                                    snackbarHostState.showSnackbar(
+                                        "Uit bibliotheek verwijderd, maar bestand kon niet van schijf gewist worden: ${item.file.absolutePath}",
+                                        duration = SnackbarDuration.Long
+                                    )
+                                }
                             }
                             showDeleteDialog = null
                         },
@@ -174,14 +181,32 @@ fun LibraryScreen(
                     isScanning = true
                     scope.launch {
                         try {
-                            val scanned = ringtoneManager.storage.scanExistingFiles()
+                            val result = ringtoneManager.storage.scanExistingFiles()
+                            val scanned = result.files
+
+                            // Diagnostiek bij lege scan
                             if (scanned.isEmpty()) {
-                                snackbarHostState.showSnackbar("Geen bestanden gevonden op schijf")
+                                val diag = buildString {
+                                    append("Geen audiobestanden gevonden.\n")
+                                    append("Downloads: ${result.downloadDir}")
+                                    if (!result.downloadDirExists) append(" (map bestaat niet!)")
+                                    else if (result.downloadDirCount == -1) append(" (geen toegang!)")
+                                    else append(" (${result.downloadDirCount} bestanden)")
+                                    append("\nRingtones: ${result.ringtoneDir}")
+                                    if (!result.ringtoneDirExists) append(" (map bestaat niet!)")
+                                    else if (result.ringtoneDirCount == -1) append(" (geen toegang!)")
+                                    else append(" (${result.ringtoneDirCount} bestanden)")
+                                }
+                                snackbarHostState.showSnackbar(
+                                    message = diag,
+                                    duration = SnackbarDuration.Long
+                                )
                             } else {
                                 var added = 0
                                 for (sf in scanned) {
-                                    val existing = db.savedTrackDao().getById(sf.trackId)
-                                    if (existing == null) {
+                                    // Check op trackId OF localPath
+                                    val byId = db.savedTrackDao().getById(sf.trackId)
+                                    if (byId == null) {
                                         db.savedTrackDao().insert(
                                             SavedTrack(
                                                 deezerTrackId = sf.trackId,
@@ -193,12 +218,14 @@ fun LibraryScreen(
                                             )
                                         )
                                         added++
-                                    } else if (existing.localPath != null && !java.io.File(existing.localPath).exists()) {
-                                        db.savedTrackDao().insert(existing.copy(localPath = sf.localPath))
+                                    } else if (byId.localPath != null && !java.io.File(byId.localPath).exists()) {
+                                        db.savedTrackDao().insert(byId.copy(localPath = sf.localPath))
                                         added++
                                     }
                                 }
-                                snackbarHostState.showSnackbar("$added van ${scanned.size} bestanden toegevoegd")
+                                val msg = "$added nieuw van ${scanned.size} bestanden " +
+                                    "(${result.downloadDirCount} downloads, ${result.ringtoneDirCount} ringtones op schijf)"
+                                snackbarHostState.showSnackbar(msg)
                             }
                             refresh()
                         } catch (e: Exception) {

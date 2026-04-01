@@ -39,3 +39,4 @@
 | 35 | SpotMate kan ander nummer downloaden dan Spotify toont — geen bevestiging van track metadata vóór download | Groen | 0.7.14 | 0.7.15 | FIXED |
 | 36 | Bibliotheek toont niet alle gescande bestanden — Library disk-only, scan DB-only, geen brug ertussen | Geel | 0.7.15 | 0.7.16 | FIXED |
 | 37 | Delete in bibliotheek wist fysiek bestand — geen keuze "uit bibliotheek" vs "van schijf", scan vindt niets meer na delete | Rood | 0.7.16 | 0.7.17 | FIXED |
+| 38 | Scan "geen bestanden gevonden" zonder diagnostiek — file.delete() faalt stilletjes, geen zicht op gescande directories | Rood | 0.7.18 | 0.7.19 | FIXED |

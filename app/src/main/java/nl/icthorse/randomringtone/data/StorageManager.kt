@@ -232,31 +232,65 @@ class StorageManager(private val context: Context) {
      * spotify_mp3_<track>-<artiest>.mp3
      * @return lijst van SavedTrack objecten
      */
-    suspend fun scanExistingFiles(): List<ScannedFile> = withContext(Dispatchers.IO) {
+    data class ScanResult(
+        val files: List<ScannedFile>,
+        val ringtoneDir: String,
+        val downloadDir: String,
+        val ringtoneDirExists: Boolean,
+        val downloadDirExists: Boolean,
+        val ringtoneDirCount: Int,
+        val downloadDirCount: Int
+    )
+
+    suspend fun scanExistingFiles(): ScanResult = withContext(Dispatchers.IO) {
         val results = mutableListOf<ScannedFile>()
         val seen = mutableSetOf<Long>()
 
         val audioExtensions = setOf("mp3", "m4a")
 
+        val rtDir = getRingtoneDir()
+        val dlDir = getDownloadDir()
+        val rtExists = rtDir.exists() && rtDir.isDirectory
+        val dlExists = dlDir.exists() && dlDir.isDirectory
+
+        var rtCount = 0
+        var dlCount = 0
+
         // Scan ringtones map
-        getRingtoneDir().listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExtensions }?.forEach { file ->
-            val parsed = parseFileName(file)
-            if (parsed != null && parsed.trackId !in seen) {
-                seen.add(parsed.trackId)
-                results.add(parsed.copy(localPath = file.absolutePath, source = "ringtone"))
+        if (rtExists) {
+            val rtFiles = rtDir.listFiles()
+            rtCount = rtFiles?.size ?: -1 // -1 = listFiles() returned null
+            rtFiles?.filter { it.isFile && it.extension.lowercase() in audioExtensions }?.forEach { file ->
+                val parsed = parseFileName(file)
+                if (parsed != null && parsed.trackId !in seen) {
+                    seen.add(parsed.trackId)
+                    results.add(parsed.copy(localPath = file.absolutePath, source = "ringtone"))
+                }
             }
         }
 
         // Scan downloads map
-        getDownloadDir().listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExtensions }?.forEach { file ->
-            val parsed = parseFileName(file)
-            if (parsed != null && parsed.trackId !in seen) {
-                seen.add(parsed.trackId)
-                results.add(parsed.copy(localPath = file.absolutePath, source = "download"))
+        if (dlExists) {
+            val dlFiles = dlDir.listFiles()
+            dlCount = dlFiles?.size ?: -1
+            dlFiles?.filter { it.isFile && it.extension.lowercase() in audioExtensions }?.forEach { file ->
+                val parsed = parseFileName(file)
+                if (parsed != null && parsed.trackId !in seen) {
+                    seen.add(parsed.trackId)
+                    results.add(parsed.copy(localPath = file.absolutePath, source = "download"))
+                }
             }
         }
 
-        results
+        ScanResult(
+            files = results,
+            ringtoneDir = rtDir.absolutePath,
+            downloadDir = dlDir.absolutePath,
+            ringtoneDirExists = rtExists,
+            downloadDirExists = dlExists,
+            ringtoneDirCount = rtCount,
+            downloadDirCount = dlCount
+        )
     }
 
     private fun parseFileName(file: File): ScannedFile? {

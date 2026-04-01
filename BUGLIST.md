@@ -31,3 +31,7 @@
 | 27 | Playlists niet effectief — random rotatie werkt niet doordat bestanden in tijdelijke download dir staan | Groen | 0.7.9 | 0.7.10 | FIXED |
 | 28 | Spotify WebView: "werkt niet als je beveiligde inhoud blokkeert" — DRM/EME niet ingeschakeld | Groen | 0.7.10 | 0.7.11 | FIXED |
 | 29 | Bibliotheek scan toont geen bestanden — File.listFiles() faalt op shared external storage (scoped storage) | Groen | 0.7.11 | 0.7.12 | FIXED |
+| 30 | Scan mist .m4a bestanden — extensiefilter alleen .mp3, LibraryScreen toont ook .m4a | Groen | 0.7.12 | 0.7.13 | FIXED |
+| 31 | Verwijderde bestanden niet her-importeerbaar bij rescan — orphan DB entry blokkeert import | Groen | 0.7.12 | 0.7.13 | FIXED |
+| 32 | Library delete ruimt DB entry niet op — alleen fysiek bestand verwijderd, saved_tracks orphan blijft | Groen | 0.7.12 | 0.7.13 | FIXED |
+| 33 | extractTrackId() hash inconsistentie — kan negatieve ID genereren, parseFileName() altijd positief | Groen | 0.7.12 | 0.7.13 | FIXED |

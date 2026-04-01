@@ -236,8 +236,10 @@ class StorageManager(private val context: Context) {
         val results = mutableListOf<ScannedFile>()
         val seen = mutableSetOf<Long>()
 
+        val audioExtensions = setOf("mp3", "m4a")
+
         // Scan ringtones map
-        getRingtoneDir().listFiles()?.filter { it.isFile && it.name.endsWith(".mp3") }?.forEach { file ->
+        getRingtoneDir().listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExtensions }?.forEach { file ->
             val parsed = parseFileName(file)
             if (parsed != null && parsed.trackId !in seen) {
                 seen.add(parsed.trackId)
@@ -246,7 +248,7 @@ class StorageManager(private val context: Context) {
         }
 
         // Scan downloads map
-        getDownloadDir().listFiles()?.filter { it.isFile && it.name.endsWith(".mp3") }?.forEach { file ->
+        getDownloadDir().listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExtensions }?.forEach { file ->
             val parsed = parseFileName(file)
             if (parsed != null && parsed.trackId !in seen) {
                 seen.add(parsed.trackId)

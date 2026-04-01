@@ -419,6 +419,12 @@ fun SettingsScreen(
                                             )
                                         )
                                         added++
+                                    } else if (existing.localPath != null && !java.io.File(existing.localPath).exists()) {
+                                        // Orphan: DB entry bestaat maar bestand is verwijderd — update met nieuw pad
+                                        db.savedTrackDao().insert(
+                                            existing.copy(localPath = sf.localPath)
+                                        )
+                                        added++
                                     }
                                 }
                                 scanResult = "$added van ${scanned.size} bestanden toegevoegd"

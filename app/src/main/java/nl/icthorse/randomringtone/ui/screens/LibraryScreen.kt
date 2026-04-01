@@ -100,6 +100,9 @@ fun LibraryScreen(
                 },
                 onDelete = { fileInfo ->
                     scope.launch {
+                        val trackId = extractTrackId(fileInfo.file.name)
+                        val existing = db.savedTrackDao().getById(trackId)
+                        if (existing != null) db.savedTrackDao().delete(existing)
                         fileInfo.file.delete()
                         refresh()
                         snackbarHostState.showSnackbar("Verwijderd: ${fileInfo.name}")
@@ -264,6 +267,9 @@ private fun RingtonesTab(
                         // Verwijderen
                         IconButton(onClick = {
                             scope.launch {
+                                val trackId = extractTrackId(fileInfo.file.name)
+                                val existing = db.savedTrackDao().getById(trackId)
+                                if (existing != null) db.savedTrackDao().delete(existing)
                                 fileInfo.file.delete()
                                 onRefresh()
                                 snackbarHostState.showSnackbar("Verwijderd: ${fileInfo.name}")
@@ -535,7 +541,8 @@ private suspend fun saveGlobalAssignment(db: RingtoneDatabase, fileInfo: FileInf
 private fun extractTrackId(fileName: String): Long {
     // Probeer track ID uit bestandsnaam te halen: download_12345.mp3 of ringtone_12345.mp3
     val match = Regex("(?:download|ringtone|lib)_(\\d+)").find(fileName)
-    return match?.groupValues?.get(1)?.toLongOrNull() ?: fileName.hashCode().toLong()
+    if (match != null) return match.groupValues[1].toLongOrNull() ?: fileName.hashCode().toLong().let { if (it < 0) -it else it }
+    return fileName.hashCode().toLong().let { if (it < 0) -it else it }
 }
 
 private fun formatFileSize(bytes: Long): String = when {

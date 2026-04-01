@@ -40,3 +40,4 @@
 | 36 | Bibliotheek toont niet alle gescande bestanden — Library disk-only, scan DB-only, geen brug ertussen | Geel | 0.7.15 | 0.7.16 | FIXED |
 | 37 | Delete in bibliotheek wist fysiek bestand — geen keuze "uit bibliotheek" vs "van schijf", scan vindt niets meer na delete | Rood | 0.7.16 | 0.7.17 | FIXED |
 | 38 | Scan "geen bestanden gevonden" zonder diagnostiek — file.delete() faalt stilletjes, geen zicht op gescande directories | Rood | 0.7.18 | 0.7.19 | FIXED |
+| 39 | Scan diagnostiek snackbar te kort om te lezen — vervangen door dialoog met volledige pad + status info | Rood | 0.7.19 | 0.7.20 | FIXED |

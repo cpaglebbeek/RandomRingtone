@@ -45,3 +45,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 38 | 0.7.17 | Prince | Gett_Off | 2026-04-01 | Nee |
 | 39 | 0.7.18 | Prince | Gold | 2026-04-01 | Nee |
 | 40 | 0.7.19 | Prince | 7 | 2026-04-01 | Nee |
+| 41 | 0.7.20 | Prince | Musicology | 2026-04-01 | Nee |

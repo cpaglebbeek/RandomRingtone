@@ -49,6 +49,7 @@ fun LibraryScreen(
 
     // Scan state
     var isScanning by remember { mutableStateOf(false) }
+    var scanDiagnostic by remember { mutableStateOf<String?>(null) }
 
     // Delete dialoog state
     var showDeleteDialog by remember { mutableStateOf<LibraryItem?>(null) }
@@ -163,6 +164,24 @@ fun LibraryScreen(
         )
     }
 
+    // === SCAN DIAGNOSTIEK DIALOOG ===
+    scanDiagnostic?.let { diag ->
+        AlertDialog(
+            onDismissRequest = { scanDiagnostic = null },
+            title = { Text("Scan resultaat") },
+            text = {
+                Text(
+                    diag,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { scanDiagnostic = null }) { Text("OK") }
+            }
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Header + Scan knop
         Row(
@@ -184,27 +203,25 @@ fun LibraryScreen(
                             val result = ringtoneManager.storage.scanExistingFiles()
                             val scanned = result.files
 
-                            // Diagnostiek bij lege scan
                             if (scanned.isEmpty()) {
-                                val diag = buildString {
-                                    append("Geen audiobestanden gevonden.\n")
-                                    append("Downloads: ${result.downloadDir}")
-                                    if (!result.downloadDirExists) append(" (map bestaat niet!)")
-                                    else if (result.downloadDirCount == -1) append(" (geen toegang!)")
-                                    else append(" (${result.downloadDirCount} bestanden)")
-                                    append("\nRingtones: ${result.ringtoneDir}")
-                                    if (!result.ringtoneDirExists) append(" (map bestaat niet!)")
-                                    else if (result.ringtoneDirCount == -1) append(" (geen toegang!)")
-                                    else append(" (${result.ringtoneDirCount} bestanden)")
+                                // Toon diagnostiek dialoog
+                                scanDiagnostic = buildString {
+                                    appendLine("Geen audiobestanden (.mp3/.m4a) gevonden.\n")
+                                    appendLine("Download map:")
+                                    appendLine(result.downloadDir)
+                                    if (!result.downloadDirExists) appendLine("  → Map bestaat niet!")
+                                    else if (result.downloadDirCount == -1) appendLine("  → Geen leestoegang (listFiles=null)")
+                                    else appendLine("  → ${result.downloadDirCount} bestanden in map")
+                                    appendLine()
+                                    appendLine("Ringtone map:")
+                                    appendLine(result.ringtoneDir)
+                                    if (!result.ringtoneDirExists) appendLine("  → Map bestaat niet!")
+                                    else if (result.ringtoneDirCount == -1) appendLine("  → Geen leestoegang (listFiles=null)")
+                                    else appendLine("  → ${result.ringtoneDirCount} bestanden in map")
                                 }
-                                snackbarHostState.showSnackbar(
-                                    message = diag,
-                                    duration = SnackbarDuration.Long
-                                )
                             } else {
                                 var added = 0
                                 for (sf in scanned) {
-                                    // Check op trackId OF localPath
                                     val byId = db.savedTrackDao().getById(sf.trackId)
                                     if (byId == null) {
                                         db.savedTrackDao().insert(
@@ -223,13 +240,14 @@ fun LibraryScreen(
                                         added++
                                     }
                                 }
-                                val msg = "$added nieuw van ${scanned.size} bestanden " +
-                                    "(${result.downloadDirCount} downloads, ${result.ringtoneDirCount} ringtones op schijf)"
-                                snackbarHostState.showSnackbar(msg)
+                                snackbarHostState.showSnackbar(
+                                    "$added nieuw van ${scanned.size} bestanden " +
+                                    "(${result.downloadDirCount} in downloads, ${result.ringtoneDirCount} in ringtones)"
+                                )
                             }
                             refresh()
                         } catch (e: Exception) {
-                            snackbarHostState.showSnackbar("Scan mislukt: ${e.message}")
+                            scanDiagnostic = "Scan mislukt:\n${e.message}\n\n${e.stackTraceToString().take(500)}"
                         } finally {
                             isScanning = false
                         }

@@ -43,3 +43,4 @@
 | 39 | Scan diagnostiek snackbar te kort om te lezen — vervangen door dialoog met volledige pad + status info | Rood | 0.7.19 | 0.7.20 | FIXED |
 | 40 | Scan vindt geen bestanden — scant alleen app-dirs, niet systeem Downloads waar DownloadManager bestanden neerzet | Rood | 0.7.20 | 0.7.21 | FIXED |
 | 41 | Scan vindt geen bestanden op scoped storage — File.listFiles() faalt op publieke shared storage Android 11+, MediaStore fallback nodig | Rood | 0.7.21 | 0.7.22 | FIXED |
+| 42 | MediaStore fallback vindt niets — READ_MEDIA_AUDIO permissie niet op runtime aangevraagd (Android 13+ vereist dit) | Rood | 0.7.22 | 0.7.23 | FIXED |

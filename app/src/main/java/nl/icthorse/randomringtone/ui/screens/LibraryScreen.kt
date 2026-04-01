@@ -1,7 +1,12 @@
 package nl.icthorse.randomringtone.ui.screens
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
 import java.io.File
@@ -50,6 +56,24 @@ fun LibraryScreen(
     // Scan state
     var isScanning by remember { mutableStateOf(false) }
     var scanDiagnostic by remember { mutableStateOf<String?>(null) }
+    var pendingScan by remember { mutableStateOf(false) }
+
+    // Permissie check voor MediaStore scan
+    val hasAudioPermission = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true // Niet nodig op < Android 13
+        }
+    }
+    var audioPermissionGranted by remember { mutableStateOf(hasAudioPermission) }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        audioPermissionGranted = granted
+        if (granted) pendingScan = true // Start scan na permissie
+    }
 
     // Delete dialoog state
     var showDeleteDialog by remember { mutableStateOf<LibraryItem?>(null) }
@@ -96,6 +120,92 @@ fun LibraryScreen(
                     isScanned = track != null
                 )
             }
+        }
+    }
+
+    // Scan uitvoeren (als functie zodat we het vanuit meerdere plekken kunnen aanroepen)
+    fun doScan() {
+        isScanning = true
+        scope.launch {
+            try {
+                val result = ringtoneManager.storage.scanExistingFiles()
+                val scanned = result.files
+
+                if (scanned.isEmpty()) {
+                    fun formatDirInfo(label: String, info: nl.icthorse.randomringtone.data.StorageManager.DirInfo): String = buildString {
+                        appendLine("$label:")
+                        appendLine(info.path)
+                        if (!info.exists) appendLine("  → MAP BESTAAT NIET!")
+                        else if (info.totalCount == -1) appendLine("  → GEEN LEESTOEGANG (listFiles=null)")
+                        else {
+                            appendLine("  → ${info.totalCount} bestanden totaal, ${info.audioCount} audio")
+                            if (info.fileNames.isNotEmpty()) {
+                                appendLine("  Bestanden:")
+                                info.fileNames.forEach { appendLine("    · $it") }
+                            }
+                        }
+                    }
+                    scanDiagnostic = buildString {
+                        appendLine("Geen audiobestanden gevonden.\n")
+                        appendLine(formatDirInfo("APP DOWNLOADS", result.downloadInfo))
+                        appendLine(formatDirInfo("APP RINGTONES", result.ringtoneInfo))
+                        appendLine(formatDirInfo("SYSTEEM DOWNLOADS", result.systemDownloadInfo))
+                        if (result.usedMediaStore) {
+                            appendLine("\nMEDIASTORE FALLBACK:")
+                            if (result.mediaStoreCount > 0) {
+                                appendLine("  → ${result.mediaStoreCount} bestanden gevonden via MediaStore!")
+                            } else {
+                                appendLine("  → Geen bestanden gevonden via MediaStore.")
+                                val permStatus = if (audioPermissionGranted) "TOEGEKEND" else "NIET TOEGEKEND"
+                                appendLine("  → READ_MEDIA_AUDIO: $permStatus")
+                                appendLine("\n  File.listFiles() en MediaStore vinden niets.")
+                                appendLine("  Controleer of READ_MEDIA_AUDIO permissie")
+                                appendLine("  is toegekend in app-instellingen.")
+                            }
+                        }
+                    }
+                } else {
+                    var added = 0
+                    for (sf in scanned) {
+                        val byId = db.savedTrackDao().getById(sf.trackId)
+                        if (byId == null) {
+                            db.savedTrackDao().insert(
+                                SavedTrack(
+                                    deezerTrackId = sf.trackId,
+                                    title = sf.title,
+                                    artist = sf.artist,
+                                    previewUrl = "",
+                                    localPath = sf.localPath,
+                                    playlistName = sf.playlistName ?: "Gescand"
+                                )
+                            )
+                            added++
+                        } else if (byId.localPath != null && !java.io.File(byId.localPath).exists()) {
+                            db.savedTrackDao().insert(byId.copy(localPath = sf.localPath))
+                            added++
+                        }
+                    }
+                    val msCount = scanned.count { it.source == "mediastore" }
+                    val msg = buildString {
+                        append("$added nieuw van ${scanned.size} bestanden")
+                        if (msCount > 0) append(" ($msCount via MediaStore)")
+                    }
+                    snackbarHostState.showSnackbar(msg)
+                }
+                refresh()
+            } catch (e: Exception) {
+                scanDiagnostic = "Scan mislukt:\n${e.message}\n\n${e.stackTraceToString().take(500)}"
+            } finally {
+                isScanning = false
+            }
+        }
+    }
+
+    // Trigger scan na permissie toekenning
+    LaunchedEffect(pendingScan) {
+        if (pendingScan) {
+            pendingScan = false
+            doScan()
         }
     }
 
@@ -197,81 +307,11 @@ fun LibraryScreen(
             )
             FilledTonalButton(
                 onClick = {
-                    isScanning = true
-                    scope.launch {
-                        try {
-                            val result = ringtoneManager.storage.scanExistingFiles()
-                            val scanned = result.files
-
-                            if (scanned.isEmpty()) {
-                                fun formatDirInfo(label: String, info: nl.icthorse.randomringtone.data.StorageManager.DirInfo): String = buildString {
-                                    appendLine("$label:")
-                                    appendLine(info.path)
-                                    if (!info.exists) appendLine("  → MAP BESTAAT NIET!")
-                                    else if (info.totalCount == -1) appendLine("  → GEEN LEESTOEGANG (listFiles=null)")
-                                    else {
-                                        appendLine("  → ${info.totalCount} bestanden totaal, ${info.audioCount} audio")
-                                        if (info.fileNames.isNotEmpty()) {
-                                            appendLine("  Bestanden:")
-                                            info.fileNames.forEach { appendLine("    · $it") }
-                                        }
-                                    }
-                                }
-                                scanDiagnostic = buildString {
-                                    appendLine("Geen audiobestanden gevonden.\n")
-                                    appendLine(formatDirInfo("APP DOWNLOADS", result.downloadInfo))
-                                    appendLine(formatDirInfo("APP RINGTONES", result.ringtoneInfo))
-                                    appendLine(formatDirInfo("SYSTEEM DOWNLOADS", result.systemDownloadInfo))
-                                    if (result.usedMediaStore) {
-                                        appendLine("\nMEDIASTORE FALLBACK:")
-                                        if (result.mediaStoreCount > 0) {
-                                            appendLine("  → ${result.mediaStoreCount} bestanden gevonden via MediaStore!")
-                                        } else {
-                                            appendLine("  → Geen bestanden gevonden via MediaStore.")
-                                            appendLine("\n  File.listFiles() faalt door Android scoped storage.")
-                                            appendLine("  MediaStore vindt ook niets.")
-                                            appendLine("\n  Tip: download opnieuw via Spotify tab,")
-                                            appendLine("  of verplaats bestanden naar app-opslag")
-                                            appendLine("  via Instellingen → Opslag locaties.")
-                                        }
-                                    }
-                                }
-                            } else {
-                                var added = 0
-                                for (sf in scanned) {
-                                    val byId = db.savedTrackDao().getById(sf.trackId)
-                                    if (byId == null) {
-                                        db.savedTrackDao().insert(
-                                            SavedTrack(
-                                                deezerTrackId = sf.trackId,
-                                                title = sf.title,
-                                                artist = sf.artist,
-                                                previewUrl = "",
-                                                localPath = sf.localPath,
-                                                playlistName = sf.playlistName ?: "Gescand"
-                                            )
-                                        )
-                                        added++
-                                    } else if (byId.localPath != null && !java.io.File(byId.localPath).exists()) {
-                                        db.savedTrackDao().insert(byId.copy(localPath = sf.localPath))
-                                        added++
-                                    }
-                                }
-                                val msCount = scanned.count { it.source == "mediastore" }
-                                val sysCount = scanned.count { it.source == "system_download" }
-                                val msg = buildString {
-                                    append("$added nieuw van ${scanned.size} bestanden")
-                                    if (msCount > 0) append(" ($msCount via MediaStore)")
-                                    else if (sysCount > 0) append(" ($sysCount uit systeem Downloads)")
-                                }
-                                snackbarHostState.showSnackbar(msg)
-                            }
-                            refresh()
-                        } catch (e: Exception) {
-                            scanDiagnostic = "Scan mislukt:\n${e.message}\n\n${e.stackTraceToString().take(500)}"
-                        } finally {
-                            isScanning = false
-                        }
+                    // Vraag READ_MEDIA_AUDIO permissie als nog niet toegekend (Android 13+)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !audioPermissionGranted) {
+                        audioPermissionLauncher.launch(Manifest.permission.READ_MEDIA_AUDIO)
+                    } else {
+                        doScan()
                     }
                 },
                 enabled = !isScanning

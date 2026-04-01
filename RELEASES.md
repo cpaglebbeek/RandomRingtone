@@ -48,3 +48,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 41 | 0.7.20 | Prince | Musicology | 2026-04-01 | Nee |
 | 42 | 0.7.21 | Prince | The_Most_Beautiful_Girl_In_The_World | 2026-04-01 | Nee |
 | 43 | 0.7.22 | Prince | Batdance | 2026-04-01 | Nee |
+| 44 | 0.7.23 | Prince | Raspberry_Beret_Remix | 2026-04-01 | Nee |

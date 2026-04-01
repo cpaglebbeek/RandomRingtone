@@ -42,6 +42,26 @@ fun PlaylistManagerScreen(
     var editPlaylist by remember { mutableStateOf<Playlist?>(null) }
     var showAddTracksFor by remember { mutableStateOf<Playlist?>(null) }
 
+    // WRITE_CONTACTS permissie voor per-contact ringtone
+    var pendingActivatePlaylist by remember { mutableStateOf<Playlist?>(null) }
+    val writeContactsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val playlist = pendingActivatePlaylist
+        pendingActivatePlaylist = null
+        if (granted && playlist != null) {
+            scope.launch {
+                val resolver = TrackResolver(db, AppRingtoneManager(context), context)
+                val result = resolver.applyCallPlaylist(playlist)
+                val target = playlist.contactName ?: "contact"
+                if (result.success) snackbarHostState.showSnackbar("Ringtone ingesteld voor $target")
+                else snackbarHostState.showSnackbar("Mislukt ($target): ${result.error}", duration = SnackbarDuration.Long)
+            }
+        } else if (!granted) {
+            scope.launch { snackbarHostState.showSnackbar("WRITE_CONTACTS permissie geweigerd") }
+        }
+    }
+
     fun refresh() {
         scope.launch {
             playlists = db.playlistDao().getAll()
@@ -150,11 +170,26 @@ fun PlaylistManagerScreen(
                                     conflictResolver.enforceOneActivePerChannelScope(updated.id)
                                     // Direct ringtone instellen voor CALL playlists
                                     if (updated.channel == Channel.CALL) {
-                                        val resolver = TrackResolver(db, AppRingtoneManager(context), context)
-                                        val result = resolver.applyCallPlaylist(updated)
-                                        val target = if (updated.contactUri != null) updated.contactName ?: "contact" else "globaal"
-                                        if (result.success) snackbarHostState.showSnackbar("Ringtone ingesteld voor $target")
-                                        else snackbarHostState.showSnackbar("Mislukt ($target): ${result.error}", duration = SnackbarDuration.Long)
+                                        if (updated.contactUri != null) {
+                                            // Per-contact: check WRITE_CONTACTS permissie
+                                            val hasWrite = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED
+                                            if (!hasWrite) {
+                                                pendingActivatePlaylist = updated
+                                                writeContactsLauncher.launch(Manifest.permission.WRITE_CONTACTS)
+                                            } else {
+                                                val resolver = TrackResolver(db, AppRingtoneManager(context), context)
+                                                val result = resolver.applyCallPlaylist(updated)
+                                                val target = updated.contactName ?: "contact"
+                                                if (result.success) snackbarHostState.showSnackbar("Ringtone ingesteld voor $target")
+                                                else snackbarHostState.showSnackbar("Mislukt ($target): ${result.error}", duration = SnackbarDuration.Long)
+                                            }
+                                        } else {
+                                            // Globaal: geen extra permissie nodig
+                                            val resolver = TrackResolver(db, AppRingtoneManager(context), context)
+                                            val result = resolver.applyCallPlaylist(updated)
+                                            if (result.success) snackbarHostState.showSnackbar("Ringtone ingesteld (globaal)")
+                                            else snackbarHostState.showSnackbar("Mislukt (globaal): ${result.error}", duration = SnackbarDuration.Long)
+                                        }
                                     }
                                     // Schedule workers
                                     nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
@@ -185,8 +220,12 @@ fun PlaylistManagerScreen(
             contactsRepo = contactsRepo,
             onDismiss = { showCreateDialog = false; editPlaylist = null },
             onSave = { playlist ->
+                val wasEdit = editPlaylist != null
+                // Sluit dialoog direct
+                showCreateDialog = false
+                editPlaylist = null
                 scope.launch {
-                    val id = if (editPlaylist != null) {
+                    val id = if (wasEdit) {
                         db.playlistDao().update(playlist)
                         playlist.id
                     } else {
@@ -209,9 +248,6 @@ fun PlaylistManagerScreen(
                     }
                     // Schedule workers
                     nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
-                    val wasEdit = editPlaylist != null
-                    showCreateDialog = false
-                    editPlaylist = null
                     refresh()
                     snackbarHostState.showSnackbar(
                         if (wasEdit) "Playlist bijgewerkt" else "Playlist '${playlist.name}' aangemaakt"
@@ -569,9 +605,9 @@ private fun AddTracksDialog(
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(playlist.id) {
-        // Filter: alleen tracks met bestaand lokaal bestand
+        // Toon alleen tracks die in de bibliotheek staan (hebben localPath)
         allRingtones = db.savedTrackDao().getAll().filter { track ->
-            track.localPath != null && java.io.File(track.localPath).exists()
+            track.localPath != null && track.localPath.isNotBlank()
         }
         val current = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
         currentTrackIds = current.map { it.deezerTrackId }.toSet()

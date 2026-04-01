@@ -162,9 +162,15 @@ class TrackResolver(
         val deezerTrack = track.toDeezerTrack()
 
         return if (playlist.contactUri != null) {
+            if (context == null) return ApplyResult(false, "Geen context beschikbaar")
+            // Check WRITE_CONTACTS permissie
+            val hasWriteContacts = androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.WRITE_CONTACTS
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!hasWriteContacts) return ApplyResult(false, "WRITE_CONTACTS permissie niet toegekend — ga naar app-instellingen")
+
             val uri = ringtoneManager.addToMediaStorePublic(deezerTrack, file)
             if (uri == null) return ApplyResult(false, "MediaStore registratie mislukt voor ${file.name}")
-            if (context == null) return ApplyResult(false, "Geen context beschikbaar")
             val set = ContactsRepository(context).setContactRingtone(playlist.contactUri, uri)
             if (set) ApplyResult(true)
             else ApplyResult(false, "ContactsContract update mislukt voor ${playlist.contactName} (uri=${playlist.contactUri})")

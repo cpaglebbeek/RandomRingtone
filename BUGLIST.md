@@ -48,3 +48,7 @@
 | 44 | Per-contact ringtone werkt niet — resolveTrackFile() faalt op scoped storage + ringtone niet gezet bij activering | Geel | 0.7.24 | 0.7.25 | FIXED |
 | 45 | applyCallPlaylist mislukt zonder diagnostiek — geen zicht op welke stap faalt (tracks, file, MediaStore, ContactsContract) | Oranje | 0.7.25 | 0.7.26 | FIXED |
 | 46 | Verwijderd item uit bibliotheek verdwijnt niet — Library toonde disk-bestanden ongeacht DB status, na DB-delete verscheen item weer | Geel | 0.7.26 | 0.7.27 | FIXED |
+| 47 | Playlist opslaan dialoog sluit niet — wachtte op DB operaties + snackbar vóór dialog close | Groen | 0.7.27 | 0.7.28 | FIXED |
+| 48 | AddTracksDialog toont alle media — File.exists() check faalt op scoped storage, nu filter op non-blank localPath | Oranje | 0.7.27 | 0.7.28 | FIXED |
+| 49 | Scan vindt ringtones niet — MediaStore query miste pad-patronen (RandomRingtone/_RandomRingtone) | Oranje | 0.7.27 | 0.7.28 | FIXED |
+| 50 | Per-contact ringtone ContactsContract mislukt — WRITE_CONTACTS niet op runtime aangevraagd | Oranje | 0.7.27 | 0.7.28 | FIXED |

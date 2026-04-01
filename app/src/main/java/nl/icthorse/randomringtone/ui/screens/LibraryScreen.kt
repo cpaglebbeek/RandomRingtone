@@ -27,7 +27,7 @@ import java.io.File
 private val AUDIO_EXTENSIONS = setOf("mp3", "m4a")
 
 /**
- * Bibliotheek item: combineert schijfbestand met optionele DB metadata.
+ * Bibliotheek item — single point of truth: altijd uit saved_tracks DB.
  */
 data class LibraryItem(
     val file: File,
@@ -49,9 +49,8 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    var downloads by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
-    var ringtones by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
-    var selectedTab by remember { mutableIntStateOf(0) }
+    // Single point of truth: één lijst uit DB
+    var libraryItems by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
 
     // Scan state
     var isScanning by remember { mutableStateOf(false) }
@@ -62,59 +61,39 @@ fun LibraryScreen(
     val hasAudioPermission = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true // Niet nodig op < Android 13
-        }
+        } else true
     }
     var audioPermissionGranted by remember { mutableStateOf(hasAudioPermission) }
-
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         audioPermissionGranted = granted
-        if (granted) pendingScan = true // Start scan na permissie
+        if (granted) pendingScan = true
     }
 
     // Delete dialoog state
     var showDeleteDialog by remember { mutableStateOf<LibraryItem?>(null) }
 
+    // === SINGLE POINT OF TRUTH: refresh uit DB ===
     fun refresh() {
         scope.launch {
-            // Volledig DB-gedreven: alleen tracks met DB entry tonen
-            val allTracks = db.savedTrackDao().getAll()
-
-            val rtDirPath = ringtoneManager.storage.getRingtoneDir().absolutePath
-            val dlDirPath = ringtoneManager.storage.getDownloadDir().absolutePath
-
-            // Splits op basis van localPath directory
-            val rtTracks = mutableListOf<LibraryItem>()
-            val dlTracks = mutableListOf<LibraryItem>()
-
-            for (track in allTracks) {
-                val path = track.localPath ?: continue
-                val file = File(path)
-                val item = LibraryItem(
-                    file = file,
-                    trackId = track.deezerTrackId,
-                    title = track.title.ifBlank { file.nameWithoutExtension },
-                    artist = track.artist,
-                    sizeFormatted = if (file.exists()) formatFileSize(file.length()) else "niet op schijf",
-                    isScanned = true
-                )
-
-                when {
-                    path.startsWith(rtDirPath) -> rtTracks.add(item)
-                    path.startsWith(dlDirPath) -> dlTracks.add(item)
-                    else -> dlTracks.add(item) // overige (systeem downloads, MediaStore) bij downloads
+            libraryItems = db.savedTrackDao().getAll()
+                .filter { it.localPath != null && it.localPath.isNotBlank() }
+                .map { track ->
+                    val file = File(track.localPath!!)
+                    LibraryItem(
+                        file = file,
+                        trackId = track.deezerTrackId,
+                        title = track.title.ifBlank { file.nameWithoutExtension },
+                        artist = track.artist,
+                        sizeFormatted = if (file.exists()) formatFileSize(file.length()) else "niet op schijf",
+                        isScanned = true
+                    )
                 }
-            }
-
-            ringtones = rtTracks
-            downloads = dlTracks
         }
     }
 
-    // Scan uitvoeren (als functie zodat we het vanuit meerdere plekken kunnen aanroepen)
+    // === SCAN ===
     fun doScan() {
         isScanning = true
         scope.launch {
@@ -123,13 +102,13 @@ fun LibraryScreen(
                 val scanned = result.files
 
                 if (scanned.isEmpty()) {
-                    fun formatDirInfo(label: String, info: nl.icthorse.randomringtone.data.StorageManager.DirInfo): String = buildString {
+                    fun fmtDir(label: String, info: StorageManager.DirInfo) = buildString {
                         appendLine("$label:")
                         appendLine(info.path)
                         if (!info.exists) appendLine("  → MAP BESTAAT NIET!")
-                        else if (info.totalCount == -1) appendLine("  → GEEN LEESTOEGANG (listFiles=null)")
+                        else if (info.totalCount == -1) appendLine("  → GEEN LEESTOEGANG")
                         else {
-                            appendLine("  → ${info.totalCount} bestanden totaal, ${info.audioCount} audio")
+                            appendLine("  → ${info.totalCount} totaal, ${info.audioCount} audio")
                             if (info.fileNames.isNotEmpty()) {
                                 appendLine("  Bestanden:")
                                 info.fileNames.forEach { appendLine("    · $it") }
@@ -138,20 +117,16 @@ fun LibraryScreen(
                     }
                     scanDiagnostic = buildString {
                         appendLine("Geen audiobestanden gevonden.\n")
-                        appendLine(formatDirInfo("APP DOWNLOADS", result.downloadInfo))
-                        appendLine(formatDirInfo("APP RINGTONES", result.ringtoneInfo))
-                        appendLine(formatDirInfo("SYSTEEM DOWNLOADS", result.systemDownloadInfo))
+                        appendLine(fmtDir("APP DOWNLOADS", result.downloadInfo))
+                        appendLine(fmtDir("APP RINGTONES", result.ringtoneInfo))
+                        appendLine(fmtDir("SYSTEEM DOWNLOADS", result.systemDownloadInfo))
                         if (result.usedMediaStore) {
                             appendLine("\nMEDIASTORE FALLBACK:")
-                            if (result.mediaStoreCount > 0) {
-                                appendLine("  → ${result.mediaStoreCount} bestanden gevonden via MediaStore!")
-                            } else {
-                                appendLine("  → Geen bestanden gevonden via MediaStore.")
-                                val permStatus = if (audioPermissionGranted) "TOEGEKEND" else "NIET TOEGEKEND"
-                                appendLine("  → READ_MEDIA_AUDIO: $permStatus")
-                                appendLine("\n  File.listFiles() en MediaStore vinden niets.")
-                                appendLine("  Controleer of READ_MEDIA_AUDIO permissie")
-                                appendLine("  is toegekend in app-instellingen.")
+                            if (result.mediaStoreCount > 0)
+                                appendLine("  → ${result.mediaStoreCount} gevonden via MediaStore!")
+                            else {
+                                val perm = if (audioPermissionGranted) "TOEGEKEND" else "NIET TOEGEKEND"
+                                appendLine("  → Niets gevonden. READ_MEDIA_AUDIO: $perm")
                             }
                         }
                     }
@@ -171,7 +146,7 @@ fun LibraryScreen(
                                 )
                             )
                             added++
-                        } else if (byId.localPath != null && !java.io.File(byId.localPath).exists()) {
+                        } else if (byId.localPath != null && !File(byId.localPath).exists()) {
                             db.savedTrackDao().insert(byId.copy(localPath = sf.localPath))
                             added++
                         }
@@ -192,14 +167,9 @@ fun LibraryScreen(
         }
     }
 
-    // Trigger scan na permissie toekenning
     LaunchedEffect(pendingScan) {
-        if (pendingScan) {
-            pendingScan = false
-            doScan()
-        }
+        if (pendingScan) { pendingScan = false; doScan() }
     }
-
     LaunchedEffect(Unit) { refresh() }
 
     // === DELETE DIALOOG ===
@@ -207,12 +177,9 @@ fun LibraryScreen(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             title = { Text("Verwijderen: ${item.title}") },
-            text = {
-                Text("Wat wil je verwijderen?", style = MaterialTheme.typography.bodyMedium)
-            },
+            text = { Text("Wat wil je verwijderen?") },
             confirmButton = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Optie 1: alleen uit bibliotheek (DB entry)
                     OutlinedButton(
                         onClick = {
                             scope.launch {
@@ -229,7 +196,6 @@ fun LibraryScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Uit bibliotheek verwijderen")
                     }
-                    // Optie 2: van schijf (permanent)
                     Button(
                         onClick = {
                             scope.launch {
@@ -237,21 +203,13 @@ fun LibraryScreen(
                                 if (existing != null) db.savedTrackDao().delete(existing)
                                 val deleted = item.file.delete()
                                 refresh()
-                                if (deleted) {
-                                    snackbarHostState.showSnackbar("Permanent verwijderd: ${item.title}")
-                                } else {
-                                    snackbarHostState.showSnackbar(
-                                        "Uit bibliotheek verwijderd, maar bestand kon niet van schijf gewist worden: ${item.file.absolutePath}",
-                                        duration = SnackbarDuration.Long
-                                    )
-                                }
+                                if (deleted) snackbarHostState.showSnackbar("Permanent verwijderd: ${item.title}")
+                                else snackbarHostState.showSnackbar("Uit bibliotheek verwijderd, bestand niet van schijf gewist", duration = SnackbarDuration.Long)
                             }
                             showDeleteDialog = null
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
-                        )
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
                         Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -259,9 +217,7 @@ fun LibraryScreen(
                     }
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = null }) { Text("Annuleren") }
-            }
+            dismissButton = { TextButton(onClick = { showDeleteDialog = null }) { Text("Annuleren") } }
         )
     }
 
@@ -271,338 +227,78 @@ fun LibraryScreen(
             onDismissRequest = { scanDiagnostic = null },
             title = { Text("Scan resultaat") },
             text = {
-                Text(
-                    diag,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                )
+                Text(diag, style = MaterialTheme.typography.bodySmall,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
             },
-            confirmButton = {
-                TextButton(onClick = { scanDiagnostic = null }) { Text("OK") }
-            }
+            confirmButton = { TextButton(onClick = { scanDiagnostic = null }) { Text("OK") } }
         )
     }
 
+    // === UI ===
     Column(modifier = Modifier.fillMaxSize()) {
         // Header + Scan knop
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp, 16.dp, 16.dp, 0.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Bibliotheek",
+            Text("Bibliotheek (${libraryItems.size})",
                 style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.weight(1f)
-            )
+                modifier = Modifier.weight(1f))
             FilledTonalButton(
                 onClick = {
-                    // Vraag READ_MEDIA_AUDIO permissie als nog niet toegekend (Android 13+)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !audioPermissionGranted) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !audioPermissionGranted)
                         audioPermissionLauncher.launch(Manifest.permission.READ_MEDIA_AUDIO)
-                    } else {
-                        doScan()
-                    }
+                    else doScan()
                 },
                 enabled = !isScanning
             ) {
-                if (isScanning) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
-                }
+                if (isScanning) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                else Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("Scan")
             }
         }
 
-        // Sub-tabs
-        TabRow(selectedTabIndex = selectedTab) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                text = { Text("Downloads (${downloads.size})") },
-                icon = { Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp)) }
+        // Unified track list — single point of truth
+        if (libraryItems.isEmpty()) {
+            EmptyState(
+                icon = Icons.Default.LibraryMusic,
+                title = "Bibliotheek is leeg",
+                subtitle = "Download nummers via Spotify en druk op Scan"
             )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = { Text("Ringtones (${ringtones.size})") },
-                icon = { Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp)) }
-            )
-        }
-
-        when (selectedTab) {
-            0 -> DownloadsTab(
-                downloads = downloads,
-                onTrim = { item ->
-                    onOpenEditor?.invoke(
-                        item.title, item.artist, item.file, item.trackId, ""
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(libraryItems, key = { it.trackId }) { item ->
+                    LibraryCard(
+                        item = item,
+                        actions = {
+                            if (onOpenEditor != null) {
+                                IconButton(onClick = {
+                                    onOpenEditor.invoke(item.title, item.artist, item.file, item.trackId, "")
+                                }) {
+                                    Icon(Icons.Default.ContentCut, contentDescription = "Trim")
+                                }
+                            }
+                            IconButton(onClick = { showDeleteDialog = item }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Verwijderen",
+                                    tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
                     )
-                },
-                onDelete = { item -> showDeleteDialog = item }
-            )
-            1 -> RingtonesTab(
-                ringtones = ringtones,
-                db = db,
-                ringtoneManager = ringtoneManager,
-                snackbarHostState = snackbarHostState,
-                onDelete = { item -> showDeleteDialog = item },
-                onRefresh = { refresh() }
-            )
-        }
-    }
-}
-
-// --- Downloads Tab ---
-
-@Composable
-private fun DownloadsTab(
-    downloads: List<LibraryItem>,
-    onTrim: (LibraryItem) -> Unit,
-    onDelete: (LibraryItem) -> Unit
-) {
-    if (downloads.isEmpty()) {
-        EmptyState(
-            icon = Icons.Default.Download,
-            title = "Geen downloads",
-            subtitle = "Zoek een nummer en download het via Zoeken"
-        )
-    } else {
-        LazyColumn(
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            item {
-                Text(
-                    "Volledige MP3 bestanden in de download-map. Trim ze om als ringtone te gebruiken.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-            items(downloads, key = { it.file.absolutePath }) { item ->
-                LibraryCard(
-                    item = item,
-                    icon = Icons.Default.AudioFile,
-                    iconTint = MaterialTheme.colorScheme.secondary,
-                    actions = {
-                        FilledTonalButton(onClick = { onTrim(item) }) {
-                            Icon(Icons.Default.ContentCut, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Trim")
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        IconButton(onClick = { onDelete(item) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Verwijderen",
-                                tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                )
-            }
-        }
-    }
-}
-
-// --- Ringtones Tab ---
-
-@Composable
-private fun RingtonesTab(
-    ringtones: List<LibraryItem>,
-    db: RingtoneDatabase,
-    ringtoneManager: AppRingtoneManager,
-    snackbarHostState: SnackbarHostState,
-    onDelete: (LibraryItem) -> Unit,
-    onRefresh: () -> Unit
-) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    var showChannelDialog by remember { mutableStateOf<LibraryItem?>(null) }
-    var showPlaylistDialog by remember { mutableStateOf<LibraryItem?>(null) }
-    var existingPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
-
-    LaunchedEffect(Unit) {
-        existingPlaylists = db.playlistDao().getAll()
-    }
-
-    if (ringtones.isEmpty()) {
-        EmptyState(
-            icon = Icons.Default.MusicNote,
-            title = "Geen ringtones",
-            subtitle = "Trim een download of sla een track op via de editor"
-        )
-    } else {
-        LazyColumn(
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            item {
-                Text(
-                    "Getrimde ringtone bestanden. Stel in als ringtone of voeg toe aan een playlist.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-            items(ringtones, key = { it.file.absolutePath }) { item ->
-                LibraryCard(
-                    item = item,
-                    icon = Icons.Default.Notifications,
-                    iconTint = MaterialTheme.colorScheme.primary,
-                    actions = {
-                        IconButton(onClick = { showChannelDialog = item }) {
-                            Icon(Icons.Default.PhoneAndroid, contentDescription = "Instellen als...")
-                        }
-                        IconButton(onClick = { showPlaylistDialog = item }) {
-                            Icon(Icons.Default.PlaylistAdd, contentDescription = "Aan playlist")
-                        }
-                        IconButton(onClick = { onDelete(item) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Verwijderen",
-                                tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                )
-            }
-        }
-    }
-
-    // Kanaal-selectie dialoog
-    showChannelDialog?.let { item ->
-        AlertDialog(
-            onDismissRequest = { showChannelDialog = null },
-            title = { Text("Instellen als...") },
-            text = {
-                Column {
-                    ChannelOption("Telefoon (globaal)", Icons.Default.Phone) {
-                        scope.launch {
-                            setAsChannel(context, ringtoneManager, item.file, Channel.CALL, snackbarHostState)
-                            showChannelDialog = null
-                        }
-                    }
-                    ChannelOption("Notificatie (globaal)", Icons.Default.Notifications) {
-                        scope.launch {
-                            setAsChannel(context, ringtoneManager, item.file, Channel.NOTIFICATION, snackbarHostState)
-                            showChannelDialog = null
-                        }
-                    }
-                    ChannelOption("SMS (globaal)", Icons.Default.Sms) {
-                        scope.launch {
-                            saveGlobalAssignment(db, item, Channel.SMS)
-                            snackbarHostState.showSnackbar("SMS ringtone ingesteld (via NotificationService)")
-                            showChannelDialog = null
-                        }
-                    }
-                    ChannelOption("WhatsApp (globaal)", Icons.Default.Chat) {
-                        scope.launch {
-                            saveGlobalAssignment(db, item, Channel.WHATSAPP)
-                            snackbarHostState.showSnackbar("WhatsApp ringtone ingesteld (via NotificationService)")
-                            showChannelDialog = null
-                        }
-                    }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showChannelDialog = null }) { Text("Annuleren") }
             }
-        )
-    }
-
-    // Playlist dialoog (met bestaande playlists)
-    showPlaylistDialog?.let { item ->
-        var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
-        var createNew by remember { mutableStateOf(existingPlaylists.isEmpty()) }
-        var newPlaylistName by remember { mutableStateOf("") }
-
-        AlertDialog(
-            onDismissRequest = { showPlaylistDialog = null },
-            title = { Text("Toevoegen aan playlist") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (existingPlaylists.isNotEmpty()) {
-                        Text("Bestaande playlists:", style = MaterialTheme.typography.labelLarge)
-                        existingPlaylists.forEach { playlist ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                RadioButton(
-                                    selected = selectedPlaylist == playlist && !createNew,
-                                    onClick = { selectedPlaylist = playlist; createNew = false }
-                                )
-                                Text(playlist.name, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        RadioButton(
-                            selected = createNew,
-                            onClick = { createNew = true; selectedPlaylist = null }
-                        )
-                        Text("Nieuwe playlist", style = MaterialTheme.typography.bodyMedium)
-                    }
-                    if (createNew) {
-                        OutlinedTextField(
-                            value = newPlaylistName,
-                            onValueChange = { newPlaylistName = it },
-                            label = { Text("Playlist naam") },
-                            placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth().padding(start = 40.dp)
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                val canSave = if (createNew) newPlaylistName.isNotBlank() else selectedPlaylist != null
-                Button(
-                    onClick = {
-                        scope.launch {
-                            val pName = if (createNew) newPlaylistName.trim() else selectedPlaylist!!.name
-                            db.savedTrackDao().insert(
-                                SavedTrack(
-                                    deezerTrackId = item.trackId,
-                                    title = item.title,
-                                    artist = item.artist,
-                                    previewUrl = "",
-                                    localPath = item.file.absolutePath,
-                                    playlistName = pName
-                                )
-                            )
-                            val playlistId = if (createNew) {
-                                db.playlistDao().insert(Playlist(name = pName))
-                            } else {
-                                selectedPlaylist!!.id
-                            }
-                            val sortOrder = db.playlistTrackDao().getNextSortOrder(playlistId)
-                            db.playlistTrackDao().insert(PlaylistTrack(playlistId, item.trackId, sortOrder))
-                            existingPlaylists = db.playlistDao().getAll()
-                            snackbarHostState.showSnackbar("Toegevoegd aan '$pName'")
-                            showPlaylistDialog = null
-                        }
-                    },
-                    enabled = canSave
-                ) { Text("Toevoegen") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPlaylistDialog = null }) { Text("Annuleren") }
-            }
-        )
+        }
     }
 }
 
-// --- Gedeelde Card ---
+// === Gedeelde Card ===
 
 @Composable
 private fun LibraryCard(
     item: LibraryItem,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    iconTint: androidx.compose.ui.graphics.Color,
     actions: @Composable RowScope.() -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -611,39 +307,26 @@ private fun LibraryCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                icon,
+                Icons.Default.MusicNote,
                 contentDescription = null,
                 modifier = Modifier.size(36.dp),
-                tint = iconTint
+                tint = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    item.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Text(item.title, style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
                     if (item.artist.isNotBlank()) {
-                        Text(
-                            item.artist,
-                            style = MaterialTheme.typography.bodySmall,
+                        Text(item.artist, style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text("·", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(
-                        item.sizeFormatted,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(item.sizeFormatted, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             actions()
@@ -651,19 +334,7 @@ private fun LibraryCard(
     }
 }
 
-// --- Helpers ---
-
-@Composable
-private fun ChannelOption(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp))
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(label, modifier = Modifier.weight(1f))
-    }
-}
+// === Helpers ===
 
 @Composable
 private fun EmptyState(
@@ -671,10 +342,7 @@ private fun EmptyState(
     title: String,
     subtitle: String
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -697,74 +365,24 @@ private suspend fun setAsChannel(
     if (!ringtoneManager.canWriteSettings()) {
         snackbarHostState.showSnackbar(
             message = "Permissie nodig: sta 'Systeeminstellingen wijzigen' toe",
-            actionLabel = "Openen",
-            duration = SnackbarDuration.Long
+            actionLabel = "Openen", duration = SnackbarDuration.Long
         ).let { result ->
             if (result == SnackbarResult.ActionPerformed) {
-                context.startActivity(
-                    Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                        data = android.net.Uri.parse("package:${context.packageName}")
-                    }
-                )
+                context.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                    data = android.net.Uri.parse("package:${context.packageName}")
+                })
             }
         }
         return
     }
-
-    val dummyTrack = DeezerTrack(
-        id = extractTrackId(file.name),
-        title = file.nameWithoutExtension,
-        artist = DeezerArtist(name = ""),
-        preview = ""
-    )
-
+    val dummyTrack = DeezerTrack(id = extractTrackId(file.name),
+        title = file.nameWithoutExtension, artist = DeezerArtist(name = ""), preview = "")
     val success = when (channel) {
         Channel.CALL -> ringtoneManager.setAsRingtone(dummyTrack, file)
         Channel.NOTIFICATION -> ringtoneManager.setAsNotification(dummyTrack, file)
         else -> false
     }
-
-    snackbarHostState.showSnackbar(
-        if (success) "Ingesteld als ${channel.name.lowercase()}"
-        else "Instellen mislukt"
-    )
-}
-
-private suspend fun saveGlobalAssignment(db: RingtoneDatabase, item: LibraryItem, channel: Channel) {
-    db.savedTrackDao().insert(
-        SavedTrack(
-            deezerTrackId = item.trackId,
-            title = item.title,
-            artist = item.artist,
-            previewUrl = "",
-            localPath = item.file.absolutePath,
-            playlistName = "_system_${channel.name.lowercase()}"
-        )
-    )
-    val existing = db.playlistDao().getActiveGlobalForChannel(channel)
-    if (existing.isNotEmpty()) {
-        val playlist = existing.first()
-        val sortOrder = db.playlistTrackDao().getNextSortOrder(playlist.id)
-        db.playlistTrackDao().insert(PlaylistTrack(playlist.id, item.trackId, sortOrder))
-        db.playlistDao().update(playlist.copy(mode = Mode.FIXED, lastPlayedTrackId = item.trackId))
-    } else {
-        val channelName = when (channel) {
-            Channel.SMS -> "SMS"
-            Channel.WHATSAPP -> "WhatsApp"
-            else -> channel.name
-        }
-        val playlistId = db.playlistDao().insert(
-            Playlist(
-                name = "$channelName ringtone",
-                channel = channel,
-                mode = Mode.FIXED,
-                schedule = Schedule.MANUAL,
-                isActive = true
-            )
-        )
-        db.playlistTrackDao().insert(PlaylistTrack(playlistId, item.trackId, 0))
-        ConflictResolver(db).enforceOneActivePerChannelScope(playlistId)
-    }
+    snackbarHostState.showSnackbar(if (success) "Ingesteld als ${channel.name.lowercase()}" else "Instellen mislukt")
 }
 
 private fun extractTrackId(fileName: String): Long {

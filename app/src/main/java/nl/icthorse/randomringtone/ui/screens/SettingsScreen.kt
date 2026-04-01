@@ -48,11 +48,19 @@ fun SettingsScreen(
     var phoneStateGranted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED)
     }
+    var writeContactsGranted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED)
+    }
 
     val phoneStatePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         phoneStateGranted = granted
+    }
+    val writeContactsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        writeContactsGranted = granted
     }
 
     // Hercheck permissies wanneer gebruiker terugkeert van Settings
@@ -62,6 +70,7 @@ fun SettingsScreen(
                 canWriteSettings = ringtoneManager.canWriteSettings()
                 notificationAccessEnabled = isNotificationListenerEnabled(context)
                 phoneStateGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+                writeContactsGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -229,6 +238,52 @@ fun SettingsScreen(
                     FilledTonalButton(
                         onClick = {
                             phoneStatePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
+                        }
+                    ) {
+                        Text("Toestaan")
+                    }
+                }
+            }
+        }
+
+        // WRITE_CONTACTS permissie (voor per-contact ringtone)
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (writeContactsGranted) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = if (writeContactsGranted)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Contacten schrijven",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = if (writeContactsGranted)
+                            "Toegestaan — per-contact ringtone instellen werkt"
+                        else
+                            "Vereist voor per-contact ringtone toewijzing",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!writeContactsGranted) {
+                    FilledTonalButton(
+                        onClick = {
+                            writeContactsPermissionLauncher.launch(Manifest.permission.WRITE_CONTACTS)
                         }
                     ) {
                         Text("Toestaan")

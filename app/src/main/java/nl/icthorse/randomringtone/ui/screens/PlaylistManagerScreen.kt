@@ -221,7 +221,6 @@ fun PlaylistManagerScreen(
             onDismiss = { showCreateDialog = false; editPlaylist = null },
             onSave = { playlist ->
                 val wasEdit = editPlaylist != null
-                // Sluit dialoog direct
                 showCreateDialog = false
                 editPlaylist = null
                 scope.launch {
@@ -231,24 +230,31 @@ fun PlaylistManagerScreen(
                     } else {
                         db.playlistDao().insert(playlist)
                     }
-                    // Enforce 1-actief-per-kanaal+scope
                     if (playlist.isActive) {
                         conflictResolver.enforceOneActivePerChannelScope(id)
-                        // Direct ringtone instellen voor CALL playlists
-                        if (playlist.channel == Channel.CALL) {
-                            val saved = db.playlistDao().getById(id)
-                            if (saved != null) {
-                                val resolver = TrackResolver(db, AppRingtoneManager(context), context)
-                                val result = resolver.applyCallPlaylist(saved)
-                                if (!result.success) {
-                                    snackbarHostState.showSnackbar("Ringtone: ${result.error}", duration = SnackbarDuration.Long)
+                    }
+                    nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
+                    // Refresh EERST, dan pas snackbar (snackbar blokkeert coroutine)
+                    refresh()
+                    // Ringtone instellen + feedback in aparte coroutine (blokkeert niet)
+                    if (playlist.isActive && playlist.channel == Channel.CALL) {
+                        scope.launch {
+                            val saved = db.playlistDao().getById(id) ?: return@launch
+                            if (saved.contactUri != null) {
+                                val hasWrite = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED
+                                if (!hasWrite) {
+                                    pendingActivatePlaylist = saved
+                                    writeContactsLauncher.launch(Manifest.permission.WRITE_CONTACTS)
+                                    return@launch
                                 }
                             }
+                            val resolver = TrackResolver(db, AppRingtoneManager(context), context)
+                            val result = resolver.applyCallPlaylist(saved)
+                            val target = if (saved.contactUri != null) saved.contactName ?: "contact" else "globaal"
+                            if (result.success) snackbarHostState.showSnackbar("Ringtone ingesteld voor $target")
+                            else snackbarHostState.showSnackbar("Ringtone ($target): ${result.error}", duration = SnackbarDuration.Long)
                         }
                     }
-                    // Schedule workers
-                    nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
-                    refresh()
                     snackbarHostState.showSnackbar(
                         if (wasEdit) "Playlist bijgewerkt" else "Playlist '${playlist.name}' aangemaakt"
                     )
@@ -388,6 +394,11 @@ private fun PlaylistEditDialog(
             contactsRepo.context, Manifest.permission.READ_CONTACTS
         ) == PackageManager.PERMISSION_GRANTED)
     }
+    var writeContactsGranted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(
+            contactsRepo.context, Manifest.permission.WRITE_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED)
+    }
 
     fun loadContacts() {
         contactsLoading = true
@@ -408,10 +419,11 @@ private fun PlaylistEditDialog(
     }
 
     val contactsPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        contactsPermissionGranted = granted
-        if (granted) loadContacts()
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        contactsPermissionGranted = permissions[Manifest.permission.READ_CONTACTS] == true
+        writeContactsGranted = permissions[Manifest.permission.WRITE_CONTACTS] == true
+        if (contactsPermissionGranted) loadContacts()
     }
 
     LaunchedEffect(Unit) {
@@ -457,18 +469,23 @@ private fun PlaylistEditDialog(
                         label = { Text("Per contact") })
                 }
 
-                if (!isGlobal && !contactsPermissionGranted) {
-                    // Permissie nog niet verleend
+                if (!isGlobal && (!contactsPermissionGranted || !writeContactsGranted)) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                     ) {
                         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("Contacten-permissie vereist", style = MaterialTheme.typography.bodyMedium)
+                            Text("Contacten lezen + schrijven vereist", style = MaterialTheme.typography.bodyMedium)
+                            Text("Lezen: om contacten te tonen. Schrijven: om ringtone per contact in te stellen.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer)
                             Spacer(modifier = Modifier.height(8.dp))
                             FilledTonalButton(onClick = {
-                                contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-                            }) { Text("Permissie verlenen") }
+                                contactsPermissionLauncher.launch(arrayOf(
+                                    Manifest.permission.READ_CONTACTS,
+                                    Manifest.permission.WRITE_CONTACTS
+                                ))
+                            }) { Text("Permissies verlenen") }
                         }
                     }
                 }
@@ -605,10 +622,9 @@ private fun AddTracksDialog(
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(playlist.id) {
-        // Toon alleen tracks die in de bibliotheek staan (hebben localPath)
-        allRingtones = db.savedTrackDao().getAll().filter { track ->
-            track.localPath != null && track.localPath.isNotBlank()
-        }
+        // Single Point of Truth: zelfde query als Library
+        allRingtones = db.savedTrackDao().getAll()
+            .filter { it.localPath != null && it.localPath.isNotBlank() }
         val current = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
         currentTrackIds = current.map { it.deezerTrackId }.toSet()
         selectedIds = currentTrackIds.toMutableSet()

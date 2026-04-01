@@ -52,3 +52,6 @@
 | 48 | AddTracksDialog toont alle media — File.exists() check faalt op scoped storage, nu filter op non-blank localPath | Oranje | 0.7.27 | 0.7.28 | FIXED |
 | 49 | Scan vindt ringtones niet — MediaStore query miste pad-patronen (RandomRingtone/_RandomRingtone) | Oranje | 0.7.27 | 0.7.28 | FIXED |
 | 50 | Per-contact ringtone ContactsContract mislukt — WRITE_CONTACTS niet op runtime aangevraagd | Oranje | 0.7.27 | 0.7.28 | FIXED |
+| 51 | Geen Single Point of Truth — Library/AddTracks/Scan gebruikten verschillende databronnen en filters | Rood | 0.7.28 | 0.7.29 | FIXED |
+| 52 | Playlist refresh na opslaan — snackbar blokkeerde refresh, lijst ververste niet zichtbaar | Groen | 0.7.28 | 0.7.29 | FIXED |
+| 53 | WRITE_CONTACTS nooit gevraagd — permissie nu expliciet bij contactselectie (READ+WRITE) en in Instellingen | Rood | 0.7.28 | 0.7.29 | FIXED |

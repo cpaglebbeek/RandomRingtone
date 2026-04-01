@@ -550,7 +550,10 @@ private fun AddTracksDialog(
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(playlist.id) {
-        allRingtones = db.savedTrackDao().getAll()
+        // Filter: alleen tracks met bestaand lokaal bestand
+        allRingtones = db.savedTrackDao().getAll().filter { track ->
+            track.localPath != null && java.io.File(track.localPath).exists()
+        }
         val current = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
         currentTrackIds = current.map { it.deezerTrackId }.toSet()
         selectedIds = currentTrackIds.toMutableSet()

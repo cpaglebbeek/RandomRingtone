@@ -41,3 +41,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 34 | 0.7.13 | Prince | Adore | 2026-04-01 | Nee |
 | 35 | 0.7.14 | Prince | The_Beautiful_Ones | 2026-04-01 | Nee |
 | 36 | 0.7.15 | Prince | Alphabet_St | 2026-04-01 | Nee |
+| 37 | 0.7.16 | Prince | Thieves_In_The_Temple | 2026-04-01 | Nee |

@@ -36,3 +36,4 @@
 | 32 | Library delete ruimt DB entry niet op — alleen fysiek bestand verwijderd, saved_tracks orphan blijft | Groen | 0.7.12 | 0.7.13 | FIXED |
 | 33 | extractTrackId() hash inconsistentie — kan negatieve ID genereren, parseFileName() altijd positief | Groen | 0.7.12 | 0.7.13 | FIXED |
 | 34 | Tweede download zelfde nummer geeft access denied — geen duplicate-detectie, overschrijf-dialoog ontbreekt | Groen | 0.7.13 | 0.7.14 | FIXED |
+| 35 | SpotMate kan ander nummer downloaden dan Spotify toont — geen bevestiging van track metadata vóór download | Groen | 0.7.14 | 0.7.15 | FIXED |

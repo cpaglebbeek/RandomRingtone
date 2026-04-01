@@ -54,6 +54,19 @@ class SpotMateDirectClient {
     )
 
     /**
+     * Haal alleen track metadata op via SpotMate (CSRF + getTrackData).
+     * Gebruikt voor bevestiging vóór download.
+     */
+    suspend fun fetchTrackInfo(spotifyUrl: String): TrackInfo? = withContext(Dispatchers.IO) {
+        try {
+            fetchCsrfToken()
+            getTrackData(spotifyUrl)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
      * Volledige flow: haal CSRF, metadata, convert, download.
      * @param spotifyUrl bijv. "https://open.spotify.com/track/52LJ3hyknOijCrE5gCD0rE"
      * @param destDir map om het MP3 bestand op te slaan

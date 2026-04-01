@@ -92,6 +92,13 @@ fun SpotifyScreen(
     var pendingConverterSource by remember { mutableStateOf<File?>(null) }
     var pendingConverterDest by remember { mutableStateOf<File?>(null) }
 
+    // Track bevestiging state — vergelijk SpotMate metadata met Spotify pagina
+    var showConfirmTrackDialog by remember { mutableStateOf(false) }
+    var confirmTrackInfo by remember { mutableStateOf<SpotMateDirectClient.TrackInfo?>(null) }
+    var confirmTrackUrl by remember { mutableStateOf<String?>(null) }
+    var confirmSpotifyTitle by remember { mutableStateOf("") }
+    var confirmSpotifyArtist by remember { mutableStateOf("") }
+
     // Laad converter uit instellingen
     LaunchedEffect(Unit) {
         val converterId = ringtoneManager.storage.getSpotifyConverter()
@@ -287,35 +294,22 @@ fun SpotifyScreen(
                     detectedTrackUrl = null
 
                     if (useDirectApi) {
-                        // === DIRECTE API DOWNLOAD ===
+                        // === DIRECTE API: FASE 1 — metadata ophalen + bevestigen ===
                         isDirectDownloading = true
                         scope.launch {
-                            val result = spotMateClient.downloadTrack(
-                                spotifyUrl = trackUrl,
-                                destDir = ringtoneManager.storage.getDownloadDir(),
-                                onProgress = { phase, progress ->
-                                    directDownloadPhase = phase
-                                    directDownloadProgress = progress
-                                }
-                            )
+                            directDownloadPhase = "Track info ophalen..."
+                            directDownloadProgress = 0.1f
+                            val trackInfo = spotMateClient.fetchTrackInfo(trackUrl)
                             isDirectDownloading = false
-                            if (result.fileExists && result.file != null) {
-                                // Bestand bestaat al — vraag gebruiker
-                                pendingOverwriteUrl = trackUrl
-                                pendingOverwriteFile = result.file
-                                pendingOverwriteTrackInfo = result.trackInfo
-                                showOverwriteDialog = true
-                            } else if (result.success && result.file != null) {
-                                lastDownloadedFile = result.file
-                                showActionsDialog = true
-                                // Update track naam/artiest vanuit API metadata
-                                if (result.trackInfo != null) {
-                                    detectedTrackName = result.trackInfo.name
-                                    detectedArtist = result.trackInfo.artist
-                                }
+                            if (trackInfo != null) {
+                                confirmTrackInfo = trackInfo
+                                confirmTrackUrl = trackUrl
+                                confirmSpotifyTitle = detectedTrackName
+                                confirmSpotifyArtist = detectedArtist
+                                showConfirmTrackDialog = true
                             } else {
                                 snackbarHostState.showSnackbar(
-                                    result.error ?: "Download mislukt — probeer WebView converter"
+                                    "Track info ophalen mislukt — probeer WebView converter"
                                 )
                             }
                         }
@@ -390,6 +384,124 @@ fun SpotifyScreen(
                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 dm.enqueue(request)
                 Toast.makeText(context, "Downloaden: $fileName", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // === TRACK BEVESTIGING DIALOOG — vergelijk SpotMate vs Spotify ===
+    if (showConfirmTrackDialog && confirmTrackInfo != null) {
+        val info = confirmTrackInfo!!
+        val hasMismatch = confirmSpotifyTitle.isNotBlank() &&
+            !info.name.equals(confirmSpotifyTitle, ignoreCase = true)
+
+        AlertDialog(
+            onDismissRequest = {
+                showConfirmTrackDialog = false
+                confirmTrackInfo = null
+                confirmTrackUrl = null
+            },
+            title = {
+                Text(if (hasMismatch) "Let op: ander nummer gevonden" else "Track bevestigen")
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (hasMismatch) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    "Spotify pagina:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Text(
+                                    "$confirmSpotifyTitle — $confirmSpotifyArtist",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (hasMismatch)
+                                MaterialTheme.colorScheme.tertiaryContainer
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                "SpotMate vindt:",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            Text(
+                                info.name,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                info.artist,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (hasMismatch) {
+                        Text(
+                            "De converter geeft een ander nummer terug dan je Spotify pagina toont. Toch downloaden?",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showConfirmTrackDialog = false
+                    val trackUrl = confirmTrackUrl ?: return@Button
+                    confirmTrackInfo = null
+                    confirmTrackUrl = null
+                    // === FASE 2: daadwerkelijk downloaden ===
+                    isDirectDownloading = true
+                    scope.launch {
+                        val result = spotMateClient.downloadTrack(
+                            spotifyUrl = trackUrl,
+                            destDir = ringtoneManager.storage.getDownloadDir(),
+                            onProgress = { phase, progress ->
+                                directDownloadPhase = phase
+                                directDownloadProgress = progress
+                            }
+                        )
+                        isDirectDownloading = false
+                        if (result.fileExists && result.file != null) {
+                            pendingOverwriteUrl = trackUrl
+                            pendingOverwriteFile = result.file
+                            pendingOverwriteTrackInfo = result.trackInfo
+                            showOverwriteDialog = true
+                        } else if (result.success && result.file != null) {
+                            lastDownloadedFile = result.file
+                            showActionsDialog = true
+                            if (result.trackInfo != null) {
+                                detectedTrackName = result.trackInfo.name
+                                detectedArtist = result.trackInfo.artist
+                            }
+                        } else {
+                            snackbarHostState.showSnackbar(
+                                result.error ?: "Download mislukt — probeer WebView converter"
+                            )
+                        }
+                    }
+                }) { Text("Downloaden") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showConfirmTrackDialog = false
+                    confirmTrackInfo = null
+                    confirmTrackUrl = null
+                }) { Text("Annuleren") }
             }
         )
     }

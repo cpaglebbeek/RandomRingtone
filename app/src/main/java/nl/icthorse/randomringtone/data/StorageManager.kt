@@ -232,64 +232,68 @@ class StorageManager(private val context: Context) {
      * spotify_mp3_<track>-<artiest>.mp3
      * @return lijst van SavedTrack objecten
      */
+    data class DirInfo(
+        val path: String,
+        val exists: Boolean,
+        val totalCount: Int,      // alle bestanden (-1 = listFiles null)
+        val audioCount: Int,      // alleen audio
+        val fileNames: List<String> // eerste 10 bestandsnamen voor diagnostiek
+    )
+
     data class ScanResult(
         val files: List<ScannedFile>,
-        val ringtoneDir: String,
-        val downloadDir: String,
-        val ringtoneDirExists: Boolean,
-        val downloadDirExists: Boolean,
-        val ringtoneDirCount: Int,
-        val downloadDirCount: Int
-    )
+        val downloadInfo: DirInfo,
+        val ringtoneInfo: DirInfo,
+        val systemDownloadInfo: DirInfo
+    ) {
+        // Backwards-compatible properties
+        val ringtoneDir get() = ringtoneInfo.path
+        val downloadDir get() = downloadInfo.path
+        val ringtoneDirExists get() = ringtoneInfo.exists
+        val downloadDirExists get() = downloadInfo.exists
+        val ringtoneDirCount get() = ringtoneInfo.totalCount
+        val downloadDirCount get() = downloadInfo.totalCount
+    }
 
     suspend fun scanExistingFiles(): ScanResult = withContext(Dispatchers.IO) {
         val results = mutableListOf<ScannedFile>()
         val seen = mutableSetOf<Long>()
-
         val audioExtensions = setOf("mp3", "m4a")
 
         val rtDir = getRingtoneDir()
         val dlDir = getDownloadDir()
-        val rtExists = rtDir.exists() && rtDir.isDirectory
-        val dlExists = dlDir.exists() && dlDir.isDirectory
+        val sysDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
 
-        var rtCount = 0
-        var dlCount = 0
+        fun scanDir(dir: File, source: String): DirInfo {
+            val exists = dir.exists() && dir.isDirectory
+            if (!exists) return DirInfo(dir.absolutePath, false, 0, 0, emptyList())
 
-        // Scan ringtones map
-        if (rtExists) {
-            val rtFiles = rtDir.listFiles()
-            rtCount = rtFiles?.size ?: -1 // -1 = listFiles() returned null
-            rtFiles?.filter { it.isFile && it.extension.lowercase() in audioExtensions }?.forEach { file ->
+            val allFiles = dir.listFiles()
+            if (allFiles == null) return DirInfo(dir.absolutePath, true, -1, 0, emptyList())
+
+            val names = allFiles.take(15).map { "${it.name} (${it.length() / 1024}KB)" }
+            val audioFiles = allFiles.filter { it.isFile && it.extension.lowercase() in audioExtensions }
+
+            audioFiles.forEach { file ->
                 val parsed = parseFileName(file)
                 if (parsed != null && parsed.trackId !in seen) {
                     seen.add(parsed.trackId)
-                    results.add(parsed.copy(localPath = file.absolutePath, source = "ringtone"))
+                    results.add(parsed.copy(localPath = file.absolutePath, source = source))
                 }
             }
+
+            return DirInfo(dir.absolutePath, true, allFiles.size, audioFiles.size, names)
         }
 
-        // Scan downloads map
-        if (dlExists) {
-            val dlFiles = dlDir.listFiles()
-            dlCount = dlFiles?.size ?: -1
-            dlFiles?.filter { it.isFile && it.extension.lowercase() in audioExtensions }?.forEach { file ->
-                val parsed = parseFileName(file)
-                if (parsed != null && parsed.trackId !in seen) {
-                    seen.add(parsed.trackId)
-                    results.add(parsed.copy(localPath = file.absolutePath, source = "download"))
-                }
-            }
-        }
+        val rtInfo = scanDir(rtDir, "ringtone")
+        val dlInfo = scanDir(dlDir, "download")
+        val sysInfo = scanDir(sysDir, "system_download")
 
         ScanResult(
             files = results,
-            ringtoneDir = rtDir.absolutePath,
-            downloadDir = dlDir.absolutePath,
-            ringtoneDirExists = rtExists,
-            downloadDirExists = dlExists,
-            ringtoneDirCount = rtCount,
-            downloadDirCount = dlCount
+            downloadInfo = dlInfo,
+            ringtoneInfo = rtInfo,
+            systemDownloadInfo = sysInfo
         )
     }
 

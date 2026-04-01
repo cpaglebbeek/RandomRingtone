@@ -204,20 +204,28 @@ fun LibraryScreen(
                             val scanned = result.files
 
                             if (scanned.isEmpty()) {
-                                // Toon diagnostiek dialoog
+                                fun formatDirInfo(label: String, info: nl.icthorse.randomringtone.data.StorageManager.DirInfo): String = buildString {
+                                    appendLine("$label:")
+                                    appendLine(info.path)
+                                    if (!info.exists) appendLine("  → MAP BESTAAT NIET!")
+                                    else if (info.totalCount == -1) appendLine("  → GEEN LEESTOEGANG (listFiles=null)")
+                                    else {
+                                        appendLine("  → ${info.totalCount} bestanden totaal, ${info.audioCount} audio")
+                                        if (info.fileNames.isNotEmpty()) {
+                                            appendLine("  Bestanden:")
+                                            info.fileNames.forEach { appendLine("    · $it") }
+                                        }
+                                    }
+                                }
                                 scanDiagnostic = buildString {
-                                    appendLine("Geen audiobestanden (.mp3/.m4a) gevonden.\n")
-                                    appendLine("Download map:")
-                                    appendLine(result.downloadDir)
-                                    if (!result.downloadDirExists) appendLine("  → Map bestaat niet!")
-                                    else if (result.downloadDirCount == -1) appendLine("  → Geen leestoegang (listFiles=null)")
-                                    else appendLine("  → ${result.downloadDirCount} bestanden in map")
-                                    appendLine()
-                                    appendLine("Ringtone map:")
-                                    appendLine(result.ringtoneDir)
-                                    if (!result.ringtoneDirExists) appendLine("  → Map bestaat niet!")
-                                    else if (result.ringtoneDirCount == -1) appendLine("  → Geen leestoegang (listFiles=null)")
-                                    else appendLine("  → ${result.ringtoneDirCount} bestanden in map")
+                                    appendLine("Geen audiobestanden (.mp3/.m4a) gevonden in app-mappen.\n")
+                                    appendLine(formatDirInfo("APP DOWNLOADS", result.downloadInfo))
+                                    appendLine(formatDirInfo("APP RINGTONES", result.ringtoneInfo))
+                                    appendLine(formatDirInfo("SYSTEEM DOWNLOADS", result.systemDownloadInfo))
+                                    if (result.systemDownloadInfo.audioCount > 0) {
+                                        appendLine("⚠ Er staan ${result.systemDownloadInfo.audioCount} audiobestanden in de systeem Downloads map!")
+                                        appendLine("Deze zijn bij het scannen automatisch toegevoegd.")
+                                    }
                                 }
                             } else {
                                 var added = 0
@@ -240,10 +248,13 @@ fun LibraryScreen(
                                         added++
                                     }
                                 }
-                                snackbarHostState.showSnackbar(
-                                    "$added nieuw van ${scanned.size} bestanden " +
-                                    "(${result.downloadDirCount} in downloads, ${result.ringtoneDirCount} in ringtones)"
-                                )
+                                val sysCount = scanned.count { it.source == "system_download" }
+                                val appCount = scanned.size - sysCount
+                                val msg = buildString {
+                                    append("$added nieuw van ${scanned.size} bestanden")
+                                    if (sysCount > 0) append(" ($sysCount uit systeem Downloads)")
+                                }
+                                snackbarHostState.showSnackbar(msg)
                             }
                             refresh()
                         } catch (e: Exception) {

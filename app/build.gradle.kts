@@ -14,8 +14,8 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 41
-        versionName = "0.7.20"
+        versionCode = 42
+        versionName = "0.7.21"
     }
 
     buildTypes {
@@ -35,7 +35,7 @@ android {
         val variant = this
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "RandomRingtone-v${variant.versionName}-Prince-Musicology-${variant.buildType.name}.apk"
+            output.outputFileName = "RandomRingtone-v${variant.versionName}-Prince-TMBGITW-${variant.buildType.name}.apk"
         }
     }
 

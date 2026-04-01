@@ -46,3 +46,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 39 | 0.7.18 | Prince | Gold | 2026-04-01 | Nee |
 | 40 | 0.7.19 | Prince | 7 | 2026-04-01 | Nee |
 | 41 | 0.7.20 | Prince | Musicology | 2026-04-01 | Nee |
+| 42 | 0.7.21 | Prince | The_Most_Beautiful_Girl_In_The_World | 2026-04-01 | Nee |

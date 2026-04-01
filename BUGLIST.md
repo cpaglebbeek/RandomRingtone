@@ -42,3 +42,4 @@
 | 38 | Scan "geen bestanden gevonden" zonder diagnostiek — file.delete() faalt stilletjes, geen zicht op gescande directories | Rood | 0.7.18 | 0.7.19 | FIXED |
 | 39 | Scan diagnostiek snackbar te kort om te lezen — vervangen door dialoog met volledige pad + status info | Rood | 0.7.19 | 0.7.20 | FIXED |
 | 40 | Scan vindt geen bestanden — scant alleen app-dirs, niet systeem Downloads waar DownloadManager bestanden neerzet | Rood | 0.7.20 | 0.7.21 | FIXED |
+| 41 | Scan vindt geen bestanden op scoped storage — File.listFiles() faalt op publieke shared storage Android 11+, MediaStore fallback nodig | Rood | 0.7.21 | 0.7.22 | FIXED |

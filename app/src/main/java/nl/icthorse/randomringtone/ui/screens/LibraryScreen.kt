@@ -218,13 +218,22 @@ fun LibraryScreen(
                                     }
                                 }
                                 scanDiagnostic = buildString {
-                                    appendLine("Geen audiobestanden (.mp3/.m4a) gevonden in app-mappen.\n")
+                                    appendLine("Geen audiobestanden gevonden.\n")
                                     appendLine(formatDirInfo("APP DOWNLOADS", result.downloadInfo))
                                     appendLine(formatDirInfo("APP RINGTONES", result.ringtoneInfo))
                                     appendLine(formatDirInfo("SYSTEEM DOWNLOADS", result.systemDownloadInfo))
-                                    if (result.systemDownloadInfo.audioCount > 0) {
-                                        appendLine("⚠ Er staan ${result.systemDownloadInfo.audioCount} audiobestanden in de systeem Downloads map!")
-                                        appendLine("Deze zijn bij het scannen automatisch toegevoegd.")
+                                    if (result.usedMediaStore) {
+                                        appendLine("\nMEDIASTORE FALLBACK:")
+                                        if (result.mediaStoreCount > 0) {
+                                            appendLine("  → ${result.mediaStoreCount} bestanden gevonden via MediaStore!")
+                                        } else {
+                                            appendLine("  → Geen bestanden gevonden via MediaStore.")
+                                            appendLine("\n  File.listFiles() faalt door Android scoped storage.")
+                                            appendLine("  MediaStore vindt ook niets.")
+                                            appendLine("\n  Tip: download opnieuw via Spotify tab,")
+                                            appendLine("  of verplaats bestanden naar app-opslag")
+                                            appendLine("  via Instellingen → Opslag locaties.")
+                                        }
                                     }
                                 }
                             } else {
@@ -248,11 +257,12 @@ fun LibraryScreen(
                                         added++
                                     }
                                 }
+                                val msCount = scanned.count { it.source == "mediastore" }
                                 val sysCount = scanned.count { it.source == "system_download" }
-                                val appCount = scanned.size - sysCount
                                 val msg = buildString {
                                     append("$added nieuw van ${scanned.size} bestanden")
-                                    if (sysCount > 0) append(" ($sysCount uit systeem Downloads)")
+                                    if (msCount > 0) append(" ($msCount via MediaStore)")
+                                    else if (sysCount > 0) append(" ($sysCount uit systeem Downloads)")
                                 }
                                 snackbarHostState.showSnackbar(msg)
                             }

@@ -1,7 +1,9 @@
 package nl.icthorse.randomringtone.data
 
 import android.content.Context
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -244,9 +246,10 @@ class StorageManager(private val context: Context) {
         val files: List<ScannedFile>,
         val downloadInfo: DirInfo,
         val ringtoneInfo: DirInfo,
-        val systemDownloadInfo: DirInfo
+        val systemDownloadInfo: DirInfo,
+        val mediaStoreCount: Int = 0,
+        val usedMediaStore: Boolean = false
     ) {
-        // Backwards-compatible properties
         val ringtoneDir get() = ringtoneInfo.path
         val downloadDir get() = downloadInfo.path
         val ringtoneDirExists get() = ringtoneInfo.exists
@@ -289,12 +292,94 @@ class StorageManager(private val context: Context) {
         val dlInfo = scanDir(dlDir, "download")
         val sysInfo = scanDir(sysDir, "system_download")
 
+        // === MEDIASTORE FALLBACK ===
+        // Als listFiles() niets vindt, gebruik MediaStore om audiobestanden te vinden
+        var mediaStoreCount = 0
+        var usedMediaStore = false
+
+        if (results.isEmpty()) {
+            usedMediaStore = true
+            mediaStoreCount = scanViaMediaStore(results, seen)
+        }
+
         ScanResult(
             files = results,
             downloadInfo = dlInfo,
             ringtoneInfo = rtInfo,
-            systemDownloadInfo = sysInfo
+            systemDownloadInfo = sysInfo,
+            mediaStoreCount = mediaStoreCount,
+            usedMediaStore = usedMediaStore
         )
+    }
+
+    /**
+     * Fallback scan via MediaStore — vindt audiobestanden die File.listFiles() mist
+     * door scoped storage restricties op Android 11+.
+     */
+    private fun scanViaMediaStore(results: MutableList<ScannedFile>, seen: MutableSet<Long>): Int {
+        var count = 0
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        }
+
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.DATA,        // absoluut pad
+            MediaStore.Audio.Media.SIZE,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST
+        )
+
+        // Zoek bestanden die matchen op app-naampatronen
+        val selection = "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? OR " +
+            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? OR " +
+            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? OR " +
+            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ?"
+        val selectionArgs = arrayOf(
+            "spotify_mp3_%",
+            "download_%",
+            "ringtone_%",
+            "youtube_mp3_%"
+        )
+
+        try {
+            context.contentResolver.query(
+                collection, projection, selection, selectionArgs,
+                "${MediaStore.Audio.Media.DATE_MODIFIED} DESC"
+            )?.use { cursor ->
+                val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+                val dataCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                val titleCol = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)
+                val artistCol = cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)
+
+                while (cursor.moveToNext()) {
+                    val displayName = cursor.getString(nameCol) ?: continue
+                    val filePath = if (dataCol >= 0) cursor.getString(dataCol) else null
+                    val file = if (filePath != null) File(filePath) else File(displayName)
+
+                    val parsed = parseFileName(file) ?: continue
+                    if (parsed.trackId in seen) continue
+                    seen.add(parsed.trackId)
+
+                    // Gebruik MediaStore titel/artiest als die beter zijn
+                    val msTitle = if (titleCol >= 0) cursor.getString(titleCol) else null
+                    val msArtist = if (artistCol >= 0) cursor.getString(artistCol) else null
+                    val enriched = parsed.copy(
+                        localPath = filePath ?: "",
+                        source = "mediastore",
+                        title = if (!msTitle.isNullOrBlank() && msTitle != "<unknown>") msTitle else parsed.title,
+                        artist = if (!msArtist.isNullOrBlank() && msArtist != "<unknown>") msArtist else parsed.artist
+                    )
+                    results.add(enriched)
+                    count++
+                }
+            }
+        } catch (_: Exception) { /* MediaStore query mislukt — negeer */ }
+
+        return count
     }
 
     private fun parseFileName(file: File): ScannedFile? {

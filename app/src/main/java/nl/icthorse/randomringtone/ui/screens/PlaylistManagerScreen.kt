@@ -148,6 +148,14 @@ fun PlaylistManagerScreen(
                                 if (updated.isActive) {
                                     // Enforce 1-actief-per-kanaal+scope
                                     conflictResolver.enforceOneActivePerChannelScope(updated.id)
+                                    // Direct ringtone instellen voor CALL playlists
+                                    if (updated.channel == Channel.CALL) {
+                                        val resolver = TrackResolver(db, AppRingtoneManager(context), context)
+                                        val applied = resolver.applyCallPlaylist(updated)
+                                        val target = if (updated.contactUri != null) updated.contactName ?: "contact" else "globaal"
+                                        if (applied) snackbarHostState.showSnackbar("Ringtone ingesteld voor $target")
+                                        else snackbarHostState.showSnackbar("Ringtone instellen mislukt voor $target")
+                                    }
                                     // Schedule workers
                                     nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
                                 }
@@ -187,6 +195,14 @@ fun PlaylistManagerScreen(
                     // Enforce 1-actief-per-kanaal+scope
                     if (playlist.isActive) {
                         conflictResolver.enforceOneActivePerChannelScope(id)
+                        // Direct ringtone instellen voor CALL playlists
+                        if (playlist.channel == Channel.CALL) {
+                            val saved = db.playlistDao().getById(id)
+                            if (saved != null) {
+                                val resolver = TrackResolver(db, AppRingtoneManager(context), context)
+                                resolver.applyCallPlaylist(saved)
+                            }
+                        }
                     }
                     // Schedule workers
                     nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)

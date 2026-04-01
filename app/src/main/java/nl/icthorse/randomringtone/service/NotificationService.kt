@@ -35,7 +35,7 @@ class NotificationService : NotificationListenerService() {
         super.onCreate()
         db = RingtoneDatabase.getInstance(this)
         ringtoneManager = AppRingtoneManager(this)
-        trackResolver = TrackResolver(db, ringtoneManager)
+        trackResolver = TrackResolver(db, ringtoneManager, this)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {

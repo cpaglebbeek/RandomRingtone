@@ -79,7 +79,7 @@ class RingtoneWorker(
         try {
             val db = RingtoneDatabase.getInstance(applicationContext)
             val ringtoneManager = AppRingtoneManager(applicationContext)
-            val resolver = TrackResolver(db, ringtoneManager)
+            val resolver = TrackResolver(db, ringtoneManager, applicationContext)
             val tags = this@RingtoneWorker.tags
 
             // Bepaal welke schedules bij deze worker tag horen

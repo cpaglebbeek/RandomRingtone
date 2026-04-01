@@ -50,3 +50,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 43 | 0.7.22 | Prince | Batdance | 2026-04-01 | Nee |
 | 44 | 0.7.23 | Prince | Raspberry_Beret_Remix | 2026-04-01 | Nee |
 | 45 | 0.7.24 | Prince | I_Would_Die_4_U | 2026-04-01 | Nee |
+| 46 | 0.7.25 | Prince | When_You_Were_Mine | 2026-04-01 | Nee |

@@ -47,7 +47,7 @@ class CallStateReceiver : BroadcastReceiver() {
             try {
                 val db = RingtoneDatabase.getInstance(context)
                 val ringtoneManager = AppRingtoneManager(context)
-                val resolver = TrackResolver(db, ringtoneManager)
+                val resolver = TrackResolver(db, ringtoneManager, context)
 
                 // Zoek alle actieve CALL playlists met EVERY_CALL schema
                 val playlists = db.playlistDao().getActive().filter {

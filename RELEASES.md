@@ -52,3 +52,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 45 | 0.7.24 | Prince | I_Would_Die_4_U | 2026-04-01 | Nee |
 | 46 | 0.7.25 | Prince | When_You_Were_Mine | 2026-04-01 | Nee |
 | 47 | 0.7.26 | Prince | Nothing_Compares_2_U | 2026-04-01 | Nee |
+| 48 | 0.7.27 | Prince | Darling_Nikki | 2026-04-01 | Nee |

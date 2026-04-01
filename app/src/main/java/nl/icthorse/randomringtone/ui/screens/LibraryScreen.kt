@@ -80,46 +80,37 @@ fun LibraryScreen(
 
     fun refresh() {
         scope.launch {
-            // Haal alle DB entries op, geïndexeerd op localPath
+            // Volledig DB-gedreven: alleen tracks met DB entry tonen
             val allTracks = db.savedTrackDao().getAll()
-            val tracksByPath = allTracks.filter { it.localPath != null }
-                .associateBy { it.localPath!! }
 
-            // Ringtones: fysieke bestanden + DB enrichment
-            val rtDir = ringtoneManager.storage.getRingtoneDir()
-            val rtFiles = (rtDir.listFiles() ?: emptyArray())
-                .filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
-                .sortedByDescending { it.lastModified() }
+            val rtDirPath = ringtoneManager.storage.getRingtoneDir().absolutePath
+            val dlDirPath = ringtoneManager.storage.getDownloadDir().absolutePath
 
-            ringtones = rtFiles.map { file ->
-                val track = tracksByPath[file.absolutePath]
-                LibraryItem(
+            // Splits op basis van localPath directory
+            val rtTracks = mutableListOf<LibraryItem>()
+            val dlTracks = mutableListOf<LibraryItem>()
+
+            for (track in allTracks) {
+                val path = track.localPath ?: continue
+                val file = File(path)
+                val item = LibraryItem(
                     file = file,
-                    trackId = track?.deezerTrackId ?: extractTrackId(file.name),
-                    title = if (track != null && track.title.isNotBlank()) track.title else file.nameWithoutExtension,
-                    artist = track?.artist ?: "",
-                    sizeFormatted = formatFileSize(file.length()),
-                    isScanned = track != null
+                    trackId = track.deezerTrackId,
+                    title = track.title.ifBlank { file.nameWithoutExtension },
+                    artist = track.artist,
+                    sizeFormatted = if (file.exists()) formatFileSize(file.length()) else "niet op schijf",
+                    isScanned = true
                 )
+
+                when {
+                    path.startsWith(rtDirPath) -> rtTracks.add(item)
+                    path.startsWith(dlDirPath) -> dlTracks.add(item)
+                    else -> dlTracks.add(item) // overige (systeem downloads, MediaStore) bij downloads
+                }
             }
 
-            // Downloads: fysieke bestanden + DB enrichment
-            val dlDir = ringtoneManager.storage.getDownloadDir()
-            val dlFiles = (dlDir.listFiles() ?: emptyArray())
-                .filter { it.isFile && it.extension.lowercase() in AUDIO_EXTENSIONS }
-                .sortedByDescending { it.lastModified() }
-
-            downloads = dlFiles.map { file ->
-                val track = tracksByPath[file.absolutePath]
-                LibraryItem(
-                    file = file,
-                    trackId = track?.deezerTrackId ?: extractTrackId(file.name),
-                    title = if (track != null && track.title.isNotBlank()) track.title else file.nameWithoutExtension,
-                    artist = track?.artist ?: "",
-                    sizeFormatted = formatFileSize(file.length()),
-                    isScanned = track != null
-                )
-            }
+            ringtones = rtTracks
+            downloads = dlTracks
         }
     }
 

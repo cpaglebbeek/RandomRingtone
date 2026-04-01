@@ -47,6 +47,9 @@ fun LibraryScreen(
     var ringtones by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
     var selectedTab by remember { mutableIntStateOf(0) }
 
+    // Delete dialoog state
+    var showDeleteDialog by remember { mutableStateOf<LibraryItem?>(null) }
+
     fun refresh() {
         scope.launch {
             // Haal alle DB entries op, geïndexeerd op localPath
@@ -94,6 +97,62 @@ fun LibraryScreen(
 
     LaunchedEffect(Unit) { refresh() }
 
+    // === DELETE DIALOOG ===
+    showDeleteDialog?.let { item ->
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("Verwijderen: ${item.title}") },
+            text = {
+                Text("Wat wil je verwijderen?", style = MaterialTheme.typography.bodyMedium)
+            },
+            confirmButton = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Optie 1: alleen uit bibliotheek (DB entry)
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                val existing = db.savedTrackDao().getById(item.trackId)
+                                if (existing != null) db.savedTrackDao().delete(existing)
+                                refresh()
+                                snackbarHostState.showSnackbar("Uit bibliotheek verwijderd: ${item.title}")
+                            }
+                            showDeleteDialog = null
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.RemoveCircleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Uit bibliotheek verwijderen")
+                    }
+                    // Optie 2: van schijf (permanent)
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                val existing = db.savedTrackDao().getById(item.trackId)
+                                if (existing != null) db.savedTrackDao().delete(existing)
+                                item.file.delete()
+                                refresh()
+                                snackbarHostState.showSnackbar("Permanent verwijderd: ${item.title}")
+                            }
+                            showDeleteDialog = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Verwijder van schijf (permanent)")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) { Text("Annuleren") }
+            }
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Header
         Text(
@@ -126,21 +185,14 @@ fun LibraryScreen(
                         item.title, item.artist, item.file, item.trackId, ""
                     )
                 },
-                onDelete = { item ->
-                    scope.launch {
-                        val existing = db.savedTrackDao().getById(item.trackId)
-                        if (existing != null) db.savedTrackDao().delete(existing)
-                        item.file.delete()
-                        refresh()
-                        snackbarHostState.showSnackbar("Verwijderd: ${item.title}")
-                    }
-                }
+                onDelete = { item -> showDeleteDialog = item }
             )
             1 -> RingtonesTab(
                 ringtones = ringtones,
                 db = db,
                 ringtoneManager = ringtoneManager,
                 snackbarHostState = snackbarHostState,
+                onDelete = { item -> showDeleteDialog = item },
                 onRefresh = { refresh() }
             )
         }
@@ -205,6 +257,7 @@ private fun RingtonesTab(
     db: RingtoneDatabase,
     ringtoneManager: AppRingtoneManager,
     snackbarHostState: SnackbarHostState,
+    onDelete: (LibraryItem) -> Unit,
     onRefresh: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -248,15 +301,7 @@ private fun RingtonesTab(
                         IconButton(onClick = { showPlaylistDialog = item }) {
                             Icon(Icons.Default.PlaylistAdd, contentDescription = "Aan playlist")
                         }
-                        IconButton(onClick = {
-                            scope.launch {
-                                val existing = db.savedTrackDao().getById(item.trackId)
-                                if (existing != null) db.savedTrackDao().delete(existing)
-                                item.file.delete()
-                                onRefresh()
-                                snackbarHostState.showSnackbar("Verwijderd: ${item.title}")
-                            }
-                        }) {
+                        IconButton(onClick = { onDelete(item) }) {
                             Icon(Icons.Default.Delete, contentDescription = "Verwijderen",
                                 tint = MaterialTheme.colorScheme.error)
                         }

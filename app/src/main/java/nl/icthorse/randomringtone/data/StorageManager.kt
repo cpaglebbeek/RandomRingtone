@@ -333,20 +333,17 @@ class StorageManager(private val context: Context) {
             MediaStore.Audio.Media.ARTIST
         )
 
-        // Zoek bestanden die matchen op app-naampatronen OF in app-directories staan
-        val selection = "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? OR " +
-            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? OR " +
-            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? OR " +
-            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? OR " +
+        // Zoek bestanden die in app-directories staan (meest betrouwbaar)
+        // OF matchen op app-specifieke naampatronen (spotify_mp3_, youtube_mp3_)
+        val selection = "${MediaStore.Audio.Media.DATA} LIKE ? OR " +
             "${MediaStore.Audio.Media.DATA} LIKE ? OR " +
-            "${MediaStore.Audio.Media.DATA} LIKE ?"
+            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? OR " +
+            "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ?"
         val selectionArgs = arrayOf(
-            "spotify_mp3_%",
-            "download_%",
-            "ringtone_%",
-            "youtube_mp3_%",
-            "%RandomRingtone%",  // bestanden in app-directory (ook ringtones submap)
-            "%_RandomRingtone%"  // bestanden in _RandomRingtone map
+            "%RandomRingtone%",   // bestanden in app-directories (downloads + ringtones)
+            "%_RandomRingtone%",  // bestanden in _RandomRingtone map
+            "spotify_mp3_%",      // Spotify downloads (uniek naampatroon)
+            "youtube_mp3_%"       // YouTube downloads (uniek naampatroon)
         )
 
         try {

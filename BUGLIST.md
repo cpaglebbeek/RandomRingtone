@@ -55,3 +55,5 @@
 | 51 | Geen Single Point of Truth — Library/AddTracks/Scan gebruikten verschillende databronnen en filters | Rood | 0.7.28 | 0.7.29 | FIXED |
 | 52 | Playlist refresh na opslaan — snackbar blokkeerde refresh, lijst ververste niet zichtbaar | Groen | 0.7.28 | 0.7.29 | FIXED |
 | 53 | WRITE_CONTACTS nooit gevraagd — permissie nu expliciet bij contactselectie (READ+WRITE) en in Instellingen | Rood | 0.7.28 | 0.7.29 | FIXED |
+| 54 | Crash bij opslaan per-contact playlist — permissie-launcher aanroep vanuit coroutine na dialog close | Rood | 0.7.29 | 0.7.30 | FIXED |
+| 55 | Library toont media van hele telefoon — MediaStore scan download_% patroon te breed, matcht alles | Rood | 0.7.29 | 0.7.30 | FIXED |

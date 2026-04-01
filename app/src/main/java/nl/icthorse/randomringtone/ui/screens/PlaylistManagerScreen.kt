@@ -234,29 +234,9 @@ fun PlaylistManagerScreen(
                         conflictResolver.enforceOneActivePerChannelScope(id)
                     }
                     nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
-                    // Refresh EERST, dan pas snackbar (snackbar blokkeert coroutine)
                     refresh()
-                    // Ringtone instellen + feedback in aparte coroutine (blokkeert niet)
-                    if (playlist.isActive && playlist.channel == Channel.CALL) {
-                        scope.launch {
-                            val saved = db.playlistDao().getById(id) ?: return@launch
-                            if (saved.contactUri != null) {
-                                val hasWrite = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED
-                                if (!hasWrite) {
-                                    pendingActivatePlaylist = saved
-                                    writeContactsLauncher.launch(Manifest.permission.WRITE_CONTACTS)
-                                    return@launch
-                                }
-                            }
-                            val resolver = TrackResolver(db, AppRingtoneManager(context), context)
-                            val result = resolver.applyCallPlaylist(saved)
-                            val target = if (saved.contactUri != null) saved.contactName ?: "contact" else "globaal"
-                            if (result.success) snackbarHostState.showSnackbar("Ringtone ingesteld voor $target")
-                            else snackbarHostState.showSnackbar("Ringtone ($target): ${result.error}", duration = SnackbarDuration.Long)
-                        }
-                    }
                     snackbarHostState.showSnackbar(
-                        if (wasEdit) "Playlist bijgewerkt" else "Playlist '${playlist.name}' aangemaakt"
+                        if (wasEdit) "Playlist bijgewerkt" else "Playlist '${playlist.name}' aangemaakt — activeer via de toggle"
                     )
                 }
             }
@@ -622,9 +602,18 @@ private fun AddTracksDialog(
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(playlist.id) {
-        // Single Point of Truth: zelfde query als Library
+        // Single Point of Truth: zelfde filter als Library
         allRingtones = db.savedTrackDao().getAll()
-            .filter { it.localPath != null && it.localPath.isNotBlank() }
+            .filter { track ->
+                val path = track.localPath
+                if (path == null || path.isBlank()) return@filter false
+                val name = java.io.File(path).name.lowercase()
+                path.contains("RandomRingtone", ignoreCase = true) ||
+                    name.startsWith("spotify_mp3_") ||
+                    name.startsWith("youtube_mp3_") ||
+                    name.startsWith("ringtone_") ||
+                    name.startsWith("download_")
+            }
         val current = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
         currentTrackIds = current.map { it.deezerTrackId }.toSet()
         selectedIds = currentTrackIds.toMutableSet()

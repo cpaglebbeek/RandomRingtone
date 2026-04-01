@@ -78,7 +78,17 @@ fun LibraryScreen(
     fun refresh() {
         scope.launch {
             libraryItems = db.savedTrackDao().getAll()
-                .filter { it.localPath != null && it.localPath.isNotBlank() }
+                .filter { track ->
+                    val path = track.localPath
+                    if (path == null || path.isBlank()) return@filter false
+                    // Single Point of Truth: alleen app-eigen bestanden
+                    val name = File(path).name.lowercase()
+                    path.contains("RandomRingtone", ignoreCase = true) ||
+                        name.startsWith("spotify_mp3_") ||
+                        name.startsWith("youtube_mp3_") ||
+                        name.startsWith("ringtone_") ||
+                        name.startsWith("download_")
+                }
                 .map { track ->
                     val file = File(track.localPath!!)
                     LibraryItem(

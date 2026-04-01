@@ -39,3 +39,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 32 | 0.7.11 | Prince | Controversy | 2026-03-31 | Nee |
 | 33 | 0.7.12 | Prince | Pop_Life | 2026-04-01 | Nee |
 | 34 | 0.7.13 | Prince | Adore | 2026-04-01 | Nee |
+| 35 | 0.7.14 | Prince | The_Beautiful_Ones | 2026-04-01 | Nee |

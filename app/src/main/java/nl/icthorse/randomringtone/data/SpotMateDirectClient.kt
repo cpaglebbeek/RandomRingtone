@@ -49,7 +49,8 @@ class SpotMateDirectClient {
         val success: Boolean,
         val file: File? = null,
         val trackInfo: TrackInfo? = null,
-        val error: String? = null
+        val error: String? = null,
+        val fileExists: Boolean = false
     )
 
     /**
@@ -61,7 +62,8 @@ class SpotMateDirectClient {
     suspend fun downloadTrack(
         spotifyUrl: String,
         destDir: File,
-        onProgress: (phase: String, progress: Float) -> Unit
+        onProgress: (phase: String, progress: Float) -> Unit,
+        forceOverwrite: Boolean = false
     ): DownloadResult = withContext(Dispatchers.IO) {
         try {
             // Stap 1: CSRF token ophalen
@@ -73,19 +75,26 @@ class SpotMateDirectClient {
             val trackInfo = getTrackData(spotifyUrl)
                 ?: return@withContext DownloadResult(false, error = "Track niet gevonden")
 
-            // Stap 3: Converteren naar MP3
-            onProgress("Converteren naar MP3...", 0.4f)
-            val downloadUrl = convertTrack(spotifyUrl, onProgress)
-                ?: return@withContext DownloadResult(false, trackInfo = trackInfo, error = "Conversie mislukt")
-
-            // Stap 4: MP3 downloaden
-            onProgress("MP3 downloaden...", 0.8f)
+            // Stap 3: Check of bestand al bestaat
             val sanitizedName = "${trackInfo.name}-${trackInfo.artist}"
                 .replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
                 .replace(Regex("_+"), "_")
                 .trim('_')
             val destFile = File(destDir, "spotify_mp3_${sanitizedName}.mp3")
 
+            if (destFile.exists() && !forceOverwrite) {
+                return@withContext DownloadResult(
+                    success = false, file = destFile, trackInfo = trackInfo, fileExists = true
+                )
+            }
+
+            // Stap 4: Converteren naar MP3
+            onProgress("Converteren naar MP3...", 0.4f)
+            val downloadUrl = convertTrack(spotifyUrl, onProgress)
+                ?: return@withContext DownloadResult(false, trackInfo = trackInfo, error = "Conversie mislukt")
+
+            // Stap 5: MP3 downloaden
+            onProgress("MP3 downloaden...", 0.8f)
             downloadFile(downloadUrl, destFile)
 
             onProgress("Klaar!", 1.0f)

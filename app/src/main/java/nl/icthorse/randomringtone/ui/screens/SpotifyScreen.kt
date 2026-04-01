@@ -83,6 +83,15 @@ fun SpotifyScreen(
     var lastDownloadedFile by remember { mutableStateOf<File?>(null) }
     var showActionsDialog by remember { mutableStateOf(false) }
 
+    // Overwrite state — voor bestaande bestanden
+    var showOverwriteDialog by remember { mutableStateOf(false) }
+    var pendingOverwriteUrl by remember { mutableStateOf<String?>(null) }
+    var pendingOverwriteFile by remember { mutableStateOf<File?>(null) }
+    var pendingOverwriteTrackInfo by remember { mutableStateOf<SpotMateDirectClient.TrackInfo?>(null) }
+    // Voor WebView converter flow
+    var pendingConverterSource by remember { mutableStateOf<File?>(null) }
+    var pendingConverterDest by remember { mutableStateOf<File?>(null) }
+
     // Laad converter uit instellingen
     LaunchedEffect(Unit) {
         val converterId = ringtoneManager.storage.getSpotifyConverter()
@@ -123,10 +132,18 @@ fun SpotifyScreen(
                                         ringtoneManager.storage.getDownloadDir(),
                                         destName
                                     )
-                                    file.copyTo(destFile, overwrite = true)
-                                    lastDownloadedFile = destFile
-                                    showConverter = false
-                                    showActionsDialog = true
+                                    if (destFile.exists()) {
+                                        // Bestand bestaat al — vraag gebruiker
+                                        pendingConverterSource = file
+                                        pendingConverterDest = destFile
+                                        showConverter = false
+                                        showOverwriteDialog = true
+                                    } else {
+                                        file.copyTo(destFile, overwrite = false)
+                                        lastDownloadedFile = destFile
+                                        showConverter = false
+                                        showActionsDialog = true
+                                    }
                                 }
                             }
                         }
@@ -282,7 +299,13 @@ fun SpotifyScreen(
                                 }
                             )
                             isDirectDownloading = false
-                            if (result.success && result.file != null) {
+                            if (result.fileExists && result.file != null) {
+                                // Bestand bestaat al — vraag gebruiker
+                                pendingOverwriteUrl = trackUrl
+                                pendingOverwriteFile = result.file
+                                pendingOverwriteTrackInfo = result.trackInfo
+                                showOverwriteDialog = true
+                            } else if (result.success && result.file != null) {
                                 lastDownloadedFile = result.file
                                 showActionsDialog = true
                                 // Update track naam/artiest vanuit API metadata
@@ -367,6 +390,91 @@ fun SpotifyScreen(
                 val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                 dm.enqueue(request)
                 Toast.makeText(context, "Downloaden: $fileName", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // === OVERWRITE DIALOOG — bestand bestaat al ===
+    if (showOverwriteDialog) {
+        val existingFile = pendingOverwriteFile ?: pendingConverterDest
+        AlertDialog(
+            onDismissRequest = {
+                showOverwriteDialog = false
+                pendingOverwriteUrl = null
+                pendingOverwriteFile = null
+                pendingOverwriteTrackInfo = null
+                pendingConverterSource = null
+                pendingConverterDest = null
+            },
+            title = { Text("Bestand bestaat al") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        existingFile?.name ?: "",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "Dit nummer is al eerder gedownload. Opnieuw downloaden en overschrijven?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showOverwriteDialog = false
+                    if (pendingConverterSource != null && pendingConverterDest != null) {
+                        // WebView converter flow — overschrijf direct
+                        scope.launch {
+                            pendingConverterSource!!.copyTo(pendingConverterDest!!, overwrite = true)
+                            lastDownloadedFile = pendingConverterDest
+                            pendingConverterSource = null
+                            pendingConverterDest = null
+                            showActionsDialog = true
+                        }
+                    } else if (pendingOverwriteUrl != null) {
+                        // SpotMate direct API flow — opnieuw downloaden met forceOverwrite
+                        val url = pendingOverwriteUrl!!
+                        pendingOverwriteUrl = null
+                        pendingOverwriteFile = null
+                        pendingOverwriteTrackInfo = null
+                        isDirectDownloading = true
+                        scope.launch {
+                            val result = spotMateClient.downloadTrack(
+                                spotifyUrl = url,
+                                destDir = ringtoneManager.storage.getDownloadDir(),
+                                onProgress = { phase, progress ->
+                                    directDownloadPhase = phase
+                                    directDownloadProgress = progress
+                                },
+                                forceOverwrite = true
+                            )
+                            isDirectDownloading = false
+                            if (result.success && result.file != null) {
+                                lastDownloadedFile = result.file
+                                showActionsDialog = true
+                                if (result.trackInfo != null) {
+                                    detectedTrackName = result.trackInfo.name
+                                    detectedArtist = result.trackInfo.artist
+                                }
+                            } else {
+                                snackbarHostState.showSnackbar(
+                                    result.error ?: "Download mislukt"
+                                )
+                            }
+                        }
+                    }
+                }) { Text("Overschrijven") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showOverwriteDialog = false
+                    pendingOverwriteUrl = null
+                    pendingOverwriteFile = null
+                    pendingOverwriteTrackInfo = null
+                    pendingConverterSource = null
+                    pendingConverterDest = null
+                }) { Text("Annuleren") }
             }
         )
     }

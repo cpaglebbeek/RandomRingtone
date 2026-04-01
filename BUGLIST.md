@@ -57,3 +57,4 @@
 | 53 | WRITE_CONTACTS nooit gevraagd — permissie nu expliciet bij contactselectie (READ+WRITE) en in Instellingen | Rood | 0.7.28 | 0.7.29 | FIXED |
 | 54 | Crash bij opslaan per-contact playlist — permissie-launcher aanroep vanuit coroutine na dialog close | Rood | 0.7.29 | 0.7.30 | FIXED |
 | 55 | Library toont media van hele telefoon — MediaStore scan download_% patroon te breed, matcht alles | Rood | 0.7.29 | 0.7.30 | FIXED |
+| 56 | Ringtone nooit ingesteld — apply verwijderd uit save-flow (crash fix), maar geen ander pad voor nieuwe playlists (isActive=true default) | Rood | 0.7.30 | 0.7.31 | FIXED |

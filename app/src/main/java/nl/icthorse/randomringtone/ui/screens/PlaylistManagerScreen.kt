@@ -235,8 +235,23 @@ fun PlaylistManagerScreen(
                     }
                     nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
                     refresh()
+                    // Ringtone direct toepassen (permissies al verleend vanuit dialoog)
+                    if (playlist.isActive && playlist.channel == Channel.CALL) {
+                        val saved = db.playlistDao().getById(id)
+                        if (saved != null) {
+                            val resolver = TrackResolver(db, AppRingtoneManager(context), context)
+                            val result = resolver.applyCallPlaylist(saved)
+                            val target = if (saved.contactUri != null) saved.contactName ?: "contact" else "globaal"
+                            if (result.success) {
+                                snackbarHostState.showSnackbar("Playlist aangemaakt + ringtone ingesteld voor $target")
+                            } else {
+                                snackbarHostState.showSnackbar("Aangemaakt maar ringtone mislukt: ${result.error}", duration = SnackbarDuration.Long)
+                            }
+                            return@launch
+                        }
+                    }
                     snackbarHostState.showSnackbar(
-                        if (wasEdit) "Playlist bijgewerkt" else "Playlist '${playlist.name}' aangemaakt — activeer via de toggle"
+                        if (wasEdit) "Playlist bijgewerkt" else "Playlist '${playlist.name}' aangemaakt"
                     )
                 }
             }

@@ -47,6 +47,9 @@ fun LibraryScreen(
     var ringtones by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
     var selectedTab by remember { mutableIntStateOf(0) }
 
+    // Scan state
+    var isScanning by remember { mutableStateOf(false) }
+
     // Delete dialoog state
     var showDeleteDialog by remember { mutableStateOf<LibraryItem?>(null) }
 
@@ -154,12 +157,68 @@ fun LibraryScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Header
-        Text(
-            "Bibliotheek",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp)
-        )
+        // Header + Scan knop
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp, 16.dp, 16.dp, 0.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Bibliotheek",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.weight(1f)
+            )
+            FilledTonalButton(
+                onClick = {
+                    isScanning = true
+                    scope.launch {
+                        try {
+                            val scanned = ringtoneManager.storage.scanExistingFiles()
+                            if (scanned.isEmpty()) {
+                                snackbarHostState.showSnackbar("Geen bestanden gevonden op schijf")
+                            } else {
+                                var added = 0
+                                for (sf in scanned) {
+                                    val existing = db.savedTrackDao().getById(sf.trackId)
+                                    if (existing == null) {
+                                        db.savedTrackDao().insert(
+                                            SavedTrack(
+                                                deezerTrackId = sf.trackId,
+                                                title = sf.title,
+                                                artist = sf.artist,
+                                                previewUrl = "",
+                                                localPath = sf.localPath,
+                                                playlistName = sf.playlistName ?: "Gescand"
+                                            )
+                                        )
+                                        added++
+                                    } else if (existing.localPath != null && !java.io.File(existing.localPath).exists()) {
+                                        db.savedTrackDao().insert(existing.copy(localPath = sf.localPath))
+                                        added++
+                                    }
+                                }
+                                snackbarHostState.showSnackbar("$added van ${scanned.size} bestanden toegevoegd")
+                            }
+                            refresh()
+                        } catch (e: Exception) {
+                            snackbarHostState.showSnackbar("Scan mislukt: ${e.message}")
+                        } finally {
+                            isScanning = false
+                        }
+                    }
+                },
+                enabled = !isScanning
+            ) {
+                if (isScanning) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Scan")
+            }
+        }
 
         // Sub-tabs
         TabRow(selectedTabIndex = selectedTab) {

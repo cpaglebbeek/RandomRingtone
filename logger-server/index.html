@@ -706,6 +706,8 @@
     const event = {
       timestamp: timestamp,
       caller: data.caller || 'Onbekend',
+      callerName: data.callerName || null,
+      callerNumber: data.callerNumber || null,
       appVersion: data.appVersion || '?',
       deviceId: data.deviceId || '?',
       owner: data.owner || '?',

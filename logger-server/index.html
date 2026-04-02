@@ -816,11 +816,14 @@
   // --- Clear ---
   function clearDisplay() {
     allLines = [];
+    callEvents = [];
     totalLines = 0;
     lineCountEl.textContent = '0 lines';
     logContainer.innerHTML = '';
     logContainer.appendChild(emptyState);
     scrollIndicator.classList.remove('visible');
+    callCountBadge.style.display = 'none';
+    renderOverview();
   }
 
   // --- Scroll ---

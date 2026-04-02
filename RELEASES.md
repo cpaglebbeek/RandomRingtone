@@ -65,3 +65,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 58 | 0.7.37 | Prince | Computer_Blue | 2026-04-02 | Nee |
 | 59 | 0.7.38 | Prince | Mountains | 2026-04-02 | Ja |
 | 60 | 1.0c | Prince | New_Power_Generation | 2026-04-02 | Ja |
+| 61 | 1.0.1c | Prince | Paisley_Park | 2026-04-02 | Ja |

@@ -33,6 +33,7 @@ class CallStateReceiver : BroadcastReceiver() {
         private var lastState = TelephonyManager.CALL_STATE_IDLE
         private var lastCallerNumber: String? = null
         private var lastCallerName: String? = null
+        private var wasIncoming = false
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -49,6 +50,7 @@ class CallStateReceiver : BroadcastReceiver() {
 
         // Laag 1: Beller-info opvangen bij RINGING via EXTRA_INCOMING_NUMBER
         if (currentState == TelephonyManager.CALL_STATE_RINGING) {
+            wasIncoming = true
             @Suppress("DEPRECATION")
             val extraNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
             if (!extraNumber.isNullOrBlank()) {
@@ -80,27 +82,33 @@ class CallStateReceiver : BroadcastReceiver() {
         if (currentState == TelephonyManager.CALL_STATE_IDLE &&
             lastState != TelephonyManager.CALL_STATE_IDLE
         ) {
-            // Laag 2: Als RINGING geen nummer gaf, probeer CallLog
-            if (lastCallerNumber == null) {
-                val callLogResult = queryLastIncomingCall(context)
-                if (callLogResult != null) {
-                    lastCallerNumber = callLogResult.first
-                    lastCallerName = callLogResult.second
-                        ?: resolveContactName(context, callLogResult.first)
-                    RemoteLogger.i("CallState", "Beller via CallLog geïdentificeerd", mapOf(
-                        "callerNumber" to (lastCallerNumber ?: "?"),
-                        "callerName" to (lastCallerName ?: "niet in contacten"),
-                        "bron" to "CallLog.Calls"
-                    ))
+            if (wasIncoming) {
+                // Laag 2: Als RINGING geen nummer gaf, probeer CallLog
+                if (lastCallerNumber == null) {
+                    val callLogResult = queryLastIncomingCall(context)
+                    if (callLogResult != null) {
+                        lastCallerNumber = callLogResult.first
+                        lastCallerName = callLogResult.second
+                            ?: resolveContactName(context, callLogResult.first)
+                        RemoteLogger.i("CallState", "Beller via CallLog geïdentificeerd", mapOf(
+                            "callerNumber" to (lastCallerNumber ?: "?"),
+                            "callerName" to (lastCallerName ?: "niet in contacten"),
+                            "bron" to "CallLog.Calls"
+                        ))
+                    }
                 }
-            }
 
-            RemoteLogger.i("CallState", "Gesprek beëindigd → EVERY_CALL ringtone wissel starten", mapOf(
-                "caller" to formatCaller(lastCallerName, lastCallerNumber)
-            ))
-            handleCallEnded(context, lastCallerNumber, lastCallerName)
+                RemoteLogger.i("CallState", "Inkomend gesprek beëindigd → EVERY_CALL ringtone wissel starten", mapOf(
+                    "caller" to formatCaller(lastCallerName, lastCallerNumber)
+                ))
+                handleCallEnded(context, lastCallerNumber, lastCallerName)
+            } else {
+                RemoteLogger.i("CallState", "Uitgaand gesprek beëindigd → EVERY_CALL ringtone wissel starten")
+                handleCallEnded(context, null, "Uitgaand gesprek")
+            }
             lastCallerNumber = null
             lastCallerName = null
+            wasIncoming = false
         }
 
         lastState = currentState

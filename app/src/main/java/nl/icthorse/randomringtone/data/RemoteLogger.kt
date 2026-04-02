@@ -159,10 +159,41 @@ object RemoteLogger {
             "callerNumber" to (callerNumber ?: "Onbekend"),
             "appVersion" to appVersion,
             "deviceId" to deviceId,
-            "owner" to "Christian",
+            "owner" to getDeviceOwnerName(context),
             "swapCount" to swaps.size.toString(),
             "swaps" to swapsArray.toString()
         ))
+    }
+
+    private fun getDeviceOwnerName(context: android.content.Context): String {
+        // Primair: Google account naam op het device
+        try {
+            val am = android.accounts.AccountManager.get(context)
+            val accounts = am.getAccountsByType("com.google")
+            if (accounts.isNotEmpty()) {
+                val name = accounts[0].name
+                // Email → voornaam: "christian@gmail.com" → "christian"
+                val local = name.substringBefore("@")
+                return local.replaceFirstChar { it.uppercase() }
+            }
+        } catch (_: Exception) {}
+
+        // Fallback: device owner profiel naam
+        try {
+            val cursor = context.contentResolver.query(
+                android.provider.ContactsContract.Profile.CONTENT_URI,
+                arrayOf(android.provider.ContactsContract.Profile.DISPLAY_NAME),
+                null, null, null
+            )
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val name = it.getString(0)
+                    if (!name.isNullOrBlank()) return name
+                }
+            }
+        } catch (_: Exception) {}
+
+        return "Onbekend"
     }
 
     // --- Internals ---

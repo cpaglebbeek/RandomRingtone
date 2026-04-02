@@ -62,3 +62,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 55 | 0.7.34 | Prince | Delirious | 2026-04-02 | Nee |
 | 56 | 0.7.35 | Prince | Baby_Im_A_Star | 2026-04-02 | Nee |
 | 57 | 0.7.36 | Prince | Take_Me_With_U | 2026-04-02 | Nee |
+| 58 | 0.7.37 | Prince | Computer_Blue | 2026-04-02 | Nee |

@@ -99,11 +99,20 @@ class CallStateReceiver : BroadcastReceiver() {
 
                 for (playlist in playlists) {
                     try {
-                        val trackCount = db.playlistTrackDao().getTracksForPlaylist(playlist.id).size
+                        val tracks = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
+                        val trackCount = tracks.size
+
+                        // Huidige ringtone: track die afspeelde bij DIT gesprek
+                        val currentTrack = playlist.lastPlayedTrackId?.let { lastId ->
+                            tracks.find { it.deezerTrackId == lastId }
+                        }
+                        val currentLabel = currentTrack?.let { "${it.artist} - ${it.title}" } ?: "Eerste keer"
+
                         RemoteLogger.i("CallState", "Verwerk playlist: ${playlist.name}", mapOf(
                             "contact" to (playlist.contactName ?: "globaal"),
                             "mode" to playlist.mode.name,
-                            "trackCount" to trackCount.toString()
+                            "trackCount" to trackCount.toString(),
+                            "currentTrack" to currentLabel
                         ))
 
                         val result = resolver.resolveForPlaylist(playlist)
@@ -112,49 +121,52 @@ class CallStateReceiver : BroadcastReceiver() {
                             swapResults.add(mapOf(
                                 "playlist" to playlist.name,
                                 "contact" to (playlist.contactName ?: "globaal"),
-                                "track" to "-",
+                                "currentTrack" to currentLabel,
+                                "nextTrack" to "-",
                                 "reason" to "Geen track beschikbaar",
                                 "success" to "false"
                             ))
                             continue
                         }
                         val (file, track) = result
-                        val trackLabel = "${track.artist} - ${track.title}"
+                        val nextLabel = "${track.artist} - ${track.title}"
                         val reason = "${playlist.mode.name} uit $trackCount tracks"
 
                         if (playlist.contactUri != null) {
                             val contactName = playlist.contactName ?: "contact"
-                            RemoteLogger.i("CallState", "SWAP contact ringtone", mapOf("contact" to contactName, "track" to trackLabel))
+                            RemoteLogger.i("CallState", "SWAP contact ringtone", mapOf("contact" to contactName, "track" to nextLabel))
                             val success = ringtoneManager.swapContactRingtone(file, contactName, playlist.contactUri)
                             RemoteLogger.output("CallState", "Contact swap result", mapOf(
                                 "playlist" to playlist.name, "contact" to contactName,
-                                "track" to trackLabel, "success" to success.toString()
+                                "track" to nextLabel, "success" to success.toString()
                             ))
                             swapResults.add(mapOf(
                                 "playlist" to playlist.name,
                                 "contact" to contactName,
-                                "track" to trackLabel,
+                                "currentTrack" to currentLabel,
+                                "nextTrack" to nextLabel,
                                 "reason" to reason,
                                 "success" to success.toString()
                             ))
                         } else {
-                            RemoteLogger.i("CallState", "SWAP globale ringtone", mapOf("track" to trackLabel))
+                            RemoteLogger.i("CallState", "SWAP globale ringtone", mapOf("track" to nextLabel))
                             val success = ringtoneManager.swapGlobalRingtone(file)
                             RemoteLogger.output("CallState", "Globale swap result", mapOf(
                                 "playlist" to playlist.name,
-                                "track" to trackLabel, "success" to success.toString()
+                                "track" to nextLabel, "success" to success.toString()
                             ))
                             swapResults.add(mapOf(
                                 "playlist" to playlist.name,
                                 "contact" to "globaal",
-                                "track" to trackLabel,
+                                "currentTrack" to currentLabel,
+                                "nextTrack" to nextLabel,
                                 "reason" to reason,
                                 "success" to success.toString()
                             ))
                         }
 
                         resolver.updateLastPlayed(playlist, track.deezerTrackId)
-                        Log.i(TAG, "EVERY_CALL: ringtone gewisseld naar $trackLabel")
+                        Log.i(TAG, "EVERY_CALL: ringtone gewisseld naar $nextLabel")
                     } catch (e: Exception) {
                         RemoteLogger.e("CallState", "EXCEPTION bij playlist ${playlist.name}", mapOf(
                             "error" to (e.message ?: "unknown"),
@@ -163,7 +175,8 @@ class CallStateReceiver : BroadcastReceiver() {
                         swapResults.add(mapOf(
                             "playlist" to playlist.name,
                             "contact" to (playlist.contactName ?: "globaal"),
-                            "track" to "-",
+                            "currentTrack" to "-",
+                            "nextTrack" to "-",
                             "reason" to "Exception: ${e.message}",
                             "success" to "false"
                         ))

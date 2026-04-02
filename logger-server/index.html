@@ -415,8 +415,10 @@
   .track-name {
     font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--accent);
   }
+
+  .track-name.current { color: var(--text-muted); }
+  .track-name.next { color: var(--green); font-weight: 600; }
 
   .swap-reason {
     font-size: 11px;
@@ -604,7 +606,8 @@
             <tr>
               <th>Status</th>
               <th>Scope</th>
-              <th>Track</th>
+              <th>Huidige ringtone</th>
+              <th>Volgende ringtone</th>
               <th>Reden</th>
             </tr>
           </thead>
@@ -613,7 +616,8 @@
               <tr>
                 <td><span class="swap-status ${s.success === 'true' ? 'ok' : 'fail'}"></span>${s.success === 'true' ? 'OK' : 'FAIL'}</td>
                 <td>${esc(s.contact || s.playlist || '-')}</td>
-                <td><span class="track-name">${esc(s.track || '-')}</span></td>
+                <td><span class="track-name current">${esc(s.currentTrack || s.track || '-')}</span></td>
+                <td><span class="track-name next">${esc(s.nextTrack || '-')}</span></td>
                 <td><span class="swap-reason">${esc(s.reason || '-')}</span></td>
               </tr>
             `).join('')}

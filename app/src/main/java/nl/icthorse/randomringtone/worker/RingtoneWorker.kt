@@ -96,8 +96,15 @@ class RingtoneWorker(
                 else -> return@withContext Result.success()
             }
 
-            // Zoek actieve playlists met RANDOM modus en matching schedule
-            val playlists = db.playlistDao().getActive().filter {
+            // Log ALLE actieve playlists vóór filter
+            val allActive = db.playlistDao().getActive()
+            RemoteLogger.i("Worker", "Alle actieve playlists", mapOf(
+                "count" to allActive.size.toString(),
+                "playlists" to allActive.joinToString { "${it.name}[${it.channel}/${it.schedule}/${it.mode}/${if (it.contactUri != null) "contact:${it.contactName}" else "globaal"}]" }
+            ))
+
+            // Filter op RANDOM modus en matching schedule
+            val playlists = allActive.filter {
                 it.mode == Mode.RANDOM && it.schedule in targetSchedules
             }
 
@@ -107,42 +114,65 @@ class RingtoneWorker(
                 return@withContext Result.success()
             }
 
-            RemoteLogger.i("Worker", "Actieve playlists gevonden", mapOf("count" to playlists.size.toString(), "schedules" to targetSchedules.joinToString()))
+            RemoteLogger.i("Worker", "Playlists na filter", mapOf(
+                "count" to playlists.size.toString(),
+                "schedules" to targetSchedules.joinToString(),
+                "playlists" to playlists.joinToString { "${it.name}[${if (it.contactUri != null) "contact:${it.contactName}" else "globaal"}]" }
+            ))
 
             for (playlist in playlists) {
-                RemoteLogger.i("Worker", "Verwerk playlist: ${playlist.name}", mapOf("channel" to playlist.channel.name, "mode" to playlist.mode.name))
-                val result = resolver.resolveForPlaylist(playlist)
-                if (result == null) {
-                    RemoteLogger.w("Worker", "Geen track beschikbaar voor ${playlist.name}")
-                    continue
-                }
-                val (file, track) = result
-                val deezerTrack = track.toDeezerTrack()
+                try {
+                    RemoteLogger.i("Worker", "Verwerk playlist: ${playlist.name}", mapOf(
+                        "channel" to playlist.channel.name, "mode" to playlist.mode.name,
+                        "contact" to (playlist.contactName ?: "globaal")
+                    ))
+                    val result = resolver.resolveForPlaylist(playlist)
+                    if (result == null) {
+                        RemoteLogger.w("Worker", "SKIP playlist — geen track beschikbaar", mapOf("playlist" to playlist.name))
+                        continue
+                    }
+                    val (file, track) = result
+                    val deezerTrack = track.toDeezerTrack()
 
-                when (playlist.channel) {
-                    Channel.CALL -> {
-                        if (playlist.contactUri != null) {
-                            val contactName = playlist.contactName ?: "contact"
-                            RemoteLogger.i("Worker", "SWAP contact ringtone", mapOf("contact" to contactName, "track" to "${track.artist} - ${track.title}"))
-                            ringtoneManager.swapContactRingtone(file, contactName, playlist.contactUri)
-                        } else {
-                            RemoteLogger.i("Worker", "SWAP globale ringtone", mapOf("track" to "${track.artist} - ${track.title}"))
-                            ringtoneManager.swapGlobalRingtone(file)
+                    when (playlist.channel) {
+                        Channel.CALL -> {
+                            if (playlist.contactUri != null) {
+                                val contactName = playlist.contactName ?: "contact"
+                                RemoteLogger.i("Worker", "SWAP contact ringtone", mapOf("contact" to contactName, "track" to "${track.artist} - ${track.title}"))
+                                val success = ringtoneManager.swapContactRingtone(file, contactName, playlist.contactUri)
+                                RemoteLogger.output("Worker", "Contact swap result", mapOf(
+                                    "playlist" to playlist.name, "contact" to contactName,
+                                    "track" to "${track.artist} - ${track.title}", "success" to success.toString()
+                                ))
+                            } else {
+                                RemoteLogger.i("Worker", "SWAP globale ringtone", mapOf("track" to "${track.artist} - ${track.title}"))
+                                val success = ringtoneManager.swapGlobalRingtone(file)
+                                RemoteLogger.output("Worker", "Globale swap result", mapOf(
+                                    "playlist" to playlist.name,
+                                    "track" to "${track.artist} - ${track.title}", "success" to success.toString()
+                                ))
+                            }
+                        }
+                        Channel.NOTIFICATION -> {
+                            ringtoneManager.setAsNotification(deezerTrack, file)
+                        }
+                        Channel.SMS, Channel.WHATSAPP -> {
+                            RemoteLogger.d("Worker", "SMS/WA: overgeslagen (handled by NotificationService)")
                         }
                     }
-                    Channel.NOTIFICATION -> {
-                        ringtoneManager.setAsNotification(deezerTrack, file)
-                    }
-                    Channel.SMS, Channel.WHATSAPP -> {
-                        RemoteLogger.d("Worker", "SMS/WA: overgeslagen (handled by NotificationService)")
-                    }
-                }
 
-                resolver.updateLastPlayed(playlist, track.deezerTrackId)
-                Log.i(TAG, "Set ${playlist.channel} ringtone to ${track.artist} - ${track.title} (playlist: ${playlist.name})")
+                    resolver.updateLastPlayed(playlist, track.deezerTrackId)
+                    Log.i(TAG, "Set ${playlist.channel} ringtone to ${track.artist} - ${track.title} (playlist: ${playlist.name})")
+                } catch (e: Exception) {
+                    RemoteLogger.e("Worker", "EXCEPTION bij playlist ${playlist.name}", mapOf(
+                        "error" to (e.message ?: "unknown"),
+                        "contact" to (playlist.contactName ?: "globaal")
+                    ))
+                    Log.e(TAG, "Error bij playlist ${playlist.name}", e)
+                }
             }
 
-            RemoteLogger.i("Worker", "Worker klaar — alle playlists verwerkt")
+            RemoteLogger.i("Worker", "Worker klaar — alle playlists verwerkt", mapOf("verwerkt" to playlists.size.toString()))
             Result.success()
         } catch (e: Exception) {
             RemoteLogger.e("Worker", "Worker FAILED", mapOf("error" to (e.message ?: "unknown")))

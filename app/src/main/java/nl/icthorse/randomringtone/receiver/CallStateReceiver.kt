@@ -54,37 +54,69 @@ class CallStateReceiver : BroadcastReceiver() {
                 val ringtoneManager = AppRingtoneManager(context)
                 val resolver = TrackResolver(db, ringtoneManager, context)
 
-                // Zoek alle actieve CALL playlists met EVERY_CALL schema
-                val playlists = db.playlistDao().getActive().filter {
+                // Log ALLE actieve playlists vóór filter
+                val allActive = db.playlistDao().getActive()
+                RemoteLogger.i("CallState", "Alle actieve playlists", mapOf(
+                    "count" to allActive.size.toString(),
+                    "playlists" to allActive.joinToString { "${it.name}[${it.channel}/${it.schedule}/${if (it.contactUri != null) "contact:${it.contactName}" else "globaal"}]" }
+                ))
+
+                // Filter op CALL + EVERY_CALL
+                val playlists = allActive.filter {
                     it.channel == Channel.CALL && it.schedule == Schedule.EVERY_CALL
                 }
 
-                RemoteLogger.i("CallState", "EVERY_CALL playlists gevonden", mapOf("count" to playlists.size.toString()))
+                RemoteLogger.i("CallState", "EVERY_CALL playlists na filter", mapOf(
+                    "count" to playlists.size.toString(),
+                    "playlists" to playlists.joinToString { "${it.name}[${if (it.contactUri != null) "contact:${it.contactName}" else "globaal"}]" }
+                ))
 
                 for (playlist in playlists) {
-                    RemoteLogger.i("CallState", "Verwerk playlist: ${playlist.name}", mapOf("contact" to (playlist.contactName ?: "globaal")))
-                    val result = resolver.resolveForPlaylist(playlist) ?: continue
-                    val (file, track) = result
+                    try {
+                        RemoteLogger.i("CallState", "Verwerk playlist: ${playlist.name}", mapOf(
+                            "contact" to (playlist.contactName ?: "globaal"),
+                            "mode" to playlist.mode.name,
+                            "trackCount" to "resolving..."
+                        ))
 
-                    if (playlist.contactUri != null) {
-                        // Per-contact: swap content van <contact>-RandomRing.mp3
-                        val contactName = playlist.contactName ?: "contact"
-                        RemoteLogger.i("CallState", "SWAP contact ringtone", mapOf("contact" to contactName, "track" to "${track.artist} - ${track.title}"))
-                        ringtoneManager.swapContactRingtone(file, contactName, playlist.contactUri)
-                    } else {
-                        // Globaal: swap content van RandomRingtone_Global.mp3
-                        RemoteLogger.i("CallState", "SWAP globale ringtone", mapOf("track" to "${track.artist} - ${track.title}"))
-                        ringtoneManager.swapGlobalRingtone(file)
+                        val result = resolver.resolveForPlaylist(playlist)
+                        if (result == null) {
+                            RemoteLogger.w("CallState", "SKIP playlist — geen track beschikbaar", mapOf("playlist" to playlist.name))
+                            continue
+                        }
+                        val (file, track) = result
+
+                        if (playlist.contactUri != null) {
+                            val contactName = playlist.contactName ?: "contact"
+                            RemoteLogger.i("CallState", "SWAP contact ringtone", mapOf("contact" to contactName, "track" to "${track.artist} - ${track.title}"))
+                            val success = ringtoneManager.swapContactRingtone(file, contactName, playlist.contactUri)
+                            RemoteLogger.output("CallState", "Contact swap result", mapOf(
+                                "playlist" to playlist.name, "contact" to contactName,
+                                "track" to "${track.artist} - ${track.title}", "success" to success.toString()
+                            ))
+                        } else {
+                            RemoteLogger.i("CallState", "SWAP globale ringtone", mapOf("track" to "${track.artist} - ${track.title}"))
+                            val success = ringtoneManager.swapGlobalRingtone(file)
+                            RemoteLogger.output("CallState", "Globale swap result", mapOf(
+                                "playlist" to playlist.name,
+                                "track" to "${track.artist} - ${track.title}", "success" to success.toString()
+                            ))
+                        }
+
+                        resolver.updateLastPlayed(playlist, track.deezerTrackId)
+                        Log.i(TAG, "EVERY_CALL: ringtone gewisseld naar ${track.artist} - ${track.title}")
+                    } catch (e: Exception) {
+                        RemoteLogger.e("CallState", "EXCEPTION bij playlist ${playlist.name}", mapOf(
+                            "error" to (e.message ?: "unknown"),
+                            "contact" to (playlist.contactName ?: "globaal")
+                        ))
+                        Log.e(TAG, "Error bij playlist ${playlist.name}", e)
+                        // Door naar volgende playlist
                     }
-
-                    resolver.updateLastPlayed(playlist, track.deezerTrackId)
-                    RemoteLogger.output("CallState", "EVERY_CALL ringtone geswapped", mapOf(
-                        "playlist" to playlist.name, "track" to "${track.artist} - ${track.title}",
-                        "scope" to if (playlist.contactUri != null) "contact:${playlist.contactName}" else "globaal"
-                    ))
-                    Log.i(TAG, "EVERY_CALL: ringtone gewisseld naar ${track.artist} - ${track.title}")
                 }
+                RemoteLogger.i("CallState", "EVERY_CALL verwerking compleet", mapOf("verwerkt" to playlists.size.toString()))
             } catch (e: Exception) {
+                RemoteLogger.e("CallState", "FATALE ERROR in handleCallEnded", mapOf("error" to (e.message ?: "unknown")))
                 Log.e(TAG, "Error bij EVERY_CALL ringtone wissel", e)
             }
         }

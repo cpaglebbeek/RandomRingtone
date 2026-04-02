@@ -103,8 +103,7 @@ class CallStateReceiver : BroadcastReceiver() {
                 ))
                 handleCallEnded(context, lastCallerNumber, lastCallerName)
             } else {
-                RemoteLogger.i("CallState", "Uitgaand gesprek beëindigd → EVERY_CALL ringtone wissel starten")
-                handleCallEnded(context, null, "Uitgaand gesprek")
+                RemoteLogger.i("CallState", "Uitgaand gesprek beëindigd → SKIP (geen swap bij uitgaand)")
             }
             lastCallerNumber = null
             lastCallerName = null

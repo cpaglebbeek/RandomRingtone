@@ -102,6 +102,11 @@ class ConflictResolver(private val db: RingtoneDatabase) {
         val playlist = db.playlistDao().getById(playlistId) ?: return
         if (!playlist.isActive) return
 
+        RemoteLogger.i("ConflictResolver", "enforceOneActive", mapOf(
+            "playlist" to playlist.name, "channel" to playlist.channel.name,
+            "scope" to if (playlist.contactUri != null) "contact:${playlist.contactName}" else "globaal"
+        ))
+
         if (playlist.contactUri != null) {
             db.playlistDao().deactivateOtherForContact(
                 channel = playlist.channel,
@@ -114,6 +119,7 @@ class ConflictResolver(private val db: RingtoneDatabase) {
                 excludeId = playlist.id
             )
         }
+        RemoteLogger.d("ConflictResolver", "Conflicterende playlists gedeactiveerd")
     }
 }
 

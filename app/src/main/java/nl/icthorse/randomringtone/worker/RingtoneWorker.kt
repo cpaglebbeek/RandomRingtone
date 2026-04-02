@@ -6,6 +6,7 @@ import androidx.work.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import nl.icthorse.randomringtone.data.*
+import nl.icthorse.randomringtone.data.RemoteLogger
 import java.util.concurrent.TimeUnit
 
 /**
@@ -77,10 +78,12 @@ class RingtoneWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
+            RemoteLogger.init(applicationContext)
             val db = RingtoneDatabase.getInstance(applicationContext)
             val ringtoneManager = AppRingtoneManager(applicationContext)
             val resolver = TrackResolver(db, ringtoneManager, applicationContext)
             val tags = this@RingtoneWorker.tags
+            RemoteLogger.trigger("Worker", "RingtoneWorker.doWork()", mapOf("tags" to tags.joinToString()))
 
             // Bepaal welke schedules bij deze worker tag horen
             val targetSchedules = when {
@@ -99,42 +102,50 @@ class RingtoneWorker(
             }
 
             if (playlists.isEmpty()) {
+                RemoteLogger.d("Worker", "Geen actieve playlists voor schedules $targetSchedules")
                 Log.d(TAG, "No active playlists for schedules $targetSchedules")
                 return@withContext Result.success()
             }
 
+            RemoteLogger.i("Worker", "Actieve playlists gevonden", mapOf("count" to playlists.size.toString(), "schedules" to targetSchedules.joinToString()))
+
             for (playlist in playlists) {
-                val result = resolver.resolveForPlaylist(playlist) ?: continue
+                RemoteLogger.i("Worker", "Verwerk playlist: ${playlist.name}", mapOf("channel" to playlist.channel.name, "mode" to playlist.mode.name))
+                val result = resolver.resolveForPlaylist(playlist)
+                if (result == null) {
+                    RemoteLogger.w("Worker", "Geen track beschikbaar voor ${playlist.name}")
+                    continue
+                }
                 val (file, track) = result
                 val deezerTrack = track.toDeezerTrack()
 
                 when (playlist.channel) {
                     Channel.CALL -> {
                         if (playlist.contactUri != null) {
-                            // Per-contact ringtone
-                            val uri = ringtoneManager.addToMediaStorePublic(deezerTrack, file)
-                            if (uri != null) {
-                                ContactsRepository(applicationContext)
-                                    .setContactRingtone(playlist.contactUri, uri)
-                            }
+                            val contactName = playlist.contactName ?: "contact"
+                            RemoteLogger.i("Worker", "SWAP contact ringtone", mapOf("contact" to contactName, "track" to "${track.artist} - ${track.title}"))
+                            ringtoneManager.swapContactRingtone(file, contactName, playlist.contactUri)
                         } else {
-                            // Globale ringtone
-                            ringtoneManager.setAsRingtone(deezerTrack, file)
+                            RemoteLogger.i("Worker", "SWAP globale ringtone", mapOf("track" to "${track.artist} - ${track.title}"))
+                            ringtoneManager.swapGlobalRingtone(file)
                         }
                     }
                     Channel.NOTIFICATION -> {
                         ringtoneManager.setAsNotification(deezerTrack, file)
                     }
-                    // SMS en WhatsApp worden afgehandeld door NotificationService
-                    Channel.SMS, Channel.WHATSAPP -> { /* handled by NotificationService */ }
+                    Channel.SMS, Channel.WHATSAPP -> {
+                        RemoteLogger.d("Worker", "SMS/WA: overgeslagen (handled by NotificationService)")
+                    }
                 }
 
                 resolver.updateLastPlayed(playlist, track.deezerTrackId)
                 Log.i(TAG, "Set ${playlist.channel} ringtone to ${track.artist} - ${track.title} (playlist: ${playlist.name})")
             }
 
+            RemoteLogger.i("Worker", "Worker klaar — alle playlists verwerkt")
             Result.success()
         } catch (e: Exception) {
+            RemoteLogger.e("Worker", "Worker FAILED", mapOf("error" to (e.message ?: "unknown")))
             Log.e(TAG, "Worker failed", e)
             Result.retry()
         }

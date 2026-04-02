@@ -193,6 +193,24 @@ fun PlaylistManagerScreen(
                                     }
                                     // Schedule workers
                                     nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
+                                } else {
+                                    // DEACTIVEREN: opruimen
+                                    RemoteLogger.i("PlaylistManager", "Playlist gedeactiveerd — cleanup", mapOf(
+                                        "playlist" to updated.name, "channel" to updated.channel.name,
+                                        "contact" to (updated.contactName ?: "globaal")
+                                    ))
+                                    if (updated.channel == Channel.CALL && updated.contactUri != null) {
+                                        // Clear per-contact CUSTOM_RINGTONE in Android
+                                        val hasWrite = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED
+                                        if (hasWrite) {
+                                            val cleared = ContactsRepository(context).clearContactRingtone(updated.contactUri)
+                                            RemoteLogger.output("PlaylistManager", "Contact ringtone opgeruimd", mapOf(
+                                                "contact" to (updated.contactName ?: "?"), "cleared" to cleared.toString()
+                                            ))
+                                            if (cleared) snackbarHostState.showSnackbar("Contact ringtone verwijderd voor ${updated.contactName}")
+                                        }
+                                    }
+                                    nl.icthorse.randomringtone.worker.RingtoneWorker.scheduleAll(context)
                                 }
                                 refresh()
                             }

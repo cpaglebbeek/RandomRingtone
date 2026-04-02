@@ -79,9 +79,11 @@ class SpotMateDirectClient {
         forceOverwrite: Boolean = false
     ): DownloadResult = withContext(Dispatchers.IO) {
         try {
+            RemoteLogger.input("SpotMate", "downloadTrack gestart", mapOf("url" to spotifyUrl, "forceOverwrite" to forceOverwrite.toString()))
             // Stap 1: CSRF token ophalen
             onProgress("Verbinden met SpotMate...", 0.1f)
             fetchCsrfToken()
+            RemoteLogger.d("SpotMate", "CSRF token opgehaald")
 
             // Stap 2: Track metadata ophalen
             onProgress("Track info ophalen...", 0.2f)
@@ -111,9 +113,11 @@ class SpotMateDirectClient {
             downloadFile(downloadUrl, destFile)
 
             onProgress("Klaar!", 1.0f)
+            RemoteLogger.output("SpotMate", "Download KLAAR", mapOf("file" to destFile.name, "size" to "${destFile.length()/1024}KB", "track" to (trackInfo?.name ?: "?")))
             DownloadResult(success = true, file = destFile, trackInfo = trackInfo)
 
         } catch (e: Exception) {
+            RemoteLogger.e("SpotMate", "Download FAILED", mapOf("error" to (e.message ?: "unknown"), "url" to spotifyUrl))
             DownloadResult(false, error = "SpotMate fout: ${e.message}")
         }
     }

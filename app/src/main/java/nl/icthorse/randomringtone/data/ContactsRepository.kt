@@ -68,6 +68,7 @@ class ContactsRepository(val context: Context) {
      * Gebruikt ContactsContract.Contacts.CUSTOM_RINGTONE.
      */
     fun setContactRingtone(contactUri: String, ringtoneUri: Uri?): Boolean {
+        RemoteLogger.input("Contacts", "setContactRingtone", mapOf("contactUri" to contactUri, "ringtoneUri" to (ringtoneUri?.toString() ?: "null")))
         return try {
             val values = ContentValues().apply {
                 put(
@@ -76,12 +77,18 @@ class ContactsRepository(val context: Context) {
                 )
             }
             val uri = Uri.parse(contactUri)
-            val contactId = getContactIdFromUri(uri) ?: return false
+            val contactId = getContactIdFromUri(uri) ?: run {
+                RemoteLogger.e("Contacts", "Contact ID niet gevonden", mapOf("contactUri" to contactUri))
+                return false
+            }
             val updateUri = ContactsContract.Contacts.CONTENT_URI.buildUpon()
                 .appendPath(contactId.toString())
                 .build()
-            context.contentResolver.update(updateUri, values, null, null) > 0
+            val updated = context.contentResolver.update(updateUri, values, null, null) > 0
+            RemoteLogger.result("Contacts", "setContactRingtone", updated, mapOf("contactId" to contactId.toString()))
+            updated
         } catch (e: Exception) {
+            RemoteLogger.e("Contacts", "setContactRingtone EXCEPTION", mapOf("error" to (e.message ?: "unknown")))
             false
         }
     }

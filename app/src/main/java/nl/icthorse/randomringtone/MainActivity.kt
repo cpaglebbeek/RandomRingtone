@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import nl.icthorse.randomringtone.data.AppRingtoneManager
 import nl.icthorse.randomringtone.data.BackupManager
+import nl.icthorse.randomringtone.data.RemoteLogger
 import nl.icthorse.randomringtone.data.RingtoneDatabase
 import nl.icthorse.randomringtone.ui.screens.*
 import java.io.File
@@ -25,6 +26,8 @@ import nl.icthorse.randomringtone.ui.theme.RandomRingtoneTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        RemoteLogger.init(this)
+        RemoteLogger.trigger("MainActivity", "onCreate — app start")
         enableEdgeToEdge()
         setContent {
             RandomRingtoneTheme {
@@ -47,14 +50,19 @@ fun RandomRingtoneApp() {
 
     // Auto-restore bij startup als DB leeg is + auto-backup bestaat
     LaunchedEffect(Unit) {
+        RemoteLogger.i("Startup", "Auto-restore check gestart")
         val restored = backupManager.autoRestoreFromLocal(db, ringtoneManager.storage)
         if (restored) {
+            RemoteLogger.output("Startup", "Auto-restore uitgevoerd vanuit lokale backup")
             snackbarHostState.showSnackbar("Data hersteld vanuit lokale backup")
+        } else {
+            RemoteLogger.d("Startup", "Auto-restore overgeslagen (DB niet leeg of geen backup)")
         }
     }
 
     // Auto-backup bij elke tab-wissel (debounced, lightweight)
     LaunchedEffect(selectedTab) {
+        RemoteLogger.d("Navigation", "Tab wissel → auto-backup", mapOf("tabIndex" to selectedTab.toString()))
         backupManager.autoBackupToLocal(db, ringtoneManager.storage)
     }
 
@@ -86,6 +94,7 @@ fun RandomRingtoneApp() {
                         label = { Text(label) },
                         selected = selectedTab == index,
                         onClick = {
+                            RemoteLogger.trigger("Navigation", "Tab tapped: $label (index=$index)")
                             selectedTab = index
                             // Pop editor van back stack als die er op zit
                             navController.popBackStack("editor", inclusive = true)

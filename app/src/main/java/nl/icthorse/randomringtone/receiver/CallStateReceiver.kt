@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
+import nl.icthorse.randomringtone.data.RemoteLogger
 
 /**
  * BroadcastReceiver voor EVERY_CALL schedule.
@@ -23,6 +24,7 @@ class CallStateReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) return
+        RemoteLogger.init(context)
 
         val stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE) ?: return
         val currentState = when (stateStr) {
@@ -32,10 +34,13 @@ class CallStateReceiver : BroadcastReceiver() {
             else -> return
         }
 
+        RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf("from" to lastState.toString(), "to" to currentState.toString()))
+
         // Gesprek beëindigd: was OFFHOOK of RINGING, nu IDLE
         if (currentState == TelephonyManager.CALL_STATE_IDLE &&
             lastState != TelephonyManager.CALL_STATE_IDLE
         ) {
+            RemoteLogger.i("CallState", "Gesprek beëindigd → EVERY_CALL ringtone wissel starten")
             handleCallEnded(context)
         }
 
@@ -54,24 +59,29 @@ class CallStateReceiver : BroadcastReceiver() {
                     it.channel == Channel.CALL && it.schedule == Schedule.EVERY_CALL
                 }
 
+                RemoteLogger.i("CallState", "EVERY_CALL playlists gevonden", mapOf("count" to playlists.size.toString()))
+
                 for (playlist in playlists) {
+                    RemoteLogger.i("CallState", "Verwerk playlist: ${playlist.name}", mapOf("contact" to (playlist.contactName ?: "globaal")))
                     val result = resolver.resolveForPlaylist(playlist) ?: continue
                     val (file, track) = result
-                    val deezerTrack = track.toDeezerTrack()
 
                     if (playlist.contactUri != null) {
-                        // Per-contact ringtone
-                        val uri = ringtoneManager.addToMediaStorePublic(deezerTrack, file)
-                        if (uri != null) {
-                            ContactsRepository(context)
-                                .setContactRingtone(playlist.contactUri, uri)
-                        }
+                        // Per-contact: swap content van <contact>-RandomRing.mp3
+                        val contactName = playlist.contactName ?: "contact"
+                        RemoteLogger.i("CallState", "SWAP contact ringtone", mapOf("contact" to contactName, "track" to "${track.artist} - ${track.title}"))
+                        ringtoneManager.swapContactRingtone(file, contactName, playlist.contactUri)
                     } else {
-                        // Globale ringtone
-                        ringtoneManager.setAsRingtone(deezerTrack, file)
+                        // Globaal: swap content van RandomRingtone_Global.mp3
+                        RemoteLogger.i("CallState", "SWAP globale ringtone", mapOf("track" to "${track.artist} - ${track.title}"))
+                        ringtoneManager.swapGlobalRingtone(file)
                     }
 
                     resolver.updateLastPlayed(playlist, track.deezerTrackId)
+                    RemoteLogger.output("CallState", "EVERY_CALL ringtone geswapped", mapOf(
+                        "playlist" to playlist.name, "track" to "${track.artist} - ${track.title}",
+                        "scope" to if (playlist.contactUri != null) "contact:${playlist.contactName}" else "globaal"
+                    ))
                     Log.i(TAG, "EVERY_CALL: ringtone gewisseld naar ${track.artist} - ${track.title}")
                 }
             } catch (e: Exception) {

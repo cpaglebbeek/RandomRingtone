@@ -36,6 +36,8 @@ class NotificationService : NotificationListenerService() {
         db = RingtoneDatabase.getInstance(this)
         ringtoneManager = AppRingtoneManager(this)
         trackResolver = TrackResolver(db, ringtoneManager, this)
+        RemoteLogger.init(this)
+        RemoteLogger.i("NotifService", "NotificationService onCreate — service gestart")
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -49,18 +51,41 @@ class NotificationService : NotificationListenerService() {
 
         val contactName = extractContactName(sbn, channel) ?: return
 
+        RemoteLogger.trigger("NotifService", "Notificatie ontvangen", mapOf(
+            "channel" to channel.name,
+            "package" to sbn.packageName,
+            "contact" to contactName
+        ))
+
         scope.launch {
             try {
-                val playlist = findPlaylist(contactName, channel) ?: return@launch
-                val result = trackResolver.resolveForPlaylist(playlist) ?: return@launch
+                val playlist = findPlaylist(contactName, channel)
+                if (playlist == null) {
+                    RemoteLogger.d("NotifService", "Geen playlist gevonden voor $contactName/$channel")
+                    return@launch
+                }
+                RemoteLogger.i("NotifService", "Playlist gevonden: ${playlist.name}", mapOf("contact" to contactName, "channel" to channel.name))
+
+                val result = trackResolver.resolveForPlaylist(playlist)
+                if (result == null) {
+                    RemoteLogger.w("NotifService", "Geen track beschikbaar voor playlist ${playlist.name}")
+                    return@launch
+                }
                 val (file, track) = result
 
+                RemoteLogger.i("NotifService", "Custom geluid afspelen", mapOf("track" to "${track.artist} - ${track.title}", "file" to file.name))
                 playCustomSound(file)
                 trackResolver.updateLastPlayed(playlist, track.deezerTrackId)
                 cancelNotificationSound(sbn)
 
-                Log.i(TAG, "$channel: ${track.artist} - ${track.title} (playlist: ${playlist.name})")
+                RemoteLogger.output("NotifService", "CUSTOM RINGTONE AFGESPEELD", mapOf(
+                    "channel" to channel.name,
+                    "contact" to contactName,
+                    "track" to "${track.artist} - ${track.title}",
+                    "playlist" to playlist.name
+                ))
             } catch (e: Exception) {
+                RemoteLogger.e("NotifService", "FOUT bij notificatie", mapOf("contact" to contactName, "error" to (e.message ?: "unknown")))
                 Log.e(TAG, "Error handling notification for $contactName", e)
             }
         }

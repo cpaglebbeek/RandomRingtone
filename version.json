@@ -1,11 +1,11 @@
 {
   "project": "RandomRingtone",
-  "version": "0.7.32",
-  "versionCode": 53,
+  "version": "0.7.34",
+  "versionCode": 55,
   "codename": "Prince",
-  "releaseName": "Uptown",
+  "releaseName": "Delirious",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
-  "last_updated": "2026-04-01",
+  "last_updated": "2026-04-02",
   "status": "active"
 }

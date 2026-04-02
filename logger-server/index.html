@@ -426,6 +426,32 @@
     font-style: italic;
   }
 
+  .swap-matched {
+    background: rgba(63, 185, 80, 0.08);
+    outline: 2px solid var(--green);
+    outline-offset: -2px;
+  }
+
+  .swap-matched td:first-child::before {
+    content: "\u25B6";
+    color: var(--green);
+    font-size: 10px;
+    margin-right: 6px;
+  }
+
+  .swap-match-label {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--green);
+    background: rgba(63, 185, 80, 0.15);
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
   .call-count-badge {
     background: var(--accent);
     color: #fff;
@@ -600,6 +626,14 @@
 
     let swapsHtml = '';
     if (event.swaps && event.swaps.length > 0) {
+      // Bepaal welke row matcht met de beller
+      const callerLower = (event.callerName || event.caller || '').toLowerCase();
+      const hasContactMatch = event.swaps.some(s =>
+        s.contact && s.contact !== 'globaal' &&
+        callerLower !== 'onbekend' && callerLower !== '' &&
+        s.contact.toLowerCase() === callerLower
+      );
+
       swapsHtml = `
         <table class="swap-table">
           <thead>
@@ -612,15 +646,22 @@
             </tr>
           </thead>
           <tbody>
-            ${event.swaps.map(s => `
-              <tr>
+            ${event.swaps.map(s => {
+              const isContactMatch = s.contact && s.contact !== 'globaal' &&
+                callerLower !== 'onbekend' && callerLower !== '' &&
+                s.contact.toLowerCase() === callerLower;
+              const isGlobalMatch = s.contact === 'globaal' && !hasContactMatch;
+              const matched = isContactMatch || isGlobalMatch;
+              const label = matched ? '<span class="swap-match-label">beller hoort deze</span>' : '';
+              return `
+              <tr class="${matched ? 'swap-matched' : ''}">
                 <td><span class="swap-status ${s.success === 'true' ? 'ok' : 'fail'}"></span>${s.success === 'true' ? 'OK' : 'FAIL'}</td>
-                <td>${esc(s.contact || s.playlist || '-')}</td>
+                <td>${esc(s.contact || s.playlist || '-')}${label}</td>
                 <td><span class="track-name current">${esc(s.currentTrack || s.track || '-')}</span></td>
                 <td><span class="track-name next">${esc(s.nextTrack || '-')}</span></td>
                 <td><span class="swap-reason">${esc(s.reason || '-')}</span></td>
-              </tr>
-            `).join('')}
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>
       `;

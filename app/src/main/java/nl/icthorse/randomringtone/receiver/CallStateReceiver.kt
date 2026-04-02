@@ -3,18 +3,28 @@ package nl.icthorse.randomringtone.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.provider.CallLog
 import android.telephony.TelephonyManager
 import android.util.Log
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
 import nl.icthorse.randomringtone.data.RemoteLogger
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * BroadcastReceiver voor EVERY_CALL schedule.
  * Luistert naar telefoon-state changes en wisselt de ringtone na elk gesprek.
- * Vangt beller-info op bij RINGING en stuurt CALL_SUMMARY na verwerking.
+ *
+ * Beller-identificatie (gelaagd):
+ * 1. EXTRA_INCOMING_NUMBER bij RINGING (vereist READ_CALL_LOG op Android 10+)
+ * 2. CallLog.Calls query na gesprek (vereist READ_CALL_LOG)
+ * 3. Fallback: "Onbekend"
+ * Nummer wordt altijd opgezocht in contacten (vereist READ_CONTACTS).
  */
 class CallStateReceiver : BroadcastReceiver() {
 
@@ -37,21 +47,28 @@ class CallStateReceiver : BroadcastReceiver() {
             else -> return
         }
 
-        // Beller-info opvangen bij RINGING
+        // Laag 1: Beller-info opvangen bij RINGING via EXTRA_INCOMING_NUMBER
         if (currentState == TelephonyManager.CALL_STATE_RINGING) {
             @Suppress("DEPRECATION")
-            lastCallerNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
-            lastCallerName = lastCallerNumber?.let { number ->
-                try {
-                    ContactsRepository(context).getContactNameByNumber(number)
-                } catch (_: Exception) { null }
+            val extraNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
+            if (!extraNumber.isNullOrBlank()) {
+                lastCallerNumber = extraNumber
+                lastCallerName = resolveContactName(context, extraNumber)
+                RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf(
+                    "from" to lastState.toString(),
+                    "to" to currentState.toString(),
+                    "callerNumber" to extraNumber,
+                    "callerName" to (lastCallerName ?: "niet in contacten"),
+                    "bron" to "EXTRA_INCOMING_NUMBER"
+                ))
+            } else {
+                RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf(
+                    "from" to lastState.toString(),
+                    "to" to currentState.toString(),
+                    "callerNumber" to "niet beschikbaar",
+                    "hint" to "READ_CALL_LOG permissie nodig voor nummer op Android 10+"
+                ))
             }
-            RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf(
-                "from" to lastState.toString(),
-                "to" to currentState.toString(),
-                "callerNumber" to (lastCallerNumber ?: "onbekend"),
-                "callerName" to (lastCallerName ?: "onbekend")
-            ))
         } else {
             RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf(
                 "from" to lastState.toString(),
@@ -63,13 +80,83 @@ class CallStateReceiver : BroadcastReceiver() {
         if (currentState == TelephonyManager.CALL_STATE_IDLE &&
             lastState != TelephonyManager.CALL_STATE_IDLE
         ) {
-            RemoteLogger.i("CallState", "Gesprek beëindigd → EVERY_CALL ringtone wissel starten")
+            // Laag 2: Als RINGING geen nummer gaf, probeer CallLog
+            if (lastCallerNumber == null) {
+                val callLogResult = queryLastIncomingCall(context)
+                if (callLogResult != null) {
+                    lastCallerNumber = callLogResult.first
+                    lastCallerName = callLogResult.second
+                        ?: resolveContactName(context, callLogResult.first)
+                    RemoteLogger.i("CallState", "Beller via CallLog geïdentificeerd", mapOf(
+                        "callerNumber" to (lastCallerNumber ?: "?"),
+                        "callerName" to (lastCallerName ?: "niet in contacten"),
+                        "bron" to "CallLog.Calls"
+                    ))
+                }
+            }
+
+            RemoteLogger.i("CallState", "Gesprek beëindigd → EVERY_CALL ringtone wissel starten", mapOf(
+                "caller" to formatCaller(lastCallerName, lastCallerNumber)
+            ))
             handleCallEnded(context, lastCallerNumber, lastCallerName)
             lastCallerNumber = null
             lastCallerName = null
         }
 
         lastState = currentState
+    }
+
+    /**
+     * Zoek contactnaam op basis van telefoonnummer.
+     * Vereist: READ_CONTACTS (al in manifest + runtime).
+     */
+    private fun resolveContactName(context: Context, number: String): String? {
+        return try {
+            ContactsRepository(context).getContactNameByNumber(number)
+        } catch (_: Exception) { null }
+    }
+
+    /**
+     * Haal het laatste inkomende gesprek op uit de CallLog.
+     * Vereist: READ_CALL_LOG permissie.
+     * @return Pair(nummer, cachedName) of null
+     */
+    private fun queryLastIncomingCall(context: Context): Pair<String, String?>? {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.READ_CALL_LOG
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) {
+            RemoteLogger.w("CallState", "READ_CALL_LOG niet toegekend — kan CallLog niet raadplegen")
+            return null
+        }
+
+        return try {
+            context.contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE),
+                "${CallLog.Calls.TYPE} = ?",
+                arrayOf(CallLog.Calls.INCOMING_TYPE.toString()),
+                "${CallLog.Calls.DATE} DESC"
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val number = cursor.getString(0)
+                    val cachedName = cursor.getString(1)
+                    if (!number.isNullOrBlank()) Pair(number, cachedName) else null
+                } else null
+            }
+        } catch (e: Exception) {
+            RemoteLogger.e("CallState", "CallLog query FAILED", mapOf("error" to (e.message ?: "unknown")))
+            null
+        }
+    }
+
+    private fun formatCaller(name: String?, number: String?): String {
+        return when {
+            name != null && number != null -> "$name ($number)"
+            name != null -> name
+            number != null -> number
+            else -> "Onbekend"
+        }
     }
 
     private fun handleCallEnded(context: Context, callerNumber: String?, callerName: String?) {
@@ -80,14 +167,12 @@ class CallStateReceiver : BroadcastReceiver() {
                 val ringtoneManager = AppRingtoneManager(context)
                 val resolver = TrackResolver(db, ringtoneManager, context)
 
-                // Log ALLE actieve playlists vóór filter
                 val allActive = db.playlistDao().getActive()
                 RemoteLogger.i("CallState", "Alle actieve playlists", mapOf(
                     "count" to allActive.size.toString(),
                     "playlists" to allActive.joinToString { "${it.name}[${it.channel}/${it.schedule}/${if (it.contactUri != null) "contact:${it.contactName}" else "globaal"}]" }
                 ))
 
-                // Filter op CALL + EVERY_CALL
                 val playlists = allActive.filter {
                     it.channel == Channel.CALL && it.schedule == Schedule.EVERY_CALL
                 }
@@ -103,6 +188,7 @@ class CallStateReceiver : BroadcastReceiver() {
                         val trackCount = tracks.size
 
                         // Huidige ringtone: track die afspeelde bij DIT gesprek
+                        // = lastPlayedTrackId van de vorige cyclus (wat nu actief is)
                         val currentTrack = playlist.lastPlayedTrackId?.let { lastId ->
                             tracks.find { it.deezerTrackId == lastId }
                         }
@@ -112,7 +198,8 @@ class CallStateReceiver : BroadcastReceiver() {
                             "contact" to (playlist.contactName ?: "globaal"),
                             "mode" to playlist.mode.name,
                             "trackCount" to trackCount.toString(),
-                            "currentTrack" to currentLabel
+                            "huidigeRingtone" to currentLabel,
+                            "lastPlayedTrackId" to (playlist.lastPlayedTrackId?.toString() ?: "null")
                         ))
 
                         val result = resolver.resolveForPlaylist(playlist)
@@ -185,9 +272,13 @@ class CallStateReceiver : BroadcastReceiver() {
                 }
                 RemoteLogger.i("CallState", "EVERY_CALL verwerking compleet", mapOf("verwerkt" to playlists.size.toString()))
 
-                // CALL_SUMMARY: gestructureerd overzicht voor Overview tab
-                val caller = callerName ?: callerNumber ?: "Onbekend"
-                RemoteLogger.callSummary(context, caller, swapResults)
+                // CALL_SUMMARY met gelaagde beller-identificatie
+                RemoteLogger.callSummary(
+                    context,
+                    callerName = callerName,
+                    callerNumber = callerNumber,
+                    swaps = swapResults
+                )
 
             } catch (e: Exception) {
                 RemoteLogger.e("CallState", "FATALE ERROR in handleCallEnded", mapOf("error" to (e.message ?: "unknown")))

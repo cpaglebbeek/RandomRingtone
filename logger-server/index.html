@@ -630,10 +630,11 @@
 
     card.innerHTML = `
       <div class="call-header">
-        <div class="call-caller"><span class="phone-icon">&#128222;</span>${esc(event.caller || 'Onbekend')}</div>
+        <div class="call-caller"><span class="phone-icon">&#128222;</span>${esc(event.callerName || event.caller || 'Onbekend')}</div>
         <div class="call-time">${esc(event.timestamp || '')}</div>
       </div>
       <div class="call-meta">
+        <div class="meta-chip"><span class="label">Nummer</span><span class="value">${esc(event.callerNumber || '?')}</span></div>
         <div class="meta-chip"><span class="label">App</span><span class="value">v${esc(event.appVersion || '?')}</span></div>
         <div class="meta-chip"><span class="label">Device</span><span class="value">${esc(event.deviceId || '?')}</span></div>
         <div class="meta-chip"><span class="label">Eigenaar</span><span class="value">${esc(event.owner || '?')}</span></div>

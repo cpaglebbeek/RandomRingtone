@@ -126,22 +126,42 @@ object RemoteLogger {
 
     // --- Call Summary ---
 
-    fun callSummary(context: android.content.Context, caller: String, swaps: List<Map<String, String>>) {
+    fun callSummary(
+        context: android.content.Context,
+        callerName: String?,
+        callerNumber: String?,
+        swaps: List<Map<String, String>>
+    ) {
         val appVersion = try {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
         } catch (_: Exception) { "?" }
 
-        val swapsJson = try {
-            json.encodeToString(swaps)
-        } catch (_: Exception) { "[]" }
+        // Bulletproof JSON via org.json (geen kotlinx.serialization voor generics)
+        val swapsArray = org.json.JSONArray()
+        for (swap in swaps) {
+            val obj = org.json.JSONObject()
+            for ((key, value) in swap) {
+                obj.put(key, value)
+            }
+            swapsArray.put(obj)
+        }
+
+        val caller = when {
+            callerName != null && callerNumber != null -> "$callerName ($callerNumber)"
+            callerName != null -> callerName
+            callerNumber != null -> callerNumber
+            else -> "Onbekend"
+        }
 
         enqueue("CALL_SUMMARY", "CALL_SUMMARY", "Oproep verwerkt", mapOf(
             "caller" to caller,
+            "callerName" to (callerName ?: "Onbekend"),
+            "callerNumber" to (callerNumber ?: "Onbekend"),
             "appVersion" to appVersion,
             "deviceId" to deviceId,
             "owner" to "Christian",
             "swapCount" to swaps.size.toString(),
-            "swaps" to swapsJson
+            "swaps" to swapsArray.toString()
         ))
     }
 

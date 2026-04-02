@@ -58,3 +58,7 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 51 | 0.7.30 | Prince | Erotic_City | 2026-04-01 | Nee |
 | 52 | 0.7.31 | Prince | Dirty_Mind | 2026-04-01 | Nee |
 | 53 | 0.7.32 | Prince | Uptown | 2026-04-01 | Nee |
+| 54 | 0.7.33 | Prince | Partyman | 2026-04-02 | Nee |
+| 55 | 0.7.34 | Prince | Delirious | 2026-04-02 | Nee |
+| 56 | 0.7.35 | Prince | Baby_Im_A_Star | 2026-04-02 | Nee |
+| 57 | 0.7.36 | Prince | Take_Me_With_U | 2026-04-02 | Nee |

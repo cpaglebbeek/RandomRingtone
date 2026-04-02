@@ -124,6 +124,27 @@ object RemoteLogger {
         enqueue(level, tag, "RESULT: $description", data + mapOf("success" to success.toString()))
     }
 
+    // --- Call Summary ---
+
+    fun callSummary(context: android.content.Context, caller: String, swaps: List<Map<String, String>>) {
+        val appVersion = try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
+        } catch (_: Exception) { "?" }
+
+        val swapsJson = try {
+            json.encodeToString(swaps)
+        } catch (_: Exception) { "[]" }
+
+        enqueue("CALL_SUMMARY", "CALL_SUMMARY", "Oproep verwerkt", mapOf(
+            "caller" to caller,
+            "appVersion" to appVersion,
+            "deviceId" to deviceId,
+            "owner" to "Christian",
+            "swapCount" to swaps.size.toString(),
+            "swaps" to swapsJson
+        ))
+    }
+
     // --- Internals ---
 
     private fun enqueue(level: String, tag: String, message: String, data: Map<String, String>) {

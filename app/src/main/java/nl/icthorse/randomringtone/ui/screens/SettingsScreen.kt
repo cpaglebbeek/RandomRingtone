@@ -48,6 +48,9 @@ fun SettingsScreen(
     var phoneStateGranted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED)
     }
+    var readCallLogGranted by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED)
+    }
     var writeContactsGranted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED)
     }
@@ -56,6 +59,11 @@ fun SettingsScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         phoneStateGranted = granted
+    }
+    val readCallLogPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        readCallLogGranted = granted
     }
     val writeContactsPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -70,6 +78,7 @@ fun SettingsScreen(
                 canWriteSettings = ringtoneManager.canWriteSettings()
                 notificationAccessEnabled = isNotificationListenerEnabled(context)
                 phoneStateGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+                readCallLogGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
                 writeContactsGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED
             }
         }
@@ -238,6 +247,54 @@ fun SettingsScreen(
                     FilledTonalButton(
                         onClick = {
                             phoneStatePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
+                        }
+                    ) {
+                        Text("Toestaan")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // READ_CALL_LOG permissie (voor beller-identificatie)
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (readCallLogGranted) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = if (readCallLogGranted)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Oproeplog lezen",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = if (readCallLogGranted)
+                            "Toegestaan — beller wordt geïdentificeerd in logger"
+                        else
+                            "Vereist om te zien wie er belt in de Remote Logger",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!readCallLogGranted) {
+                    FilledTonalButton(
+                        onClick = {
+                            readCallLogPermissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
                         }
                     ) {
                         Text("Toestaan")

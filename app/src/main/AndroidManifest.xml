@@ -23,6 +23,9 @@
     <!-- EVERY_CALL: ringtone wisselen na elk gesprek -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
+    <!-- Beller-info ophalen bij inkomend gesprek (Android 10+) -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+
     <application
         android:allowBackup="true"
         android:usesCleartextTraffic="true"

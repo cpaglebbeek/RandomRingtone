@@ -56,6 +56,25 @@ class ContactsRepository(val context: Context) {
     }
 
     /**
+     * Zoek contactnaam op basis van telefoonnummer (voor beller-identificatie).
+     */
+    fun getContactNameByNumber(phoneNumber: String): String? {
+        return try {
+            val uri = Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                Uri.encode(phoneNumber)
+            )
+            context.contentResolver.query(
+                uri,
+                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
+                null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        } catch (_: Exception) { null }
+    }
+
+    /**
      * Zoek contacten op naam.
      */
     fun searchContacts(query: String): List<ContactInfo> {

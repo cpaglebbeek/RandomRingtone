@@ -63,4 +63,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 56 | 0.7.35 | Prince | Baby_Im_A_Star | 2026-04-02 | Nee |
 | 57 | 0.7.36 | Prince | Take_Me_With_U | 2026-04-02 | Nee |
 | 58 | 0.7.37 | Prince | Computer_Blue | 2026-04-02 | Nee |
-| 59 | 0.7.38 | Prince | Mountains | 2026-04-02 | Nee |
+| 59 | 0.7.38 | Prince | Mountains | 2026-04-02 | Ja |

@@ -210,7 +210,12 @@ private fun ChannelCard(
                 if (setting != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Playlist: ${setting.sourceName} (${if (setting.mode == Mode.RANDOM) "Random" else "Vast"})",
+                        text = "Playlist: ${setting.sourceName} (${when (setting.mode) {
+                            Mode.FIXED -> "Vast"
+                            Mode.REAL_RANDOM -> "Real"
+                            Mode.SEMI_RANDOM -> "Semi"
+                            Mode.QUASI_RANDOM -> "Quasi"
+                        }})",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(

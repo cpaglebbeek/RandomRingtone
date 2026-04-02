@@ -12,7 +12,12 @@ enum class Channel {
 }
 
 enum class Mode {
-    FIXED, RANDOM
+    FIXED,
+    REAL_RANDOM,    // Volledig willekeurig, duplicaten mogelijk
+    SEMI_RANDOM,    // Willekeurig, nooit 2x achter elkaar hetzelfde
+    QUASI_RANDOM;   // Willekeurig, pas herhalen als alle tracks gespeeld zijn
+
+    fun isRandom(): Boolean = this != FIXED
 }
 
 enum class Schedule {
@@ -48,12 +53,13 @@ data class Playlist(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,                          // Playlist naam (bijv. "Rock", "Werk", "Familie")
     val channel: Channel = Channel.CALL,       // Trigger: telefoon, sms, whatsapp, notificatie
-    val mode: Mode = Mode.RANDOM,              // Vast (eerste track) of Random
+    val mode: Mode = Mode.SEMI_RANDOM,          // FIXED / REAL_RANDOM / SEMI_RANDOM / QUASI_RANDOM
     val schedule: Schedule = Schedule.EVERY_CALL,
     val contactUri: String? = null,            // null = globaal, anders per-contact
     val contactName: String? = null,
     val isActive: Boolean = true,              // Playlist actief of gepauzeerd
-    val lastPlayedTrackId: Long? = null        // Bijhouden welke track laatst gespeeld is (voor EVERY_CALL: niet dezelfde)
+    val lastPlayedTrackId: Long? = null,        // Laatst gespeelde track (SEMI: uitsluiten, QUASI: bijhouden)
+    val playedTrackIds: String? = null          // Comma-separated track IDs (QUASI_RANDOM: alle gespeelde tracks)
 )
 
 /**
@@ -177,7 +183,7 @@ interface SavedTrackDao {
 
 @Database(
     entities = [SavedTrack::class, Playlist::class, PlaylistTrack::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -190,13 +196,14 @@ abstract class RingtoneDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: RingtoneDatabase? = null
 
-        // Toekomstige migraties hier toevoegen (v4 → v5, etc.)
-        // Voorbeeld:
-        // val MIGRATION_4_5 = object : Migration(4, 5) {
-        //     override fun migrate(db: SupportSQLiteDatabase) {
-        //         db.execSQL("ALTER TABLE playlists ADD COLUMN newField TEXT")
-        //     }
-        // }
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. Nieuw veld voor QUASI_RANDOM tracking
+                db.execSQL("ALTER TABLE playlists ADD COLUMN playedTrackIds TEXT")
+                // 2. RANDOM → SEMI_RANDOM (behoud huidig gedrag)
+                db.execSQL("UPDATE playlists SET mode = 'SEMI_RANDOM' WHERE mode = 'RANDOM'")
+            }
+        }
 
         fun getInstance(context: Context): RingtoneDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -205,6 +212,7 @@ abstract class RingtoneDatabase : RoomDatabase() {
                     RingtoneDatabase::class.java,
                     "randomringtone.db"
                 )
+                .addMigrations(MIGRATION_4_5)
                 .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }

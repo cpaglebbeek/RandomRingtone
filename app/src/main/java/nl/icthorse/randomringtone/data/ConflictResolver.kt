@@ -42,7 +42,7 @@ class ConflictResolver(private val db: RingtoneDatabase) {
             val tracks = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
             val currentTrack = when (playlist.mode) {
                 Mode.FIXED -> tracks.firstOrNull()
-                Mode.RANDOM -> {
+                Mode.REAL_RANDOM, Mode.SEMI_RANDOM, Mode.QUASI_RANDOM -> {
                     if (playlist.lastPlayedTrackId != null) {
                         tracks.find { it.deezerTrackId == playlist.lastPlayedTrackId }
                             ?: tracks.firstOrNull()

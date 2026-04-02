@@ -105,7 +105,7 @@ class RingtoneWorker(
 
             // Filter op RANDOM modus en matching schedule
             val playlists = allActive.filter {
-                it.mode == Mode.RANDOM && it.schedule in targetSchedules
+                it.mode.isRandom() && it.schedule in targetSchedules
             }
 
             if (playlists.isEmpty()) {

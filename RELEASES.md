@@ -67,4 +67,5 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 60 | 1.0c | Prince | New_Power_Generation | 2026-04-02 | Ja |
 | 61 | 1.0.1c | Prince | Paisley_Park | 2026-04-02 | Ja |
 | 62 | 1.0.2c | Prince | U_Got_The_Look | 2026-04-02 | Ja |
-| 63 | 1.0.3c | Prince | Soft_And_Wet | 2026-04-02 | Ja |
+| 63 | 1.0.3c | Prince | Soft_And_Wet | 2026-04-02 | Ja (stable) |
+| 64 | 1.1.0c | Prince | If_I_Was_Your_Girlfriend | 2026-04-02 | Ja |

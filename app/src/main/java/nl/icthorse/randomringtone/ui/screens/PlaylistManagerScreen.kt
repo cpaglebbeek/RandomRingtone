@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -329,7 +330,12 @@ private fun PlaylistCard(
                         buildString {
                             append(playlist.channel.displayLabel())
                             append(" • ")
-                            append(if (playlist.mode == Mode.RANDOM) "Random" else "Vast")
+                            append(when (playlist.mode) {
+                                Mode.FIXED -> "Vast"
+                                Mode.REAL_RANDOM -> "Real Random"
+                                Mode.SEMI_RANDOM -> "Semi Random"
+                                Mode.QUASI_RANDOM -> "Quasi Random"
+                            })
                             append(" • ")
                             append(playlist.schedule.displayLabel())
                             if (playlist.contactName != null) {
@@ -391,7 +397,7 @@ private fun PlaylistEditDialog(
 ) {
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var channel by remember { mutableStateOf(existing?.channel ?: Channel.CALL) }
-    var mode by remember { mutableStateOf(existing?.mode ?: Mode.RANDOM) }
+    var mode by remember { mutableStateOf(existing?.mode ?: Mode.SEMI_RANDOM) }
     var schedule by remember { mutableStateOf(existing?.schedule ?: Schedule.EVERY_CALL) }
     var isGlobal by remember { mutableStateOf(existing?.contactUri == null) }
     var selectedContact by remember { mutableStateOf<ContactInfo?>(
@@ -578,15 +584,29 @@ private fun PlaylistEditDialog(
 
                 // Modus
                 Text("Modus:", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = mode == Mode.RANDOM, onClick = { mode = Mode.RANDOM },
-                        label = { Text("Random") })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     FilterChip(selected = mode == Mode.FIXED, onClick = { mode = Mode.FIXED },
-                        label = { Text("Vast (eerste track)") })
+                        label = { Text("Vast") })
+                    FilterChip(selected = mode == Mode.REAL_RANDOM, onClick = { mode = Mode.REAL_RANDOM },
+                        label = { Text("Real") })
+                    FilterChip(selected = mode == Mode.SEMI_RANDOM, onClick = { mode = Mode.SEMI_RANDOM },
+                        label = { Text("Semi") })
+                    FilterChip(selected = mode == Mode.QUASI_RANDOM, onClick = { mode = Mode.QUASI_RANDOM },
+                        label = { Text("Quasi") })
                 }
+                Text(
+                    text = when (mode) {
+                        Mode.FIXED -> "Altijd dezelfde track (eerste in de lijst)"
+                        Mode.REAL_RANDOM -> "Volledig willekeurig, kan 2x hetzelfde zijn"
+                        Mode.SEMI_RANDOM -> "Willekeurig, nooit 2x achter elkaar hetzelfde"
+                        Mode.QUASI_RANDOM -> "Willekeurig, pas herhalen als alles gespeeld is"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 // Schema (alleen bij Random)
-                if (mode == Mode.RANDOM) {
+                if (mode.isRandom()) {
                     Text("Schema:", style = MaterialTheme.typography.labelLarge)
                     Column {
                         Schedule.entries.forEach { s ->
@@ -607,7 +627,7 @@ private fun PlaylistEditDialog(
                             name = name.trim(),
                             channel = channel,
                             mode = mode,
-                            schedule = if (mode == Mode.RANDOM) schedule else Schedule.MANUAL,
+                            schedule = if (mode.isRandom()) schedule else Schedule.MANUAL,
                             contactUri = if (isGlobal) null else selectedContact?.uri,
                             contactName = if (isGlobal) null else selectedContact?.name
                         )

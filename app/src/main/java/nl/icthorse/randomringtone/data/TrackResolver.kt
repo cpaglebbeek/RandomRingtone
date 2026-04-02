@@ -51,17 +51,53 @@ class TrackResolver(
                 RemoteLogger.d("TrackResolver", "FIXED mode → eerste track")
                 tracks.first()
             }
-            Mode.RANDOM -> {
+            Mode.REAL_RANDOM -> {
+                val picked = tracks.random()
+                RemoteLogger.d("TrackResolver", "REAL_RANDOM mode → track gekozen", mapOf(
+                    "picked" to "${picked.artist} - ${picked.title}",
+                    "pool" to tracks.size.toString()
+                ))
+                picked
+            }
+            Mode.SEMI_RANDOM -> {
                 val candidates = if (tracks.size > 1 && playlist.lastPlayedTrackId != null) {
                     tracks.filter { it.deezerTrackId != playlist.lastPlayedTrackId }
                 } else {
                     tracks
                 }
                 val picked = candidates.random()
-                RemoteLogger.d("TrackResolver", "RANDOM mode → track gekozen", mapOf(
+                RemoteLogger.d("TrackResolver", "SEMI_RANDOM mode → track gekozen", mapOf(
                     "picked" to "${picked.artist} - ${picked.title}",
                     "candidates" to candidates.size.toString(),
                     "excluded" to (playlist.lastPlayedTrackId?.toString() ?: "none")
+                ))
+                picked
+            }
+            Mode.QUASI_RANDOM -> {
+                val playedIds = playlist.playedTrackIds
+                    ?.split(",")
+                    ?.mapNotNull { it.toLongOrNull() }
+                    ?.toSet() ?: emptySet()
+                var candidates = tracks.filter { it.deezerTrackId !in playedIds }
+                if (candidates.isEmpty()) {
+                    // Alle tracks gespeeld → reset, maar sluit laatste uit
+                    candidates = if (tracks.size > 1 && playlist.lastPlayedTrackId != null) {
+                        tracks.filter { it.deezerTrackId != playlist.lastPlayedTrackId }
+                    } else {
+                        tracks
+                    }
+                    // Reset playedTrackIds in DB
+                    db.playlistDao().update(playlist.copy(playedTrackIds = null))
+                    RemoteLogger.i("TrackResolver", "QUASI_RANDOM: alle tracks gespeeld → reset cyclus", mapOf(
+                        "totalTracks" to tracks.size.toString()
+                    ))
+                }
+                val picked = candidates.random()
+                RemoteLogger.d("TrackResolver", "QUASI_RANDOM mode → track gekozen", mapOf(
+                    "picked" to "${picked.artist} - ${picked.title}",
+                    "candidates" to candidates.size.toString(),
+                    "played" to playedIds.size.toString(),
+                    "total" to tracks.size.toString()
                 ))
                 picked
             }
@@ -203,8 +239,21 @@ class TrackResolver(
      * Na succesvolle track-wissel: update lastPlayedTrackId in de playlist.
      */
     suspend fun updateLastPlayed(playlist: Playlist, trackId: Long) {
-        RemoteLogger.d("TrackResolver", "updateLastPlayed", mapOf("playlist" to playlist.name, "trackId" to trackId.toString()))
-        db.playlistDao().update(playlist.copy(lastPlayedTrackId = trackId))
+        RemoteLogger.d("TrackResolver", "updateLastPlayed", mapOf(
+            "playlist" to playlist.name, "trackId" to trackId.toString(), "mode" to playlist.mode.name
+        ))
+        val updated = if (playlist.mode == Mode.QUASI_RANDOM) {
+            // Voeg trackId toe aan playedTrackIds lijst
+            val currentIds = playlist.playedTrackIds
+                ?.split(",")
+                ?.mapNotNull { it.toLongOrNull() }
+                ?.toMutableSet() ?: mutableSetOf()
+            currentIds.add(trackId)
+            playlist.copy(lastPlayedTrackId = trackId, playedTrackIds = currentIds.joinToString(","))
+        } else {
+            playlist.copy(lastPlayedTrackId = trackId)
+        }
+        db.playlistDao().update(updated)
     }
 
     data class ApplyResult(val success: Boolean, val error: String? = null)

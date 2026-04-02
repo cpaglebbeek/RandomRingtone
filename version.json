@@ -1,11 +1,11 @@
 {
   "project": "RandomRingtone",
-  "version": "0.7.38",
-  "versionCode": 59,
+  "version": "1.0c",
+  "versionCode": 60,
   "codename": "Prince",
-  "releaseName": "Mountains",
+  "releaseName": "New_Power_Generation",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-04-02",
-  "status": "active"
+  "status": "stable"
 }

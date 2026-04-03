@@ -60,6 +60,10 @@ fun EditorScreen(
     val player = remember { AudioPlayer() }
     var isPlaying by remember { mutableStateOf(false) }
     var playbackFraction by remember { mutableFloatStateOf(-1f) }
+    var isPreviewLoading by remember { mutableStateOf(false) }
+    var fadePreviewStartFrac by remember { mutableFloatStateOf(0f) }
+    var fadePreviewEndFrac by remember { mutableFloatStateOf(1f) }
+    var isFadePreview by remember { mutableStateOf(false) }
 
     // Zoom state
     var viewStart by remember { mutableFloatStateOf(0f) }
@@ -113,17 +117,24 @@ fun EditorScreen(
         onDispose { player.release() }
     }
 
-    // Playback positie marker
+    // Playback positie marker — remap bij fade preview (temp file begint bij 0)
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             val data = waveformData
             while (isPlaying && data != null) {
                 val pos = player.getCurrentPosition()
-                playbackFraction = pos.toFloat() / data.durationMs
+                playbackFraction = if (isFadePreview) {
+                    val selDurationMs = (fadePreviewEndFrac - fadePreviewStartFrac) * data.durationMs
+                    if (selDurationMs > 0) fadePreviewStartFrac + (pos / selDurationMs) * (fadePreviewEndFrac - fadePreviewStartFrac)
+                    else 0f
+                } else {
+                    pos.toFloat() / data.durationMs
+                }
                 kotlinx.coroutines.delay(50)
             }
         }
         playbackFraction = -1f
+        isFadePreview = false
     }
 
     // Heeft de gebruiker wijzigingen die nog niet toegepast zijn?
@@ -369,18 +380,54 @@ fun EditorScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
-                            if (isPlaying) { player.stop(); isPlaying = false }
-                            else {
+                            if (isPlaying) {
+                                player.stop(); isPlaying = false
+                            } else if (fadeInEnabled || fadeOutEnabled) {
+                                // Preview MET fade — maak tijdelijk bestand zodat fade hoorbaar is
+                                isPreviewLoading = true
+                                scope.launch {
+                                    try {
+                                        val d = waveformData ?: return@launch
+                                        val sMs = (startFraction * d.durationMs).toLong()
+                                        val eMs = (endFraction * d.durationMs).toLong()
+                                        val previewFile = File(context.cacheDir, "preview_fade.m4a")
+                                        AudioTrimmer.trimWithFade(
+                                            workingFile, previewFile, sMs, eMs,
+                                            if (fadeInEnabled) fadeInMs else 0,
+                                            if (fadeOutEnabled) fadeOutMs else 0
+                                        )
+                                        fadePreviewStartFrac = startFraction
+                                        fadePreviewEndFrac = endFraction
+                                        isFadePreview = true
+                                        isPreviewLoading = false
+                                        player.playSelection(previewFile, 0, eMs - sMs) { isPlaying = false }
+                                        isPlaying = true
+                                    } catch (e: Exception) {
+                                        isPreviewLoading = false
+                                        snackbarHostState.showSnackbar("Preview mislukt: ${e.message}")
+                                    }
+                                }
+                            } else {
+                                // Preview zonder fade — direct afspelen
+                                isFadePreview = false
                                 player.playSelection(workingFile, startMs, endMs) { isPlaying = false }
                                 isPlaying = true
                             }
                         },
-                        enabled = !isApplying,
+                        enabled = !isApplying && !isPreviewLoading,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
+                        if (isPreviewLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
+                        }
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (isPlaying) "Stop" else "Preview")
+                        Text(when {
+                            isPreviewLoading -> "Laden..."
+                            isPlaying -> "Stop"
+                            else -> "Preview"
+                        })
                     }
 
                     FilledTonalButton(

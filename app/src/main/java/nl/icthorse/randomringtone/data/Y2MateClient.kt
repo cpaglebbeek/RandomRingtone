@@ -79,10 +79,12 @@ class Y2MateClient {
             val convertResult = convert(convertUrl, videoId, "mp3")
                 ?: return@withContext DownloadResult(false, error = "Conversie mislukt")
 
+            // Titel: API title heeft voorrang (juiste naam van YouTube)
             val title = convertResult.title
 
-            // Check bestandsnaam
-            val sanitizedName = sanitizeFileName(videoTitle ?: title ?: videoId)
+            // Bestandsnaam: gebruik API title, fallback naar WebView title, dan videoId
+            val rawName = title?.takeIf { it.isNotBlank() } ?: videoTitle ?: videoId
+            val sanitizedName = sanitizeFileName(rawName)
             val destFile = File(destDir, "youtube_mp3_${sanitizedName}.mp3")
 
             if (destFile.exists() && !forceOverwrite) {
@@ -102,18 +104,31 @@ class Y2MateClient {
 
             // Stap 5: Download MP3
             onProgress("MP3 downloaden...", 0.85f)
-            downloadFile(convertResult.downloadUrl, videoId, destFile)
+            val cdFilename = downloadFile(convertResult.downloadUrl, videoId, destFile)
+
+            // Als Content-Disposition een betere naam geeft, hernoem het bestand
+            val finalTitle = cdFilename?.takeIf { it.isNotBlank() } ?: title
+            var finalFile = destFile
+            if (cdFilename != null && cdFilename.isNotBlank()) {
+                val cdSanitized = sanitizeFileName(cdFilename)
+                val betterFile = File(destDir, "youtube_mp3_${cdSanitized}.mp3")
+                if (betterFile.absolutePath != destFile.absolutePath && !betterFile.exists()) {
+                    if (destFile.renameTo(betterFile)) {
+                        finalFile = betterFile
+                    }
+                }
+            }
 
             // Stap 6: Injecteer YouTube marker
-            Mp3Marker.writeYouTubeMarker(destFile, title, null)
+            Mp3Marker.writeYouTubeMarker(finalFile, finalTitle, null)
 
             onProgress("Klaar!", 1.0f)
             RemoteLogger.output("Y2Mate", "Download KLAAR", mapOf(
-                "file" to destFile.name,
-                "size" to "${destFile.length() / 1024}KB",
-                "title" to (title ?: "?")
+                "file" to finalFile.name,
+                "size" to "${finalFile.length() / 1024}KB",
+                "title" to (finalTitle ?: "?")
             ))
-            DownloadResult(success = true, file = destFile, title = title)
+            DownloadResult(success = true, file = finalFile, title = finalTitle)
 
         } catch (e: Exception) {
             RemoteLogger.e("Y2Mate", "Download FAILED", mapOf(
@@ -296,8 +311,9 @@ class Y2MateClient {
 
     /**
      * Stap 5: Download MP3 bestand.
+     * Retourneert de filename uit Content-Disposition header (zonder extensie), of null.
      */
-    private fun downloadFile(downloadUrl: String, videoId: String, destFile: File) {
+    private fun downloadFile(downloadUrl: String, videoId: String, destFile: File): String? {
         val url = if (downloadUrl.contains("&s=")) downloadUrl
             else "$downloadUrl&s=3&v=$videoId&f=mp3"
 
@@ -316,13 +332,20 @@ class Y2MateClient {
                     input.copyTo(output)
                 }
             } ?: throw Exception("Lege response body")
+
+            // Extract filename uit Content-Disposition header
+            val disposition = response.header("Content-Disposition") ?: return null
+            val match = Regex("""filename="?(.+?)(?:\.mp3)?"?$""").find(disposition)
+            return match?.groupValues?.get(1)
         }
     }
 
     private fun sanitizeFileName(name: String): String {
-        return name.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
-            .replace(Regex("_+"), "_")
-            .trim('_')
-            .take(100)
+        return name.trim()
+            .replace(Regex("[/\\\\:*?\"<>|]"), "-")  // Illegale bestandstekens → -
+            .replace(Regex("\\s+"), "_")               // Spaties → _
+            .replace(Regex("[_-]{2,}"), "_")            // Dubbele separators opruimen
+            .trim('_', '-')
+            .take(120)
     }
 }

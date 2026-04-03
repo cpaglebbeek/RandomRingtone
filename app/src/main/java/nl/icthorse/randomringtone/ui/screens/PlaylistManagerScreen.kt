@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import nl.icthorse.randomringtone.audio.AudioPlayer
 import nl.icthorse.randomringtone.data.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -697,6 +698,11 @@ private fun AddTracksDialog(
         selectedIds = currentTrackIds.toMutableSet()
     }
 
+    // Audio player
+    val player = remember { AudioPlayer() }
+    var playingTrackId by remember { mutableStateOf<Long?>(null) }
+    DisposableEffect(Unit) { onDispose { player.release() } }
+
     // Zoeken en sorteren
     var trackSearchQuery by remember { mutableStateOf("") }
     var trackSortAsc by remember { mutableStateOf(true) }
@@ -837,6 +843,33 @@ private fun AddTracksDialog(
                                 if (displayArtist.isNotBlank()) {
                                     Text(displayArtist, style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            // Play button
+                            val file = track.localPath?.let { java.io.File(it) }
+                            val isPlaying = playingTrackId == track.deezerTrackId
+                            if (file != null && file.exists()) {
+                                IconButton(
+                                    onClick = {
+                                        if (isPlaying) {
+                                            player.stop()
+                                            playingTrackId = null
+                                        } else {
+                                            player.stop()
+                                            player.playSelection(file, 0, Long.MAX_VALUE) {
+                                                playingTrackId = null
+                                            }
+                                            playingTrackId = track.deezerTrackId
+                                        }
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                        contentDescription = if (isPlaying) "Stop" else "Afspelen",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
                         }

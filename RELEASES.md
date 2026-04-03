@@ -80,3 +80,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 73 | 1.4.0 | Prince | Batdance | 2026-04-03 | Nee |
 | 74 | 1.4.1 | Prince | Partyman | 2026-04-03 | Nee |
 | 75 | 1.5.0 | Michael_Jackson | Thriller | 2026-04-03 | Nee |
+| 76 | 1.5.1 | Michael_Jackson | Billie_Jean | 2026-04-03 | Nee |

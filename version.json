@@ -1,9 +1,9 @@
 {
   "project": "RandomRingtone",
-  "version": "1.5.0",
-  "versionCode": 75,
+  "version": "1.5.1",
+  "versionCode": 76,
   "codename": "Michael_Jackson",
-  "releaseName": "Thriller",
+  "releaseName": "Billie_Jean",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-04-03",

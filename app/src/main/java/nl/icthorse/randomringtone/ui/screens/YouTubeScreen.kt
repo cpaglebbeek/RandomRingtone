@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
 import java.io.File
 
-private const val YOUTUBE_URL = "https://m.youtube.com"
+private const val YOUTUBE_URL = "https://www.youtube.com"
 private val YOUTUBE_WATCH_REGEX = Regex("""youtube\.com/watch\?v=([a-zA-Z0-9_\-]{11})""")
 private val YOUTUBE_SHORTS_REGEX = Regex("""youtube\.com/shorts/([a-zA-Z0-9_\-]{11})""")
 
@@ -363,7 +363,7 @@ fun YouTubeScreen(
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
+@SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
 @Composable
 private fun YouTubeWebView(
     onWebViewCreated: (WebView) -> Unit,
@@ -383,7 +383,15 @@ private fun YouTubeWebView(
                 settings.setSupportMultipleWindows(false)
                 settings.mediaPlaybackRequiresUserGesture = true
 
-                settings.userAgentString = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+                // Desktop UA → youtube.com i.p.v. m.youtube.com, betere klikbaarheid
+                settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+                // Touch events doorlaten naar WebView
+                requestFocusFromTouch()
+                setOnTouchListener { v, event ->
+                    v.performClick()
+                    false // laat event door naar WebView
+                }
 
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)

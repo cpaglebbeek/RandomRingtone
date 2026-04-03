@@ -272,6 +272,30 @@ private fun LicenseBlockScreen(
                     }
                 }
             }
+            val ctx = LocalContext.current
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    val clip = android.content.ClipData.newPlainText("Device ID", licenseManager.deviceHash)
+                    (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                        .setPrimaryClip(clip)
+                }) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Kopieer ID")
+                }
+                OutlinedButton(onClick = {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                        data = android.net.Uri.parse("mailto:info@icthorse.nl")
+                        putExtra(android.content.Intent.EXTRA_SUBJECT, "RandomRingtone Licentie aanvraag")
+                        putExtra(android.content.Intent.EXTRA_TEXT, "Device ID: ${licenseManager.deviceHash}\nApp versie: v${BuildConfig.VERSION_NAME}")
+                    }
+                    ctx.startActivity(android.content.Intent.createChooser(intent, "Verstuur via..."))
+                }) {
+                    Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Mail ID")
+                }
+            }
             Text("Neem contact op met iCt Horse voor een licentie.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

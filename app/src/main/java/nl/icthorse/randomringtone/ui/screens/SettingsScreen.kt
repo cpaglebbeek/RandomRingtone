@@ -718,6 +718,32 @@ fun SettingsScreen(
                     java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(java.util.Date(licStatus.expiry)) else "-")
                 if (licStatus.lastCheck > 0) InfoRow("Laatste check",
                     java.text.SimpleDateFormat("dd-MM HH:mm", java.util.Locale.getDefault()).format(java.util.Date(licStatus.lastCheck)))
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        val clip = android.content.ClipData.newPlainText("Device ID", licStatus.deviceHash)
+                        (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                            .setPrimaryClip(clip)
+                        scope.launch { snackbarHostState.showSnackbar("Device ID gekopieerd") }
+                    }) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Kopieer ID")
+                    }
+                    OutlinedButton(onClick = {
+                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = Uri.parse("mailto:info@icthorse.nl")
+                            putExtra(Intent.EXTRA_SUBJECT, "RandomRingtone Licentie aanvraag")
+                            putExtra(Intent.EXTRA_TEXT, "Device ID: ${licStatus.deviceHash}\nApp versie: v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME}")
+                        }
+                        context.startActivity(Intent.createChooser(intent, "Verstuur via..."))
+                    }) {
+                        Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Mail ID")
+                    }
+                }
             }
         }
 

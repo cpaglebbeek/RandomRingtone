@@ -435,6 +435,28 @@ private fun YouTubeWebView(
                     }
                     override fun onPageFinished(view: WebView?, pageUrl: String?) {
                         onPageFinished(pageUrl ?: "")
+                        // Vergroot YouTube zoekveld voor mobiel
+                        view?.evaluateJavascript("""
+                            (function() {
+                                var style = document.createElement('style');
+                                style.textContent = `
+                                    input#search, input[name="search_query"] {
+                                        font-size: 16px !important;
+                                        height: 40px !important;
+                                        padding: 8px 12px !important;
+                                    }
+                                    #search-form, ytd-searchbox, #container.ytd-searchbox {
+                                        max-width: none !important;
+                                        min-width: 60vw !important;
+                                    }
+                                    #search-icon-legacy {
+                                        height: 40px !important;
+                                        width: 48px !important;
+                                    }
+                                `;
+                                document.head.appendChild(style);
+                            })();
+                        """.trimIndent(), null)
                     }
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                         val requestUrl = request?.url?.toString() ?: return false

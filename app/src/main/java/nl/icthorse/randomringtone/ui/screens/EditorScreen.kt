@@ -3,6 +3,7 @@ package nl.icthorse.randomringtone.ui.screens
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -293,6 +294,16 @@ fun EditorScreen(
                     playbackFraction = playbackFraction,
                     onStartChanged = { startFraction = it.coerceIn(0f, endFraction - 0.01f) },
                     onEndChanged = { endFraction = it.coerceIn(startFraction + 0.01f, 1f) },
+                    onTapped = { fraction ->
+                        if (isPlaying && !isFadePreview) {
+                            // Tijdens afspelen: skip naar geklikte positie
+                            val seekMs = (fraction * data.durationMs).toLong()
+                            player.seekTo(seekMs)
+                        } else if (!isPlaying) {
+                            // Niet aan het spelen: verplaats start marker
+                            startFraction = fraction.coerceIn(0f, endFraction - 0.01f)
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth().height(160.dp)
                 )
 
@@ -700,6 +711,7 @@ private fun WaveformView(
     playbackFraction: Float = -1f,
     onStartChanged: (Float) -> Unit,
     onEndChanged: (Float) -> Unit,
+    onTapped: ((Float) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -712,6 +724,13 @@ private fun WaveformView(
     Box(modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(8.dp)) {
         Canvas(
             modifier = Modifier.fillMaxSize()
+                .pointerInput(amplitudes.size, viewStart, viewEnd) {
+                    detectTapGestures { offset ->
+                        val relFraction = (offset.x / size.width).coerceIn(0f, 1f)
+                        val absFraction = viewStart + relFraction * viewRange
+                        onTapped?.invoke(absFraction)
+                    }
+                }
                 .pointerInput(amplitudes.size, viewStart, viewEnd) {
                     detectHorizontalDragGestures { change, _ ->
                         val relFraction = (change.position.x / size.width).coerceIn(0f, 1f)

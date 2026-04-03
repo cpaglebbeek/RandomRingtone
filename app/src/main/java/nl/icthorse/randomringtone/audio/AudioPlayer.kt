@@ -63,6 +63,13 @@ class AudioPlayer {
         return mediaPlayer?.currentPosition?.toLong() ?: 0L
     }
 
+    /**
+     * Spring naar een positie in het huidige bestand (tijdens afspelen).
+     */
+    fun seekTo(positionMs: Long) {
+        mediaPlayer?.seekTo(positionMs.toInt())
+    }
+
     fun release() {
         stop()
     }

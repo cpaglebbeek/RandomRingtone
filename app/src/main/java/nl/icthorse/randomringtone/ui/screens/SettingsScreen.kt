@@ -698,6 +698,31 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Licentie
+        Text(text = "Licentie", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        val licenseManager = remember { nl.icthorse.randomringtone.data.LicenseManager(context) }
+        var licStatus by remember { mutableStateOf(licenseManager.getCachedStatus()) }
+        LaunchedEffect(Unit) { licStatus = licenseManager.checkLicense() }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                InfoRow("Status", if (licStatus.active) {
+                    if (licStatus.isGracePeriod) "GRACE (${licStatus.graceHoursLeft}u)" else "ACTIEF"
+                } else "INACTIEF")
+                InfoRow("Device ID", licStatus.deviceHash)
+                if (licStatus.name.isNotBlank()) InfoRow("Naam", licStatus.name)
+                if (licStatus.customerId.isNotBlank()) InfoRow("Klant-ID", licStatus.customerId)
+                InfoRow("Verloopt", if (licStatus.isInfinite) "Oneindig" else if (licStatus.expiry > 0)
+                    java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(java.util.Date(licStatus.expiry)) else "-")
+                if (licStatus.lastCheck > 0) InfoRow("Laatste check",
+                    java.text.SimpleDateFormat("dd-MM HH:mm", java.util.Locale.getDefault()).format(java.util.Date(licStatus.lastCheck)))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // App info
         Text(text = "Over", style = MaterialTheme.typography.titleMedium)
 

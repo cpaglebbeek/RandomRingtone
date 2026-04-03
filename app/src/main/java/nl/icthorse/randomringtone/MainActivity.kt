@@ -4,19 +4,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import nl.icthorse.randomringtone.data.AppRingtoneManager
 import nl.icthorse.randomringtone.data.BackupManager
+import nl.icthorse.randomringtone.data.LicenseManager
 import nl.icthorse.randomringtone.data.RemoteLogger
 import nl.icthorse.randomringtone.data.RingtoneDatabase
 import nl.icthorse.randomringtone.ui.screens.*
@@ -47,6 +51,25 @@ fun RandomRingtoneApp() {
     val db = remember { RingtoneDatabase.getInstance(context) }
     val backupManager = remember { BackupManager(context) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // License check bij startup
+    val licenseManager = remember { LicenseManager(context) }
+    var licenseStatus by remember { mutableStateOf(licenseManager.getCachedStatus()) }
+    var licenseChecked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        licenseStatus = licenseManager.checkLicense()
+        licenseChecked = true
+        if (licenseStatus.isGracePeriod) {
+            snackbarHostState.showSnackbar("Grace period: ${licenseStatus.graceHoursLeft} uur resterend")
+        }
+    }
+
+    // Blocking screen als niet gelicenseerd
+    if (licenseChecked && !licenseStatus.active) {
+        LicenseBlockScreen(licenseStatus, licenseManager)
+        return
+    }
 
     // Auto-restore bij startup als DB leeg is + auto-backup bestaat
     LaunchedEffect(Unit) {
@@ -215,6 +238,42 @@ fun RandomRingtoneApp() {
                     snackbarHostState = snackbarHostState
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun LicenseBlockScreen(
+    status: LicenseManager.LicenseStatus,
+    licenseManager: LicenseManager
+) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Icon(Icons.Default.Lock, contentDescription = null,
+                modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.error)
+            Text("Geen geldige licentie", style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.error)
+            Text(status.message.ifBlank { "Deze app vereist een geldige licentie." },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Device ID:", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(licenseManager.deviceHash, style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace)
+                    if (status.error != null) {
+                        Text("Fout: ${status.error}", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            Text("Neem contact op met iCt Horse voor een licentie.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

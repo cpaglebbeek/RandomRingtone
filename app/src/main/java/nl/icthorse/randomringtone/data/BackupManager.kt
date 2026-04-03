@@ -32,7 +32,11 @@ data class TrackBackup(
     val artist: String,
     val previewUrl: String,
     val localPath: String?,
-    val playlistName: String
+    val playlistName: String,
+    val id3Title: String? = null,
+    val id3Artist: String? = null,
+    val albumArtPath: String? = null,
+    val markerType: String? = null
 )
 
 @Serializable
@@ -45,7 +49,8 @@ data class PlaylistBackup(
     val contactUri: String?,
     val contactName: String?,
     val isActive: Boolean,
-    val lastPlayedTrackId: Long?
+    val lastPlayedTrackId: Long?,
+    val playedTrackIds: String? = null
 )
 
 @Serializable
@@ -108,11 +113,11 @@ class BackupManager(private val context: Context) {
             val playlistTracks = db.playlistTrackDao().getAll()
 
             val trackBackups = tracks.map {
-                TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName)
+                TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName, it.id3Title, it.id3Artist, it.albumArtPath, it.markerType)
             }
             val playlistBackups = playlists.map {
                 PlaylistBackup(it.id, it.name, it.channel.name, it.mode.name, it.schedule.name,
-                    it.contactUri, it.contactName, it.isActive, it.lastPlayedTrackId)
+                    it.contactUri, it.contactName, it.isActive, it.lastPlayedTrackId, it.playedTrackIds)
             }
             val ptBackups = playlistTracks.map {
                 PlaylistTrackBackup(it.playlistId, it.trackId, it.sortOrder)
@@ -127,7 +132,8 @@ class BackupManager(private val context: Context) {
             // Phase 3: Copy download files
             onProgress(BackupProgress("Downloads kopiëren...", 3, 5))
             val downloadDir = storage.getDownloadDir()
-            val downloadFiles = downloadDir.listFiles()?.filter { it.isFile && it.name.endsWith(".mp3") } ?: emptyList()
+            val audioExts = setOf("mp3", "m4a")
+            val downloadFiles = downloadDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExts } ?: emptyList()
             val dlSafDir = getOrCreateSubDir(backupDir, "downloads")
             var copiedFiles = 0
             for (file in downloadFiles) {
@@ -138,7 +144,7 @@ class BackupManager(private val context: Context) {
             // Phase 4: Copy ringtone files
             onProgress(BackupProgress("Ringtones kopiëren...", 4, 5))
             val ringtoneDir = storage.getRingtoneDir()
-            val ringtoneFiles = ringtoneDir.listFiles()?.filter { it.isFile && it.name.endsWith(".mp3") } ?: emptyList()
+            val ringtoneFiles = ringtoneDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExts } ?: emptyList()
             val rtSafDir = getOrCreateSubDir(backupDir, "ringtones")
             for (file in ringtoneFiles) {
                 copyFileToSaf(file, rtSafDir)
@@ -217,7 +223,8 @@ class BackupManager(private val context: Context) {
                     val fileName = File(tb.localPath).name
                     File(ringtoneDir, fileName).absolutePath
                 } else null
-                SavedTrack(tb.deezerTrackId, tb.title, tb.artist, tb.previewUrl, newLocalPath, tb.playlistName)
+                SavedTrack(tb.deezerTrackId, tb.title, tb.artist, tb.previewUrl, newLocalPath, tb.playlistName,
+                    id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = tb.albumArtPath, markerType = tb.markerType)
             }
             db.savedTrackDao().insertAll(tracks)
 
@@ -233,7 +240,8 @@ class BackupManager(private val context: Context) {
                         contactUri = pb.contactUri,
                         contactName = pb.contactName,
                         isActive = pb.isActive,
-                        lastPlayedTrackId = pb.lastPlayedTrackId
+                        lastPlayedTrackId = pb.lastPlayedTrackId,
+                        playedTrackIds = pb.playedTrackIds
                     )
                 )
             }
@@ -247,11 +255,13 @@ class BackupManager(private val context: Context) {
             onProgress(BackupProgress("Bestanden herstellen...", 4, 5))
             var restoredFiles = 0
 
+            val restoreAudioExts = setOf("mp3", "m4a")
             val dlSafDir = backupDir.findFile("downloads")
             if (dlSafDir != null && dlSafDir.isDirectory) {
                 val downloadDir = storage.getDownloadDir()
                 for (safFile in dlSafDir.listFiles()) {
-                    if (safFile.isFile && safFile.name?.endsWith(".mp3") == true) {
+                    val ext = safFile.name?.substringAfterLast(".", "")?.lowercase()
+                    if (safFile.isFile && ext in restoreAudioExts) {
                         copyFileFromSaf(safFile, File(downloadDir, safFile.name!!))
                         restoredFiles++
                     }
@@ -261,7 +271,8 @@ class BackupManager(private val context: Context) {
             val rtSafDir = backupDir.findFile("ringtones")
             if (rtSafDir != null && rtSafDir.isDirectory) {
                 for (safFile in rtSafDir.listFiles()) {
-                    if (safFile.isFile && safFile.name?.endsWith(".mp3") == true) {
+                    val ext = safFile.name?.substringAfterLast(".", "")?.lowercase()
+                    if (safFile.isFile && ext in restoreAudioExts) {
                         copyFileFromSaf(safFile, File(ringtoneDir, safFile.name!!))
                         restoredFiles++
                     }
@@ -313,7 +324,7 @@ class BackupManager(private val context: Context) {
                 playlist = PlaylistBackup(
                     playlist.id, playlist.name, playlist.channel.name, playlist.mode.name,
                     playlist.schedule.name, playlist.contactUri, playlist.contactName,
-                    playlist.isActive, playlist.lastPlayedTrackId
+                    playlist.isActive, playlist.lastPlayedTrackId, playlist.playedTrackIds
                 ),
                 tracks = tracks.map { TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName) },
                 playlistTracks = playlistTracks.map { PlaylistTrackBackup(it.playlistId, it.trackId, it.sortOrder) }
@@ -353,7 +364,8 @@ class BackupManager(private val context: Context) {
 
             // Insert tracks (REPLACE bij conflict)
             val tracks = export.tracks.map {
-                SavedTrack(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName)
+                SavedTrack(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName,
+                    id3Title = it.id3Title, id3Artist = it.id3Artist, albumArtPath = it.albumArtPath, markerType = it.markerType)
             }
             db.savedTrackDao().insertAll(tracks)
 
@@ -418,11 +430,11 @@ class BackupManager(private val context: Context) {
             val playlistTracks = db.playlistTrackDao().getAll()
 
             val trackBackups = tracks.map {
-                TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName)
+                TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName, it.id3Title, it.id3Artist, it.albumArtPath, it.markerType)
             }
             val playlistBackups = playlists.map {
                 PlaylistBackup(it.id, it.name, it.channel.name, it.mode.name, it.schedule.name,
-                    it.contactUri, it.contactName, it.isActive, it.lastPlayedTrackId)
+                    it.contactUri, it.contactName, it.isActive, it.lastPlayedTrackId, it.playedTrackIds)
             }
             val ptBackups = playlistTracks.map {
                 PlaylistTrackBackup(it.playlistId, it.trackId, it.sortOrder)
@@ -486,7 +498,8 @@ class BackupManager(private val context: Context) {
             if (tracksFile.exists()) {
                 val trackBackups = json.decodeFromString<List<TrackBackup>>(tracksFile.readText())
                 val tracks = trackBackups.map {
-                    SavedTrack(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName)
+                    SavedTrack(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName,
+                        id3Title = it.id3Title, id3Artist = it.id3Artist, albumArtPath = it.albumArtPath, markerType = it.markerType)
                 }
                 db.savedTrackDao().insertAll(tracks)
             }
@@ -502,7 +515,8 @@ class BackupManager(private val context: Context) {
                             mode = Mode.valueOf(pb.mode),
                             schedule = Schedule.valueOf(pb.schedule),
                             contactUri = pb.contactUri, contactName = pb.contactName,
-                            isActive = pb.isActive, lastPlayedTrackId = pb.lastPlayedTrackId
+                            isActive = pb.isActive, lastPlayedTrackId = pb.lastPlayedTrackId,
+                            playedTrackIds = pb.playedTrackIds
                         )
                     )
                 }

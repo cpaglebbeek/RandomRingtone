@@ -19,6 +19,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -44,16 +45,20 @@ fun EditorScreen(
     onDone: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Werkbestand — start als origineel, verandert na elke "Toepassen"
+    var workingFile by remember { mutableStateOf(audioFile) }
+    var isInitialLoad by remember { mutableStateOf(true) }
+
     var waveformData by remember { mutableStateOf<AudioDecoder.WaveformData?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var loadProgress by remember { mutableFloatStateOf(0f) }
     var loadStartTime by remember { mutableStateOf(0L) }
     var startFraction by remember { mutableFloatStateOf(0f) }
-    var endFraction by remember { mutableFloatStateOf(0f) }
+    var endFraction by remember { mutableFloatStateOf(1f) }
     val player = remember { AudioPlayer() }
     var isPlaying by remember { mutableStateOf(false) }
-    var saveProgress by remember { mutableFloatStateOf(-1f) }
-    var saveStartTime by remember { mutableStateOf(0L) }
     var playbackFraction by remember { mutableFloatStateOf(-1f) }
 
     // Zoom state
@@ -66,8 +71,15 @@ fun EditorScreen(
     var fadeInMs by remember { mutableStateOf(500L) }
     var fadeOutMs by remember { mutableStateOf(500L) }
 
+    // Apply state
+    var isApplying by remember { mutableStateOf(false) }
+    var applyProgress by remember { mutableFloatStateOf(-1f) }
+    var applyStartTime by remember { mutableStateOf(0L) }
+
     // Save dialog
     var showSaveDialog by remember { mutableStateOf(false) }
+    var saveProgress by remember { mutableFloatStateOf(-1f) }
+    var saveStartTime by remember { mutableStateOf(0L) }
 
     // Bestaande playlists
     var existingPlaylists by remember { mutableStateOf<List<Playlist>>(emptyList()) }
@@ -75,16 +87,21 @@ fun EditorScreen(
         existingPlaylists = db.playlistDao().getAll()
     }
 
-    // Laad waveform data met progress tracking
-    LaunchedEffect(audioFile) {
+    // Laad waveform data — herlaadt wanneer workingFile verandert (na "Toepassen")
+    LaunchedEffect(workingFile) {
+        isLoading = true
+        loadProgress = 0f
         loadStartTime = System.currentTimeMillis()
         try {
-            waveformData = AudioDecoder.extractWaveform(audioFile) { progress ->
+            waveformData = AudioDecoder.extractWaveform(workingFile) { progress ->
                 loadProgress = progress
             }
-            waveformData?.let { data ->
-                val defaultEndMs = minOf(20_000L, data.durationMs)
-                endFraction = defaultEndMs.toFloat() / data.durationMs.toFloat()
+            if (isInitialLoad) {
+                waveformData?.let { data ->
+                    val defaultEndMs = minOf(20_000L, data.durationMs)
+                    endFraction = defaultEndMs.toFloat() / data.durationMs.toFloat()
+                }
+                isInitialLoad = false
             }
         } catch (e: Exception) {
             snackbarHostState.showSnackbar("Fout bij laden audio: ${e.message}")
@@ -96,7 +113,7 @@ fun EditorScreen(
         onDispose { player.release() }
     }
 
-    // Playback positie marker — poll elke 50ms tijdens afspelen
+    // Playback positie marker
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             val data = waveformData
@@ -109,7 +126,9 @@ fun EditorScreen(
         playbackFraction = -1f
     }
 
-    // Zoom functies
+    // Heeft de gebruiker wijzigingen die nog niet toegepast zijn?
+    val hasChanges = startFraction > 0.001f || endFraction < 0.999f || fadeInEnabled || fadeOutEnabled
+
     fun zoomIn() {
         val center = (startFraction + endFraction) / 2
         val range = viewEnd - viewStart
@@ -126,6 +145,55 @@ fun EditorScreen(
         viewStart = (center - newRange / 2).coerceAtLeast(0f)
         viewEnd = viewStart + newRange
         if (viewEnd > 1f) { viewEnd = 1f; viewStart = (1f - newRange).coerceAtLeast(0f) }
+    }
+
+    // === TOEPASSEN: trim+fade → nieuw werkbestand → herlaad waveform ===
+    fun applyChanges() {
+        isApplying = true
+        applyProgress = 0f
+        applyStartTime = System.currentTimeMillis()
+        scope.launch {
+            try {
+                val data = waveformData ?: return@launch
+                val sMs = (startFraction * data.durationMs).toLong()
+                val eMs = (endFraction * data.durationMs).toLong()
+                val hasFade = fadeInEnabled || fadeOutEnabled
+                val ext = if (hasFade || workingFile.extension.lowercase() == "m4a") "m4a" else "mp3"
+                val tempFile = File(context.cacheDir, "applied_${System.currentTimeMillis()}.$ext")
+
+                player.stop()
+                isPlaying = false
+
+                if (hasFade) {
+                    AudioTrimmer.trimWithFade(
+                        workingFile, tempFile, sMs, eMs,
+                        if (fadeInEnabled) fadeInMs else 0,
+                        if (fadeOutEnabled) fadeOutMs else 0
+                    ) { p -> applyProgress = p }
+                } else {
+                    AudioTrimmer.trim(workingFile, tempFile, sMs, eMs) { p ->
+                        applyProgress = p
+                    }
+                }
+
+                // Reset controls — het resultaat is nu het werkbestand
+                startFraction = 0f
+                endFraction = 1f
+                fadeInEnabled = false
+                fadeOutEnabled = false
+                viewStart = 0f
+                viewEnd = 1f
+
+                // Switch naar nieuw werkbestand → triggert waveform reload
+                workingFile = tempFile
+
+                snackbarHostState.showSnackbar("Toegepast (${formatTime(eMs - sMs)})")
+            } catch (e: Exception) {
+                snackbarHostState.showSnackbar("Fout bij toepassen: ${e.message}")
+            }
+            isApplying = false
+            applyProgress = -1f
+        }
     }
 
     Column(
@@ -191,22 +259,13 @@ fun EditorScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = { zoomOut() },
-                        enabled = viewEnd - viewStart < 0.99f
-                    ) {
+                    IconButton(onClick = { zoomOut() }, enabled = viewEnd - viewStart < 0.99f) {
                         Icon(Icons.Default.ZoomOut, contentDescription = "Zoom uit")
                     }
-                    Text(
-                        "%.1fx".format(zoomDisplay),
-                        style = MaterialTheme.typography.labelMedium,
+                    Text("%.1fx".format(zoomDisplay), style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.width(40.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    IconButton(
-                        onClick = { zoomIn() },
-                        enabled = viewEnd - viewStart > 0.06f
-                    ) {
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    IconButton(onClick = { zoomIn() }, enabled = viewEnd - viewStart > 0.06f) {
                         Icon(Icons.Default.ZoomIn, contentDescription = "Zoom in")
                     }
                 }
@@ -223,153 +282,120 @@ fun EditorScreen(
                     playbackFraction = playbackFraction,
                     onStartChanged = { startFraction = it.coerceIn(0f, endFraction - 0.01f) },
                     onEndChanged = { endFraction = it.coerceIn(startFraction + 0.01f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
+                    modifier = Modifier.fillMaxWidth().height(160.dp)
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // === TIJD INVOER (editable) ===
+                // === TIJD INVOER ===
                 val focusManager = LocalFocusManager.current
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TimeInputField(
-                        label = "Start",
-                        timeMs = startMs,
-                        maxMs = data.durationMs,
+                    TimeInputField(label = "Start", timeMs = startMs, maxMs = data.durationMs,
                         onTimeChanged = { ms ->
                             startFraction = (ms.toFloat() / data.durationMs).coerceIn(0f, endFraction - 0.01f)
                             focusManager.clearFocus()
-                        }
-                    )
-                    Text(
-                        "Duur: ${formatTime(selectionMs)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    TimeInputField(
-                        label = "Eind",
-                        timeMs = endMs,
-                        maxMs = data.durationMs,
+                        })
+                    Text("Duur: ${formatTime(selectionMs)}", style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary)
+                    TimeInputField(label = "Eind", timeMs = endMs, maxMs = data.durationMs,
                         onTimeChanged = { ms ->
                             endFraction = (ms.toFloat() / data.durationMs).coerceIn(startFraction + 0.01f, 1f)
                             focusManager.clearFocus()
-                        }
-                    )
+                        })
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // === SLIDERS ===
                 Text("Start", style = MaterialTheme.typography.labelSmall)
-                Slider(
-                    value = startFraction,
-                    onValueChange = { startFraction = it.coerceAtMost(endFraction - 0.01f) },
-                    valueRange = 0f..1f,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
+                Slider(value = startFraction, onValueChange = { startFraction = it.coerceAtMost(endFraction - 0.01f) },
+                    valueRange = 0f..1f, modifier = Modifier.fillMaxWidth())
                 Text("Eind", style = MaterialTheme.typography.labelSmall)
-                Slider(
-                    value = endFraction,
-                    onValueChange = { endFraction = it.coerceAtLeast(startFraction + 0.01f) },
-                    valueRange = 0f..1f,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Slider(value = endFraction, onValueChange = { endFraction = it.coerceAtLeast(startFraction + 0.01f) },
+                    valueRange = 0f..1f, modifier = Modifier.fillMaxWidth())
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // === FADE CONTROLS ===
                 Text("Fade", style = MaterialTheme.typography.labelLarge)
                 Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilterChip(
-                        selected = fadeInEnabled,
-                        onClick = { fadeInEnabled = !fadeInEnabled },
-                        label = { Text("Fade in") }
-                    )
-                    FilterChip(
-                        selected = fadeOutEnabled,
-                        onClick = { fadeOutEnabled = !fadeOutEnabled },
-                        label = { Text("Fade out") }
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(selected = fadeInEnabled, onClick = { fadeInEnabled = !fadeInEnabled },
+                        label = { Text("Fade in") })
+                    FilterChip(selected = fadeOutEnabled, onClick = { fadeOutEnabled = !fadeOutEnabled },
+                        label = { Text("Fade out") })
                 }
-
                 if (fadeInEnabled) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("In:", style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.width(28.dp))
-                        Slider(
-                            value = fadeInMs.toFloat(),
-                            onValueChange = { fadeInMs = (it / 100).toLong() * 100 },
-                            valueRange = 100f..3000f,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text("${fadeInMs}ms", style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.width(56.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text("In:", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(28.dp))
+                        Slider(value = fadeInMs.toFloat(), onValueChange = { fadeInMs = (it / 100).toLong() * 100 },
+                            valueRange = 100f..3000f, modifier = Modifier.weight(1f))
+                        Text("${fadeInMs}ms", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(56.dp))
                     }
                 }
-
                 if (fadeOutEnabled) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Uit:", style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.width(28.dp))
-                        Slider(
-                            value = fadeOutMs.toFloat(),
-                            onValueChange = { fadeOutMs = (it / 100).toLong() * 100 },
-                            valueRange = 100f..3000f,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text("${fadeOutMs}ms", style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.width(56.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text("Uit:", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(28.dp))
+                        Slider(value = fadeOutMs.toFloat(), onValueChange = { fadeOutMs = (it / 100).toLong() * 100 },
+                            valueRange = 100f..3000f, modifier = Modifier.weight(1f))
+                        Text("${fadeOutMs}ms", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(56.dp))
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // === KNOPPEN: Preview + Opslaan ===
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                // === APPLY PROGRESS ===
+                if (isApplying && applyProgress >= 0f) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Toepassen...", style = MaterialTheme.typography.labelMedium)
+                        LinearProgressIndicator(progress = { applyProgress }, modifier = Modifier.fillMaxWidth())
+                        val pct = (applyProgress * 100).toInt()
+                        val eta = if (applyProgress > 0.05f) {
+                            val elapsed = System.currentTimeMillis() - applyStartTime
+                            val remaining = (elapsed / applyProgress * (1f - applyProgress)).toLong()
+                            if (remaining > 1000) " — ~${remaining / 1000}s" else " — <1s"
+                        } else ""
+                        Text("$pct%$eta", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // === KNOPPEN: Preview | Toepassen | Opslaan ===
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
-                            if (isPlaying) {
-                                player.stop()
-                                isPlaying = false
-                            } else {
-                                player.playSelection(audioFile, startMs, endMs) {
-                                    isPlaying = false
-                                }
+                            if (isPlaying) { player.stop(); isPlaying = false }
+                            else {
+                                player.playSelection(workingFile, startMs, endMs) { isPlaying = false }
                                 isPlaying = true
                             }
                         },
+                        enabled = !isApplying,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(
-                            if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
-                            contentDescription = null
-                        )
+                        Icon(if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(if (isPlaying) "Stop" else "Preview")
                     }
 
+                    FilledTonalButton(
+                        onClick = { applyChanges() },
+                        enabled = hasChanges && !isApplying,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Toepassen")
+                    }
+
                     Button(
                         onClick = { showSaveDialog = true },
+                        enabled = !isApplying,
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null)
@@ -404,96 +430,66 @@ fun EditorScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.verticalScroll(rememberScrollState())
                 ) {
-                    OutlinedTextField(
-                        value = ringtoneName,
-                        onValueChange = { ringtoneName = it },
-                        label = { Text("Naam") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // Waarschuwing als er niet-toegepaste wijzigingen zijn
+                    if (hasChanges) {
+                        Card(colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                            Text("Er zijn niet-toegepaste wijzigingen. Deze worden meegenomen bij opslaan.",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(12.dp))
+                        }
+                    }
+
+                    OutlinedTextField(value = ringtoneName, onValueChange = { ringtoneName = it },
+                        label = { Text("Naam") }, singleLine = true, modifier = Modifier.fillMaxWidth())
 
                     HorizontalDivider()
 
-                    // Playlist selectie (optioneel)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Checkbox(
-                            checked = addToPlaylist,
-                            onCheckedChange = { addToPlaylist = it }
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Checkbox(checked = addToPlaylist, onCheckedChange = { addToPlaylist = it })
                         Text("Toevoegen aan playlist", style = MaterialTheme.typography.labelLarge)
                     }
 
                     if (addToPlaylist) {
                         if (existingPlaylists.isNotEmpty()) {
                             existingPlaylists.forEach { playlist ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp)
-                                ) {
-                                    RadioButton(
-                                        selected = selectedPlaylist == playlist && !createNew,
-                                        onClick = { selectedPlaylist = playlist; createNew = false }
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp)) {
+                                    RadioButton(selected = selectedPlaylist == playlist && !createNew,
+                                        onClick = { selectedPlaylist = playlist; createNew = false })
                                     Text(playlist.name, style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp))
                         }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp)
-                        ) {
-                            RadioButton(
-                                selected = createNew,
-                                onClick = { createNew = true; selectedPlaylist = null }
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp)) {
+                            RadioButton(selected = createNew, onClick = { createNew = true; selectedPlaylist = null })
                             Text("Nieuwe playlist", style = MaterialTheme.typography.bodyMedium)
                         }
                         if (createNew) {
-                            OutlinedTextField(
-                                value = newPlaylistName,
-                                onValueChange = { newPlaylistName = it },
-                                label = { Text("Playlist naam") },
-                                placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth().padding(start = 56.dp)
-                            )
+                            OutlinedTextField(value = newPlaylistName, onValueChange = { newPlaylistName = it },
+                                label = { Text("Playlist naam") }, placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
+                                singleLine = true, modifier = Modifier.fillMaxWidth().padding(start = 56.dp))
                         }
                     }
 
                     HorizontalDivider()
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Checkbox(
-                            checked = setAsMainRingtone,
-                            onCheckedChange = { setAsMainRingtone = it }
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Checkbox(checked = setAsMainRingtone, onCheckedChange = { setAsMainRingtone = it })
                         Column {
                             Text("Direct instellen als hoofdringtone", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                "Wordt meteen de actieve beltoon",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text("Wordt meteen de actieve beltoon", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
-                    // Save progress bar
                     if (isSaving && saveProgress >= 0f) {
                         HorizontalDivider()
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Opslaan...", style = MaterialTheme.typography.labelMedium)
-                            LinearProgressIndicator(
-                                progress = { saveProgress },
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            LinearProgressIndicator(progress = { saveProgress }, modifier = Modifier.fillMaxWidth())
                             val pct = (saveProgress * 100).toInt()
                             val eta = if (saveProgress > 0.05f) {
                                 val elapsed = System.currentTimeMillis() - saveStartTime
@@ -517,8 +513,6 @@ fun EditorScreen(
                         scope.launch {
                             try {
                                 val data = waveformData ?: return@launch
-                                val startMs = (startFraction * data.durationMs).toLong()
-                                val endMs = (endFraction * data.durationMs).toLong()
                                 val name = ringtoneName.trim()
                                 val pName = when {
                                     !addToPlaylist -> "Geen"
@@ -530,80 +524,42 @@ fun EditorScreen(
                                 player.stop()
                                 isPlaying = false
 
-                                // 1. Trim (met of zonder fade)
-                                val hasFade = fadeInEnabled || fadeOutEnabled
                                 val trimDir = ringtoneManager.storage.getRingtoneDir()
-                                val ext = if (hasFade) "m4a" else "mp3"
-                                val trimmedFile = File(trimDir, "$safeName.$ext")
 
-                                if (hasFade) {
-                                    AudioTrimmer.trimWithFade(
-                                        audioFile, trimmedFile, startMs, endMs,
-                                        if (fadeInEnabled) fadeInMs else 0,
-                                        if (fadeOutEnabled) fadeOutMs else 0
-                                    ) { p -> saveProgress = p }
+                                if (hasChanges) {
+                                    // Er zijn niet-toegepaste wijzigingen → apply + save
+                                    val sMs = (startFraction * data.durationMs).toLong()
+                                    val eMs = (endFraction * data.durationMs).toLong()
+                                    val hasFade = fadeInEnabled || fadeOutEnabled
+                                    val ext = if (hasFade || workingFile.extension.lowercase() == "m4a") "m4a" else "mp3"
+                                    val finalFile = File(trimDir, "$safeName.$ext")
+
+                                    if (hasFade) {
+                                        AudioTrimmer.trimWithFade(workingFile, finalFile, sMs, eMs,
+                                            if (fadeInEnabled) fadeInMs else 0,
+                                            if (fadeOutEnabled) fadeOutMs else 0
+                                        ) { p -> saveProgress = p }
+                                    } else {
+                                        AudioTrimmer.trim(workingFile, finalFile, sMs, eMs) { p -> saveProgress = p }
+                                    }
+
+                                    if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
+                                    saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
+                                        addToPlaylist, createNew, selectedPlaylist)
+                                    handlePostSave(setAsMainRingtone, ringtoneManager, snackbarHostState,
+                                        deezerTrackId, name, trackArtist, previewUrl, finalFile, pName, addToPlaylist)
                                 } else {
-                                    AudioTrimmer.trim(audioFile, trimmedFile, startMs, endMs) { p ->
-                                        saveProgress = p
-                                    }
-                                    Mp3Marker.injectTrimmedMarker(trimmedFile, name, trackArtist)
-                                }
+                                    // Alles is al toegepast → kopieer werkbestand
+                                    val ext = workingFile.extension.lowercase().ifBlank { "mp3" }
+                                    val finalFile = File(trimDir, "$safeName.$ext")
+                                    workingFile.copyTo(finalFile, overwrite = true)
 
-                                // 2. Opslaan in DB
-                                db.savedTrackDao().insert(
-                                    SavedTrack(
-                                        deezerTrackId = deezerTrackId,
-                                        title = name,
-                                        artist = trackArtist,
-                                        previewUrl = previewUrl,
-                                        localPath = trimmedFile.absolutePath,
-                                        playlistName = pName
-                                    )
-                                )
-
-                                // 3. Optioneel: toevoegen aan playlist
-                                if (addToPlaylist) {
-                                    val playlistId = if (createNew) {
-                                        db.playlistDao().insert(Playlist(name = pName))
-                                    } else {
-                                        selectedPlaylist!!.id
-                                    }
-                                    val sortOrder = db.playlistTrackDao().getNextSortOrder(playlistId)
-                                    db.playlistTrackDao().insert(
-                                        PlaylistTrack(playlistId, deezerTrackId, sortOrder)
-                                    )
-                                }
-
-                                // 4. Optioneel: instellen als hoofdringtone
-                                if (setAsMainRingtone) {
-                                    val deezerTrack = DeezerTrack(
-                                        id = deezerTrackId,
-                                        title = name,
-                                        titleShort = name,
-                                        artist = DeezerArtist(name = trackArtist),
-                                        preview = previewUrl
-                                    )
-                                    val success = ringtoneManager.setAsRingtone(deezerTrack, trimmedFile)
-                                    if (success) {
-                                        snackbarHostState.showSnackbar(
-                                            "Opgeslagen in '$pName' + ingesteld als hoofdringtone"
-                                        )
-                                    } else {
-                                        snackbarHostState.showSnackbar(
-                                            "Opgeslagen in '$pName' — ringtone instellen mislukt (permissie?)"
-                                        )
-                                    }
-                                } else {
-                                    val fadeLabel = buildString {
-                                        if (fadeInEnabled) append(" +fade-in ${fadeInMs}ms")
-                                        if (fadeOutEnabled) append(" +fade-out ${fadeOutMs}ms")
-                                    }
-                                    val msg = if (addToPlaylist) {
-                                        "Opgeslagen in '$pName' (${formatTime(endMs - startMs)}$fadeLabel)"
-                                    } else {
-                                        "Opgeslagen (${formatTime(endMs - startMs)}$fadeLabel)"
-                                    }
-                                    snackbarHostState.showSnackbar(msg)
+                                    if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
+                                    saveProgress = 1f
+                                    saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
+                                        addToPlaylist, createNew, selectedPlaylist)
+                                    handlePostSave(setAsMainRingtone, ringtoneManager, snackbarHostState,
+                                        deezerTrackId, name, trackArtist, previewUrl, finalFile, pName, addToPlaylist)
                                 }
 
                                 existingPlaylists = db.playlistDao().getAll()
@@ -625,16 +581,52 @@ fun EditorScreen(
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showSaveDialog = false },
-                    enabled = !isSaving
-                ) { Text("Annuleren") }
+                TextButton(onClick = { showSaveDialog = false }, enabled = !isSaving) { Text("Annuleren") }
             }
         )
     }
 }
 
-// --- Waveform met zoom support ---
+// --- Save helpers ---
+
+private suspend fun saveToDB(
+    db: RingtoneDatabase, deezerTrackId: Long, name: String, artist: String,
+    previewUrl: String, file: File, playlistName: String,
+    addToPlaylist: Boolean, createNew: Boolean, selectedPlaylist: Playlist?
+) {
+    db.savedTrackDao().insert(SavedTrack(
+        deezerTrackId = deezerTrackId, title = name, artist = artist,
+        previewUrl = previewUrl, localPath = file.absolutePath, playlistName = playlistName
+    ))
+    if (addToPlaylist) {
+        val playlistId = if (createNew) db.playlistDao().insert(Playlist(name = playlistName))
+        else selectedPlaylist!!.id
+        val sortOrder = db.playlistTrackDao().getNextSortOrder(playlistId)
+        db.playlistTrackDao().insert(PlaylistTrack(playlistId, deezerTrackId, sortOrder))
+    }
+}
+
+private suspend fun handlePostSave(
+    setAsMainRingtone: Boolean, ringtoneManager: AppRingtoneManager,
+    snackbarHostState: SnackbarHostState, deezerTrackId: Long, name: String,
+    artist: String, previewUrl: String, file: File, playlistName: String, addToPlaylist: Boolean
+) {
+    if (setAsMainRingtone) {
+        val deezerTrack = DeezerTrack(id = deezerTrackId, title = name, titleShort = name,
+            artist = DeezerArtist(name = artist), preview = previewUrl)
+        val success = ringtoneManager.setAsRingtone(deezerTrack, file)
+        val target = if (addToPlaylist) "in '$playlistName' + " else ""
+        snackbarHostState.showSnackbar(
+            if (success) "Opgeslagen ${target}ingesteld als hoofdringtone"
+            else "Opgeslagen — ringtone instellen mislukt (permissie?)"
+        )
+    } else {
+        val msg = if (addToPlaylist) "Opgeslagen in '$playlistName'" else "Opgeslagen"
+        snackbarHostState.showSnackbar(msg)
+    }
+}
+
+// --- Waveform met zoom + fade overlay + playback marker ---
 
 @Composable
 private fun WaveformView(
@@ -655,86 +647,62 @@ private fun WaveformView(
     val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
     val handleColor = MaterialTheme.colorScheme.primary
     val fadeColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
-
     val viewRange = viewEnd - viewStart
 
-    Box(
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-            .padding(8.dp)
-    ) {
+    Box(modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(8.dp)) {
         Canvas(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
                 .pointerInput(amplitudes.size, viewStart, viewEnd) {
                     detectHorizontalDragGestures { change, _ ->
                         val relFraction = (change.position.x / size.width).coerceIn(0f, 1f)
                         val absFraction = viewStart + relFraction * viewRange
                         val distToStart = kotlin.math.abs(absFraction - startFraction)
                         val distToEnd = kotlin.math.abs(absFraction - endFraction)
-                        if (distToStart < distToEnd) onStartChanged(absFraction)
-                        else onEndChanged(absFraction)
+                        if (distToStart < distToEnd) onStartChanged(absFraction) else onEndChanged(absFraction)
                     }
                 }
         ) {
             val canvasWidth = size.width
             val canvasHeight = size.height
             val center = canvasHeight / 2
-
-            // Visible amplitude range
             val startIdx = (viewStart * amplitudes.size).toInt().coerceIn(0, amplitudes.size)
             val endIdx = (viewEnd * amplitudes.size).toInt().coerceIn(startIdx, amplitudes.size)
             val visibleAmps = if (startIdx < endIdx) amplitudes.subList(startIdx, endIdx) else emptyList()
-
             val barWidth = canvasWidth / visibleAmps.size.coerceAtLeast(1)
 
-            // Draw bars
             visibleAmps.forEachIndexed { index, amplitude ->
                 val x = index * barWidth
                 val absFrac = viewStart + index.toFloat() / visibleAmps.size * viewRange
                 val inSelection = absFrac in startFraction..endFraction
                 val barHeight = amplitude * canvasHeight * 0.8f
                 val color = if (inSelection) primaryColor else inactiveColor
-                drawLine(
-                    color = color,
-                    start = Offset(x + barWidth / 2, center - barHeight / 2),
-                    end = Offset(x + barWidth / 2, center + barHeight / 2),
-                    strokeWidth = barWidth * 0.7f
-                )
+                drawLine(color = color, start = Offset(x + barWidth / 2, center - barHeight / 2),
+                    end = Offset(x + barWidth / 2, center + barHeight / 2), strokeWidth = barWidth * 0.7f)
             }
 
-            // Selection overlay
             val relStart = ((startFraction - viewStart) / viewRange).coerceIn(0f, 1f)
             val relEnd = ((endFraction - viewStart) / viewRange).coerceIn(0f, 1f)
             val startX = relStart * canvasWidth
             val endX = relEnd * canvasWidth
             drawRect(color = selectionColor, topLeft = Offset(startX, 0f), size = Size(endX - startX, canvasHeight))
 
-            // Fade overlays (driehoekige gebieden)
+            // Fade overlays
             if (fadeInFraction > 0f) {
-                val fadeEndAbs = startFraction + fadeInFraction
-                val fadeEndRel = ((fadeEndAbs - viewStart) / viewRange).coerceIn(relStart, relEnd)
+                val fadeEndRel = ((startFraction + fadeInFraction - viewStart) / viewRange).coerceIn(relStart, relEnd)
                 val fadeEndX = fadeEndRel * canvasWidth
                 if (fadeEndX > startX) {
                     val path = androidx.compose.ui.graphics.Path().apply {
-                        moveTo(startX, 0f)
-                        lineTo(startX, canvasHeight)
-                        lineTo(fadeEndX, 0f)
-                        close()
+                        moveTo(startX, 0f); lineTo(startX, canvasHeight); lineTo(fadeEndX, 0f); close()
                     }
                     drawPath(path, fadeColor)
                 }
             }
             if (fadeOutFraction > 0f) {
-                val fadeStartAbs = endFraction - fadeOutFraction
-                val fadeStartRel = ((fadeStartAbs - viewStart) / viewRange).coerceIn(relStart, relEnd)
+                val fadeStartRel = ((endFraction - fadeOutFraction - viewStart) / viewRange).coerceIn(relStart, relEnd)
                 val fadeStartX = fadeStartRel * canvasWidth
                 if (endX > fadeStartX) {
                     val path = androidx.compose.ui.graphics.Path().apply {
-                        moveTo(endX, 0f)
-                        lineTo(endX, canvasHeight)
-                        lineTo(fadeStartX, 0f)
-                        close()
+                        moveTo(endX, 0f); lineTo(endX, canvasHeight); lineTo(fadeStartX, 0f); close()
                     }
                     drawPath(path, fadeColor)
                 }
@@ -746,16 +714,11 @@ private fun WaveformView(
             drawCircle(color = handleColor, radius = 8f, center = Offset(startX, center))
             drawCircle(color = handleColor, radius = 8f, center = Offset(endX, center))
 
-            // Playback positie marker
+            // Playback marker
             if (playbackFraction in viewStart..viewEnd) {
-                val playRel = ((playbackFraction - viewStart) / viewRange).coerceIn(0f, 1f)
-                val playX = playRel * canvasWidth
-                drawLine(
-                    color = androidx.compose.ui.graphics.Color.White,
-                    start = Offset(playX, 0f),
-                    end = Offset(playX, canvasHeight),
-                    strokeWidth = 3f
-                )
+                val playX = ((playbackFraction - viewStart) / viewRange).coerceIn(0f, 1f) * canvasWidth
+                drawLine(color = androidx.compose.ui.graphics.Color.White,
+                    start = Offset(playX, 0f), end = Offset(playX, canvasHeight), strokeWidth = 3f)
             }
         }
     }
@@ -765,90 +728,52 @@ private fun WaveformView(
 
 @Composable
 private fun TimeInputField(
-    label: String,
-    timeMs: Long,
-    maxMs: Long,
-    onTimeChanged: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    label: String, timeMs: Long, maxMs: Long,
+    onTimeChanged: (Long) -> Unit, modifier: Modifier = Modifier
 ) {
     var text by remember { mutableStateOf(formatTimeDetailed(timeMs)) }
     var isFocused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
-
-    // Update tekst wanneer tijd extern verandert (slider/drag) en veld niet gefocust is
-    LaunchedEffect(timeMs) {
-        if (!isFocused) text = formatTimeDetailed(timeMs)
-    }
+    LaunchedEffect(timeMs) { if (!isFocused) text = formatTimeDetailed(timeMs) }
 
     OutlinedTextField(
-        value = text,
-        onValueChange = { text = it },
-        label = { Text(label) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = KeyboardType.Decimal,
-            imeAction = ImeAction.Done
-        ),
-        keyboardActions = KeyboardActions(
-            onDone = {
-                parseTimeToMs(text)?.let { ms ->
-                    onTimeChanged(ms.coerceIn(0, maxMs))
-                }
-                focusManager.clearFocus()
-            }
-        ),
+        value = text, onValueChange = { text = it }, label = { Text(label) }, singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = {
+            parseTimeToMs(text)?.let { ms -> onTimeChanged(ms.coerceIn(0, maxMs)) }
+            focusManager.clearFocus()
+        }),
         textStyle = MaterialTheme.typography.bodySmall,
-        modifier = modifier
-            .width(110.dp)
-            .onFocusChanged { focusState ->
-                if (isFocused && !focusState.isFocused) {
-                    // Focus verloren: parse en pas toe
-                    parseTimeToMs(text)?.let { ms ->
-                        onTimeChanged(ms.coerceIn(0, maxMs))
-                    }
-                    text = formatTimeDetailed(timeMs)
-                }
-                isFocused = focusState.isFocused
+        modifier = modifier.width(110.dp).onFocusChanged { focusState ->
+            if (isFocused && !focusState.isFocused) {
+                parseTimeToMs(text)?.let { ms -> onTimeChanged(ms.coerceIn(0, maxMs)) }
+                text = formatTimeDetailed(timeMs)
             }
+            isFocused = focusState.isFocused
+        }
     )
 }
 
 // --- Helpers ---
 
 private fun formatTime(ms: Long): String {
-    val totalSec = ms / 1000
-    val min = totalSec / 60
-    val sec = totalSec % 60
+    val totalSec = ms / 1000; val min = totalSec / 60; val sec = totalSec % 60
     return "%d:%02d".format(min, sec)
 }
 
 private fun formatTimeDetailed(ms: Long): String {
-    val totalSec = ms / 1000
-    val min = totalSec / 60
-    val sec = totalSec % 60
-    val tenths = (ms % 1000) / 100
-    return if (tenths > 0) "%d:%02d.%d".format(min, sec, tenths)
-    else "%d:%02d".format(min, sec)
+    val totalSec = ms / 1000; val min = totalSec / 60; val sec = totalSec % 60; val tenths = (ms % 1000) / 100
+    return if (tenths > 0) "%d:%02d.%d".format(min, sec, tenths) else "%d:%02d".format(min, sec)
 }
 
 private fun parseTimeToMs(text: String): Long? {
-    val trimmed = text.trim()
-    if (trimmed.isEmpty()) return null
+    val trimmed = text.trim(); if (trimmed.isEmpty()) return null
     val parts = trimmed.split(":")
     return try {
         when (parts.size) {
-            1 -> {
-                val secs = parts[0].toDouble()
-                (secs * 1000).toLong()
-            }
-            2 -> {
-                val min = parts[0].toLong()
-                val secs = parts[1].toDouble()
-                (min * 60_000 + secs * 1000).toLong()
-            }
+            1 -> (parts[0].toDouble() * 1000).toLong()
+            2 -> (parts[0].toLong() * 60_000 + parts[1].toDouble() * 1000).toLong()
             else -> null
         }
-    } catch (_: NumberFormatException) {
-        null
-    }
+    } catch (_: NumberFormatException) { null }
 }

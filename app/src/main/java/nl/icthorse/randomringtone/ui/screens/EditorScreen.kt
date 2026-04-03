@@ -333,7 +333,7 @@ fun EditorScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Text("In:", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(28.dp))
                         Slider(value = fadeInMs.toFloat(), onValueChange = { fadeInMs = (it / 100).toLong() * 100 },
-                            valueRange = 100f..3000f, modifier = Modifier.weight(1f))
+                            valueRange = 100f..5000f, modifier = Modifier.weight(1f))
                         Text("${fadeInMs}ms", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(56.dp))
                     }
                 }
@@ -341,7 +341,7 @@ fun EditorScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Text("Uit:", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(28.dp))
                         Slider(value = fadeOutMs.toFloat(), onValueChange = { fadeOutMs = (it / 100).toLong() * 100 },
-                            valueRange = 100f..3000f, modifier = Modifier.weight(1f))
+                            valueRange = 100f..5000f, modifier = Modifier.weight(1f))
                         Text("${fadeOutMs}ms", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(56.dp))
                     }
                 }

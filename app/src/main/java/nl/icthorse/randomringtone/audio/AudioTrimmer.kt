@@ -94,7 +94,8 @@ object AudioTrimmer {
             rawSamples
         }
 
-        // 2. Fade envelope toepassen (instant)
+        // 2. Fade envelope toepassen
+        // Fade-in: lineair A_new = A * (t / T) — gelijkmatige opbouw van stilte naar vol volume
         if (fadeInMs > 0) {
             val fadeInSamples = (fadeInMs * sampleRate / 1000 * channels).toInt()
                 .coerceAtMost(samples.size)
@@ -103,12 +104,15 @@ object AudioTrimmer {
                 samples[i] = (samples[i] * factor).toInt().toShort()
             }
         }
+        // Fade-out: exponentieel A_new = A * e^(-5 * t/T) — natuurlijke afname zoals akoestisch verval
         if (fadeOutMs > 0) {
             val fadeOutSamples = (fadeOutMs * sampleRate / 1000 * channels).toInt()
                 .coerceAtMost(samples.size)
+            val fadeStartIdx = samples.size - fadeOutSamples
             for (i in 0 until fadeOutSamples) {
-                val idx = samples.size - 1 - i
-                val factor = i.toFloat() / fadeOutSamples
+                val progress = i.toFloat() / fadeOutSamples  // 0.0 (start fade) → 1.0 (einde track)
+                val factor = Math.exp(-5.0 * progress).toFloat()  // 1.0 → ~0.007
+                val idx = fadeStartIdx + i
                 samples[idx] = (samples[idx] * factor).toInt().toShort()
             }
         }

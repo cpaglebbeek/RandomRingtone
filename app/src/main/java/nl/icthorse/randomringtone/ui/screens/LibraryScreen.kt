@@ -113,6 +113,7 @@ fun LibraryScreen(
                         name.startsWith("ringtone_") ||
                         name.startsWith("download_")
                 }
+                .distinctBy { it.localPath } // Dedup: één entry per bestand
                 .map { track ->
                     val file = File(track.localPath!!)
                     val trimmed = file.exists() && when (file.extension.lowercase()) {

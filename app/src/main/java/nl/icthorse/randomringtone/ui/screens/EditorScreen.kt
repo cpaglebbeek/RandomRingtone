@@ -591,10 +591,10 @@ fun EditorScreen(
                                     }
 
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
-                                    saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
+                                    val savedTrackId = saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
                                         addToPlaylist, createNew, selectedPlaylist)
                                     handlePostSave(setAsMainRingtone, ringtoneManager, snackbarHostState,
-                                        deezerTrackId, name, trackArtist, previewUrl, finalFile, pName, addToPlaylist)
+                                        savedTrackId, name, trackArtist, previewUrl, finalFile, pName, addToPlaylist)
                                 } else {
                                     // Alles is al toegepast → kopieer werkbestand
                                     val ext = workingFile.extension.lowercase().ifBlank { "mp3" }
@@ -603,10 +603,10 @@ fun EditorScreen(
 
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
                                     saveProgress = 1f
-                                    saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
+                                    val savedTrackId = saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
                                         addToPlaylist, createNew, selectedPlaylist)
                                     handlePostSave(setAsMainRingtone, ringtoneManager, snackbarHostState,
-                                        deezerTrackId, name, trackArtist, previewUrl, finalFile, pName, addToPlaylist)
+                                        savedTrackId, name, trackArtist, previewUrl, finalFile, pName, addToPlaylist)
                                 }
 
                                 existingPlaylists = db.playlistDao().getAll()
@@ -640,17 +640,29 @@ private suspend fun saveToDB(
     db: RingtoneDatabase, deezerTrackId: Long, name: String, artist: String,
     previewUrl: String, file: File, playlistName: String,
     addToPlaylist: Boolean, createNew: Boolean, selectedPlaylist: Playlist?
-) {
+): Long {
+    // Bij trim: origineel behouden, nieuw record aanmaken met unieke ID
+    // Check of het origineel al bestaat met een ander pad (= dit is een trim)
+    val existing = db.savedTrackDao().getById(deezerTrackId)
+    val isNewFile = existing != null && existing.localPath != null &&
+        existing.localPath != file.absolutePath
+    val trackId = if (isNewFile) {
+        // Genereer unieke ID voor het getrimde bestand, behoud origineel
+        file.absolutePath.hashCode().toLong().let { if (it < 0) -it else it }
+    } else {
+        deezerTrackId
+    }
     db.savedTrackDao().insert(SavedTrack(
-        deezerTrackId = deezerTrackId, title = name, artist = artist,
+        deezerTrackId = trackId, title = name, artist = artist,
         previewUrl = previewUrl, localPath = file.absolutePath, playlistName = playlistName
     ))
     if (addToPlaylist) {
         val playlistId = if (createNew) db.playlistDao().insert(Playlist(name = playlistName))
         else selectedPlaylist!!.id
         val sortOrder = db.playlistTrackDao().getNextSortOrder(playlistId)
-        db.playlistTrackDao().insert(PlaylistTrack(playlistId, deezerTrackId, sortOrder))
+        db.playlistTrackDao().insert(PlaylistTrack(playlistId, trackId, sortOrder))
     }
+    return trackId
 }
 
 private suspend fun handlePostSave(

@@ -23,8 +23,15 @@ object AudioTrimmer {
 
     /**
      * Trim een audiobestand naar het opgegeven tijdsbereik (lossless).
+     * @param onProgress Callback met voortgang 0.0-1.0
      */
-    suspend fun trim(input: File, output: File, startMs: Long, endMs: Long): File =
+    suspend fun trim(
+        input: File,
+        output: File,
+        startMs: Long,
+        endMs: Long,
+        onProgress: ((Float) -> Unit)? = null
+    ): File =
         withContext(Dispatchers.IO) {
             val extractor = MediaExtractor()
             extractor.setDataSource(input.absolutePath)
@@ -50,21 +57,20 @@ object AudioTrimmer {
             extractor.selectTrack(audioTrackIndex)
 
             if (mime == "audio/mpeg") {
-                trimMp3Direct(extractor, output, startMs, endMs)
+                trimMp3Direct(extractor, output, startMs, endMs, onProgress)
             } else {
-                trimWithMuxer(extractor, format, output, startMs, endMs)
+                trimWithMuxer(extractor, format, output, startMs, endMs, onProgress)
             }
 
             extractor.release()
+            onProgress?.invoke(1f)
             output
         }
 
     /**
      * Trim met fade-in en/of fade-out.
      * Decodeert naar PCM, past fade envelope toe, en encodeert als AAC in M4A container.
-     *
-     * @param fadeInMs  Fade-in duur in ms (0 = geen fade-in)
-     * @param fadeOutMs Fade-out duur in ms (0 = geen fade-out)
+     * @param onProgress Callback met voortgang 0.0-1.0 (decode=0-50%, encode=50-100%)
      */
     suspend fun trimWithFade(
         input: File,
@@ -72,12 +78,15 @@ object AudioTrimmer {
         startMs: Long,
         endMs: Long,
         fadeInMs: Long = 0,
-        fadeOutMs: Long = 0
+        fadeOutMs: Long = 0,
+        onProgress: ((Float) -> Unit)? = null
     ): File = withContext(Dispatchers.IO) {
-        // 1. Decode selectie naar PCM
-        val (samples, sampleRate, channels) = decodeToPcm(input, startMs, endMs)
+        // 1. Decode selectie naar PCM (0% - 50%)
+        val (samples, sampleRate, channels) = decodeToPcm(input, startMs, endMs) { p ->
+            onProgress?.invoke(p * 0.5f)
+        }
 
-        // 2. Fade envelope toepassen
+        // 2. Fade envelope toepassen (instant)
         if (fadeInMs > 0) {
             val fadeInSamples = (fadeInMs * sampleRate / 1000 * channels).toInt()
                 .coerceAtMost(samples.size)
@@ -95,9 +104,13 @@ object AudioTrimmer {
                 samples[idx] = (samples[idx] * factor).toInt().toShort()
             }
         }
+        onProgress?.invoke(0.5f)
 
-        // 3. Encode naar AAC en schrijf M4A
-        encodePcmToM4a(output, samples, sampleRate, channels)
+        // 3. Encode naar AAC en schrijf M4A (50% - 100%)
+        encodePcmToM4a(output, samples, sampleRate, channels) { p ->
+            onProgress?.invoke(0.5f + p * 0.5f)
+        }
+        onProgress?.invoke(1f)
 
         output
     }
@@ -120,13 +133,16 @@ object AudioTrimmer {
         extractor: MediaExtractor,
         output: File,
         startMs: Long,
-        endMs: Long
+        endMs: Long,
+        onProgress: ((Float) -> Unit)? = null
     ) {
         val startUs = startMs * 1000L
         val endUs = endMs * 1000L
+        val totalUs = endUs - startUs
         extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
 
         val buffer = ByteBuffer.allocate(1024 * 1024)
+        var lastProgress = 0f
 
         FileOutputStream(output).use { fos ->
             while (true) {
@@ -141,6 +157,14 @@ object AudioTrimmer {
                     buffer.position(0)
                     buffer.get(bytes, 0, sampleSize)
                     fos.write(bytes)
+
+                    if (onProgress != null && totalUs > 0) {
+                        val progress = ((sampleTime - startUs).toFloat() / totalUs).coerceIn(0f, 1f)
+                        if (progress - lastProgress >= 0.02f) {
+                            lastProgress = progress
+                            onProgress.invoke(progress)
+                        }
+                    }
                 }
 
                 extractor.advance()
@@ -155,7 +179,8 @@ object AudioTrimmer {
         format: MediaFormat,
         output: File,
         startMs: Long,
-        endMs: Long
+        endMs: Long,
+        onProgress: ((Float) -> Unit)? = null
     ) {
         val muxer = MediaMuxer(output.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         val muxerTrackIndex = muxer.addTrack(format)
@@ -163,10 +188,12 @@ object AudioTrimmer {
 
         val startUs = startMs * 1000L
         val endUs = endMs * 1000L
+        val totalUs = endUs - startUs
         extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
 
         val buffer = ByteBuffer.allocate(1024 * 1024)
         val bufferInfo = MediaCodec.BufferInfo()
+        var lastProgress = 0f
 
         while (true) {
             val sampleSize = extractor.readSampleData(buffer, 0)
@@ -181,6 +208,14 @@ object AudioTrimmer {
                 bufferInfo.presentationTimeUs = sampleTime - startUs
                 bufferInfo.flags = extractor.sampleFlags
                 muxer.writeSampleData(muxerTrackIndex, buffer, bufferInfo)
+
+                if (onProgress != null && totalUs > 0) {
+                    val progress = ((sampleTime - startUs).toFloat() / totalUs).coerceIn(0f, 1f)
+                    if (progress - lastProgress >= 0.02f) {
+                        lastProgress = progress
+                        onProgress.invoke(progress)
+                    }
+                }
             }
 
             extractor.advance()
@@ -198,7 +233,12 @@ object AudioTrimmer {
         val channels: Int
     )
 
-    private fun decodeToPcm(input: File, startMs: Long, endMs: Long): PcmResult {
+    private fun decodeToPcm(
+        input: File,
+        startMs: Long,
+        endMs: Long,
+        onProgress: ((Float) -> Unit)? = null
+    ): PcmResult {
         val extractor = MediaExtractor()
         extractor.setDataSource(input.absolutePath)
 
@@ -226,6 +266,7 @@ object AudioTrimmer {
 
         val startUs = startMs * 1000L
         val endUs = endMs * 1000L
+        val totalUs = endUs - startUs
         extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
 
         val codec = MediaCodec.createDecoderByType(mime)
@@ -236,6 +277,7 @@ object AudioTrimmer {
         val bufferInfo = MediaCodec.BufferInfo()
         var inputDone = false
         var outputDone = false
+        var lastProgress = 0f
 
         while (!outputDone) {
             if (!inputDone) {
@@ -250,6 +292,13 @@ object AudioTrimmer {
                         )
                         inputDone = true
                     } else {
+                        if (onProgress != null && totalUs > 0) {
+                            val progress = ((extractor.sampleTime - startUs).toFloat() / totalUs).coerceIn(0f, 1f)
+                            if (progress - lastProgress >= 0.02f) {
+                                lastProgress = progress
+                                onProgress.invoke(progress)
+                            }
+                        }
                         codec.queueInputBuffer(
                             inputBufferIndex, 0, sampleSize,
                             extractor.sampleTime, 0
@@ -286,7 +335,13 @@ object AudioTrimmer {
 
     // --- AAC encode (voor fade output) ---
 
-    private fun encodePcmToM4a(output: File, samples: ShortArray, sampleRate: Int, channels: Int) {
+    private fun encodePcmToM4a(
+        output: File,
+        samples: ShortArray,
+        sampleRate: Int,
+        channels: Int,
+        onProgress: ((Float) -> Unit)? = null
+    ) {
         val format = MediaFormat.createAudioFormat(
             MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels
         ).apply {
@@ -307,6 +362,8 @@ object AudioTrimmer {
         var inputOffset = 0
         var inputDone = false
         var outputDone = false
+        val totalSamples = samples.size
+        var lastProgress = 0f
 
         while (!outputDone) {
             // Feed PCM input
@@ -324,7 +381,7 @@ object AudioTrimmer {
                         )
                         inputDone = true
                     } else {
-                        val capacity = inputBuffer.capacity() / 2  // bytes to shorts
+                        val capacity = inputBuffer.capacity() / 2
                         val samplesToWrite = minOf(remaining, capacity)
                         val shortBuffer = inputBuffer.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
                         shortBuffer.put(samples, inputOffset, samplesToWrite)
@@ -335,6 +392,14 @@ object AudioTrimmer {
                             presentationTimeUs, 0
                         )
                         inputOffset += samplesToWrite
+
+                        if (onProgress != null && totalSamples > 0) {
+                            val progress = (inputOffset.toFloat() / totalSamples).coerceIn(0f, 1f)
+                            if (progress - lastProgress >= 0.02f) {
+                                lastProgress = progress
+                                onProgress.invoke(progress)
+                            }
+                        }
                     }
                 }
             }

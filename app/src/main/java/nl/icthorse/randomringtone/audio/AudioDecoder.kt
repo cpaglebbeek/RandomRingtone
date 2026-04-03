@@ -26,8 +26,13 @@ object AudioDecoder {
      * Extraheer amplitude-data uit een audiobestand.
      * @param file MP3 bestand
      * @param targetPoints Aantal datapunten voor de waveform (breedte in pixels)
+     * @param onProgress Callback met voortgang 0.0-1.0 (thread-safe, mag vanuit achtergrond)
      */
-    suspend fun extractWaveform(file: File, targetPoints: Int = 500): WaveformData =
+    suspend fun extractWaveform(
+        file: File,
+        targetPoints: Int = 500,
+        onProgress: ((Float) -> Unit)? = null
+    ): WaveformData =
         withContext(Dispatchers.Default) {
             val extractor = MediaExtractor()
             extractor.setDataSource(file.absolutePath)
@@ -68,6 +73,7 @@ object AudioDecoder {
             var inputDone = false
             var outputDone = false
             var maxAmplitude = 1f
+            var lastProgress = 0f
 
             while (!outputDone) {
                 // Feed input
@@ -83,6 +89,14 @@ object AudioDecoder {
                             )
                             inputDone = true
                         } else {
+                            // Progress rapporteren
+                            if (onProgress != null && durationUs > 0) {
+                                val progress = (extractor.sampleTime.toFloat() / durationUs).coerceIn(0f, 1f)
+                                if (progress - lastProgress >= 0.02f) {
+                                    lastProgress = progress
+                                    onProgress.invoke(progress)
+                                }
+                            }
                             codec.queueInputBuffer(
                                 inputBufferIndex, 0, sampleSize,
                                 extractor.sampleTime, 0
@@ -129,6 +143,7 @@ object AudioDecoder {
             codec.stop()
             codec.release()
             extractor.release()
+            onProgress?.invoke(1f)
 
             // Downsample naar targetPoints
             val downsampled = downsample(allAmplitudes, targetPoints, maxAmplitude)

@@ -46,10 +46,14 @@ fun EditorScreen(
     val scope = rememberCoroutineScope()
     var waveformData by remember { mutableStateOf<AudioDecoder.WaveformData?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var loadProgress by remember { mutableFloatStateOf(0f) }
+    var loadStartTime by remember { mutableStateOf(0L) }
     var startFraction by remember { mutableFloatStateOf(0f) }
     var endFraction by remember { mutableFloatStateOf(0f) }
     val player = remember { AudioPlayer() }
     var isPlaying by remember { mutableStateOf(false) }
+    var saveProgress by remember { mutableFloatStateOf(-1f) }
+    var saveStartTime by remember { mutableStateOf(0L) }
 
     // Zoom state
     var viewStart by remember { mutableFloatStateOf(0f) }
@@ -70,10 +74,13 @@ fun EditorScreen(
         existingPlaylists = db.playlistDao().getAll()
     }
 
-    // Laad waveform data
+    // Laad waveform data met progress tracking
     LaunchedEffect(audioFile) {
+        loadStartTime = System.currentTimeMillis()
         try {
-            waveformData = AudioDecoder.extractWaveform(audioFile)
+            waveformData = AudioDecoder.extractWaveform(audioFile) { progress ->
+                loadProgress = progress
+            }
             waveformData?.let { data ->
                 val defaultEndMs = minOf(20_000L, data.durationMs)
                 endFraction = defaultEndMs.toFloat() / data.durationMs.toFloat()
@@ -138,10 +145,24 @@ fun EditorScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isLoading) {
-            Box(modifier = Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Waveform laden...")
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Waveform laden...", style = MaterialTheme.typography.bodyMedium)
+                LinearProgressIndicator(
+                    progress = { loadProgress },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                val pct = (loadProgress * 100).toInt()
+                val eta = if (loadProgress > 0.05f) {
+                    val elapsed = System.currentTimeMillis() - loadStartTime
+                    val remaining = (elapsed / loadProgress * (1f - loadProgress)).toLong()
+                    if (remaining > 1000) " — ~${remaining / 1000}s" else " — <1s"
+                } else ""
+                Text("$pct%$eta", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             waveformData?.let { data ->
@@ -448,6 +469,26 @@ fun EditorScreen(
                             )
                         }
                     }
+
+                    // Save progress bar
+                    if (isSaving && saveProgress >= 0f) {
+                        HorizontalDivider()
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Opslaan...", style = MaterialTheme.typography.labelMedium)
+                            LinearProgressIndicator(
+                                progress = { saveProgress },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            val pct = (saveProgress * 100).toInt()
+                            val eta = if (saveProgress > 0.05f) {
+                                val elapsed = System.currentTimeMillis() - saveStartTime
+                                val remaining = (elapsed / saveProgress * (1f - saveProgress)).toLong()
+                                if (remaining > 1000) " — ~${remaining / 1000}s" else " — <1s"
+                            } else ""
+                            Text("$pct%$eta", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -456,6 +497,8 @@ fun EditorScreen(
                 Button(
                     onClick = {
                         isSaving = true
+                        saveProgress = 0f
+                        saveStartTime = System.currentTimeMillis()
                         scope.launch {
                             try {
                                 val data = waveformData ?: return@launch
@@ -483,9 +526,11 @@ fun EditorScreen(
                                         audioFile, trimmedFile, startMs, endMs,
                                         if (fadeInEnabled) fadeInMs else 0,
                                         if (fadeOutEnabled) fadeOutMs else 0
-                                    )
+                                    ) { p -> saveProgress = p }
                                 } else {
-                                    AudioTrimmer.trim(audioFile, trimmedFile, startMs, endMs)
+                                    AudioTrimmer.trim(audioFile, trimmedFile, startMs, endMs) { p ->
+                                        saveProgress = p
+                                    }
                                     Mp3Marker.injectTrimmedMarker(trimmedFile, name, trackArtist)
                                 }
 
@@ -551,6 +596,7 @@ fun EditorScreen(
                                 snackbarHostState.showSnackbar("Fout: ${e.message}")
                             }
                             isSaving = false
+                            saveProgress = -1f
                             showSaveDialog = false
                         }
                     },

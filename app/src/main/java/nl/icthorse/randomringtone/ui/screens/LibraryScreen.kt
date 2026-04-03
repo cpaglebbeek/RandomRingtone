@@ -313,43 +313,50 @@ fun LibraryScreen(
         }
 
         // Zoekbalk + sorteerknoppen
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            if (showSearch) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Zoeken...", style = MaterialTheme.typography.bodySmall) },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    textStyle = MaterialTheme.typography.bodySmall,
-                    trailingIcon = {
+        if (showSearch) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Zoeken op titel of artiest...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    Row {
+                        IconButton(onClick = { sortAsc = !sortAsc }) {
+                            Icon(
+                                if (sortAsc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                                contentDescription = if (sortAsc) "A-Z" else "Z-A"
+                            )
+                        }
                         IconButton(onClick = { searchQuery = ""; showSearch = false }) {
-                            Icon(Icons.Default.Close, contentDescription = "Sluiten", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Close, contentDescription = "Sluiten")
                         }
                     }
-                )
-            } else {
-                Spacer(modifier = Modifier.weight(1f))
-            }
-            IconButton(onClick = { showSearch = !showSearch; if (!showSearch) searchQuery = "" }) {
-                Icon(Icons.Default.Search, contentDescription = "Zoeken", modifier = Modifier.size(20.dp))
-            }
-            IconButton(onClick = { sortAsc = !sortAsc }) {
-                Icon(
-                    if (sortAsc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
-                    contentDescription = if (sortAsc) "A-Z" else "Z-A",
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Text(
-                if (sortAsc) "A-Z" else "Z-A",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = { showSearch = true }) {
+                    Icon(Icons.Default.Search, contentDescription = "Zoeken", modifier = Modifier.size(20.dp))
+                }
+                IconButton(onClick = { sortAsc = !sortAsc }) {
+                    Icon(
+                        if (sortAsc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                        contentDescription = if (sortAsc) "A-Z" else "Z-A",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text(
+                    if (sortAsc) "A-Z" else "Z-A",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         // Tabs: Downloads / Tones / YouTube

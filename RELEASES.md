@@ -85,3 +85,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 78 | 1.5.3 | Michael_Jackson | Bad | 2026-04-03 | Nee |
 | 79 | 1.5.4 | Michael_Jackson | Smooth_Criminal | 2026-04-03 | Nee |
 | 80 | 1.5.5 | Michael_Jackson | Black_Or_White | 2026-04-03 | Nee |
+| 81 | 1.5.6 | Michael_Jackson | Rock_With_You | 2026-04-03 | Nee |

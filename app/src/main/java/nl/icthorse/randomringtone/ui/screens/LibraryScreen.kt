@@ -3,19 +3,25 @@ package nl.icthorse.randomringtone.ui.screens
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,7 +41,9 @@ data class LibraryItem(
     val title: String,
     val artist: String,
     val sizeFormatted: String,
-    val isScanned: Boolean
+    val isScanned: Boolean,
+    val albumArtPath: String? = null,
+    val isTrimmed: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,9 +84,12 @@ fun LibraryScreen(
     // Delete dialoog state
     var showDeleteDialog by remember { mutableStateOf<LibraryItem?>(null) }
 
-    // === SINGLE POINT OF TRUTH: refresh uit DB, split op bestandsnaam ===
+    // === SINGLE POINT OF TRUTH: refresh uit DB, split op marker ===
     fun refresh() {
         scope.launch {
+            // Enrich tracks: ID3 metadata + marker injectie (eenmalig per track)
+            Mp3TagReader.enrichAll(context, db)
+
             val allItems = db.savedTrackDao().getAll()
                 .filter { track ->
                     val path = track.localPath
@@ -92,19 +103,26 @@ fun LibraryScreen(
                 }
                 .map { track ->
                     val file = File(track.localPath!!)
+                    val trimmed = file.exists() && when (file.extension.lowercase()) {
+                        "mp3" -> Mp3Marker.isTrimmed(file)
+                        "m4a", "aac" -> true  // M4A = altijd getrimd (fade output)
+                        else -> false
+                    }
                     LibraryItem(
                         file = file,
                         trackId = track.deezerTrackId,
-                        title = track.title.ifBlank { file.nameWithoutExtension },
-                        artist = track.artist,
+                        title = track.id3Title?.takeIf { it.isNotBlank() } ?: track.title.ifBlank { file.nameWithoutExtension },
+                        artist = track.id3Artist?.takeIf { it.isNotBlank() } ?: track.artist,
                         sizeFormatted = if (file.exists()) formatFileSize(file.length()) else "niet op schijf",
-                        isScanned = true
+                        isScanned = true,
+                        albumArtPath = track.albumArtPath,
+                        isTrimmed = trimmed
                     )
                 }
 
-            // Split op bestandsnaam: ringtone_* = ringtone, rest = download
-            ringtones = allItems.filter { it.file.name.lowercase().startsWith("ringtone_") }
-            downloads = allItems.filter { !it.file.name.lowercase().startsWith("ringtone_") }
+            // Split op marker: "RandomRingtone trimmed" → Ringtones, rest → Downloads
+            ringtones = allItems.filter { it.isTrimmed }
+            downloads = allItems.filter { !it.isTrimmed }
         }
     }
 
@@ -167,8 +185,10 @@ fun LibraryScreen(
                         }
                     }
                     val msCount = scanned.count { it.source == "mediastore" }
+                    val markerCount = scanned.count { it.source == "marker" }
                     val msg = buildString {
                         append("$added nieuw van ${scanned.size} bestanden")
+                        if (markerCount > 0) append(" ($markerCount via marker)")
                         if (msCount > 0) append(" ($msCount via MediaStore)")
                     }
                     snackbarHostState.showSnackbar(msg)
@@ -280,13 +300,13 @@ fun LibraryScreen(
                 text = { Text("Downloads (${downloads.size})") },
                 icon = { Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp)) })
             Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
-                text = { Text("Ringtones (${ringtones.size})") },
+                text = { Text("Tones (${ringtones.size})") },
                 icon = { Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp)) })
         }
 
         val items = if (selectedTab == 0) downloads else ringtones
         val emptyIcon = if (selectedTab == 0) Icons.Default.Download else Icons.Default.MusicNote
-        val emptyTitle = if (selectedTab == 0) "Geen downloads" else "Geen ringtones"
+        val emptyTitle = if (selectedTab == 0) "Geen downloads" else "Geen tones"
         val emptySubtitle = if (selectedTab == 0) "Download nummers via Spotify en druk op Scan" else "Trim een download via de editor"
 
         if (items.isEmpty()) {
@@ -332,12 +352,29 @@ private fun LibraryCard(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.MusicNote,
-                contentDescription = null,
-                modifier = Modifier.size(36.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            val albumBitmap = remember(item.albumArtPath) {
+                item.albumArtPath?.let { path ->
+                    try { BitmapFactory.decodeFile(path)?.asImageBitmap() }
+                    catch (_: Exception) { null }
+                }
+            }
+            if (albumBitmap != null) {
+                Image(
+                    bitmap = albumBitmap,
+                    contentDescription = "Album art",
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Default.MusicNote,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.title, style = MaterialTheme.typography.bodyLarge,

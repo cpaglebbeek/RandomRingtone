@@ -90,7 +90,10 @@ data class SavedTrack(
     val artist: String,
     val previewUrl: String,
     val localPath: String? = null,
-    val playlistName: String          // Legacy veld — nieuwe tracks gebruiken playlist_tracks
+    val playlistName: String,         // Legacy veld — nieuwe tracks gebruiken playlist_tracks
+    val id3Title: String? = null,     // Titel uit MP3 ID3 tags
+    val id3Artist: String? = null,    // Artiest uit MP3 ID3 tags
+    val albumArtPath: String? = null  // Pad naar geëxtraheerde album art
 )
 
 // --- DAO's ---
@@ -183,7 +186,7 @@ interface SavedTrackDao {
 
 @Database(
     entities = [SavedTrack::class, Playlist::class, PlaylistTrack::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -205,6 +208,14 @@ abstract class RingtoneDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE saved_tracks ADD COLUMN id3Title TEXT")
+                db.execSQL("ALTER TABLE saved_tracks ADD COLUMN id3Artist TEXT")
+                db.execSQL("ALTER TABLE saved_tracks ADD COLUMN albumArtPath TEXT")
+            }
+        }
+
         fun getInstance(context: Context): RingtoneDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(
@@ -212,7 +223,7 @@ abstract class RingtoneDatabase : RoomDatabase() {
                     RingtoneDatabase::class.java,
                     "randomringtone.db"
                 )
-                .addMigrations(MIGRATION_4_5)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
                 .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }

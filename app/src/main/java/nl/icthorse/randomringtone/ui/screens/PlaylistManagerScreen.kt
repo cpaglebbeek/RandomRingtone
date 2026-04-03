@@ -2,16 +2,19 @@ package nl.icthorse.randomringtone.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,6 +22,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -650,11 +656,14 @@ private fun AddTracksDialog(
     onAdded: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var allRingtones by remember { mutableStateOf<List<SavedTrack>>(emptyList()) }
     var currentTrackIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
     LaunchedEffect(playlist.id) {
+        // Enrich tracks zonder ID3 metadata
+        Mp3TagReader.enrichAll(context, db)
         // Single Point of Truth: zelfde filter als Library
         allRingtones = db.savedTrackDao().getAll()
             .filter { track ->
@@ -692,11 +701,38 @@ private fun AddTracksDialog(
                                     else selectedIds - track.deezerTrackId
                                 }
                             )
+                            val albumBitmap = remember(track.albumArtPath) {
+                                track.albumArtPath?.let { path ->
+                                    try { BitmapFactory.decodeFile(path)?.asImageBitmap() }
+                                    catch (_: Exception) { null }
+                                }
+                            }
+                            if (albumBitmap != null) {
+                                Image(
+                                    bitmap = albumBitmap,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(track.title, style = MaterialTheme.typography.bodyMedium,
+                                Text(
+                                    track.id3Title?.takeIf { it.isNotBlank() } ?: track.title,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (track.artist.isNotBlank()) {
-                                    Text(track.artist, style = MaterialTheme.typography.bodySmall,
+                                val displayArtist = track.id3Artist?.takeIf { it.isNotBlank() } ?: track.artist
+                                if (displayArtist.isNotBlank()) {
+                                    Text(displayArtist, style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }

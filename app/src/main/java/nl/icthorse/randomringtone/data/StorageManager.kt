@@ -248,7 +248,8 @@ class StorageManager(private val context: Context) {
         val ringtoneInfo: DirInfo,
         val systemDownloadInfo: DirInfo,
         val mediaStoreCount: Int = 0,
-        val usedMediaStore: Boolean = false
+        val usedMediaStore: Boolean = false,
+        val markerScanCount: Int = 0
     ) {
         val ringtoneDir get() = ringtoneInfo.path
         val downloadDir get() = downloadInfo.path
@@ -292,8 +293,23 @@ class StorageManager(private val context: Context) {
         val dlInfo = scanDir(dlDir, "download")
         val sysInfo = scanDir(sysDir, "system_download")
 
+        // === MARKER INJECTIE ===
+        // Injecteer "RandomRingtone track" marker in alle gevonden bestanden
+        // zodat ze bij toekomstige scans herkend worden via marker i.p.v. bestandsnaam
+        results.forEach { sf ->
+            if (sf.localPath.isNotBlank()) {
+                val file = File(sf.localPath)
+                if (file.exists()) Mp3Marker.injectIfMissing(file, sf.title, sf.artist)
+            }
+        }
+
+        // === MARKER SCAN ===
+        // Scan ALLE media op het apparaat, filter op RandomRingtone marker.
+        // Dit vindt ook bestanden die verplaatst/hernoemd zijn maar de marker behouden.
+        val markerScanCount = scanAllMediaByMarker(results, seen)
+
         // === MEDIASTORE FALLBACK ===
-        // Als listFiles() niets vindt, gebruik MediaStore om audiobestanden te vinden
+        // Als listFiles() én marker scan niets vinden, gebruik MediaStore op naam/pad
         var mediaStoreCount = 0
         var usedMediaStore = false
 
@@ -302,13 +318,25 @@ class StorageManager(private val context: Context) {
             mediaStoreCount = scanViaMediaStore(results, seen)
         }
 
+        // === TRIMMED STATUS ===
+        // Bepaal per bestand of het getrimd is op basis van de marker.
+        // "RandomRingtone trimmed" → ringtone, "RandomRingtone track" → download
+        val finalResults = results.map { sf ->
+            if (sf.localPath.isNotBlank() && !sf.isTrimmed) {
+                val file = File(sf.localPath)
+                if (file.exists() && Mp3Marker.isTrimmed(file)) sf.copy(isTrimmed = true)
+                else sf
+            } else sf
+        }
+
         ScanResult(
-            files = results,
+            files = finalResults,
             downloadInfo = dlInfo,
             ringtoneInfo = rtInfo,
             systemDownloadInfo = sysInfo,
             mediaStoreCount = mediaStoreCount,
-            usedMediaStore = usedMediaStore
+            usedMediaStore = usedMediaStore,
+            markerScanCount = markerScanCount
         )
     }
 
@@ -383,6 +411,76 @@ class StorageManager(private val context: Context) {
         return count
     }
 
+    /**
+     * Scan ALLE audio op het apparaat via MediaStore, filter op RandomRingtone marker.
+     * Hierdoor worden alleen tracks die door de app zijn gedownload geïmporteerd,
+     * ongeacht hun locatie of bestandsnaam.
+     */
+    private fun scanAllMediaByMarker(results: MutableList<ScannedFile>, seen: MutableSet<Long>): Int {
+        var count = 0
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        }
+
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST
+        )
+
+        try {
+            context.contentResolver.query(
+                collection, projection, null, null,
+                "${MediaStore.Audio.Media.DATE_MODIFIED} DESC"
+            )?.use { cursor ->
+                val dataCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+                val titleCol = cursor.getColumnIndex(MediaStore.Audio.Media.TITLE)
+                val artistCol = cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)
+
+                while (cursor.moveToNext()) {
+                    val filePath = if (dataCol >= 0) cursor.getString(dataCol) else null
+                    if (filePath == null) continue
+                    val file = File(filePath)
+                    if (!file.exists()) continue
+
+                    // Filter: alleen bestanden met RandomRingtone marker
+                    if (!Mp3Marker.hasMarker(file)) continue
+
+                    val parsed = parseFileName(file)
+                    val trackId = parsed?.trackId
+                        ?: file.name.hashCode().toLong().let { if (it < 0) -it else it }
+                    if (trackId in seen) continue
+                    seen.add(trackId)
+
+                    val msTitle = if (titleCol >= 0) cursor.getString(titleCol) else null
+                    val msArtist = if (artistCol >= 0) cursor.getString(artistCol) else null
+                    val displayName = cursor.getString(nameCol) ?: file.name
+
+                    results.add(ScannedFile(
+                        trackId = trackId,
+                        title = msTitle?.takeIf { it.isNotBlank() && it != "<unknown>" }
+                            ?: parsed?.title
+                            ?: displayName.substringBeforeLast(".").replace("_", " "),
+                        artist = msArtist?.takeIf { it.isNotBlank() && it != "<unknown>" }
+                            ?: parsed?.artist
+                            ?: "Onbekend",
+                        localPath = filePath,
+                        playlistName = parsed?.playlistName,
+                        source = "marker"
+                    ))
+                    count++
+                }
+            }
+        } catch (_: Exception) { /* MediaStore query mislukt — negeer */ }
+
+        return count
+    }
+
     private fun parseFileName(file: File): ScannedFile? {
         val name = file.nameWithoutExtension
 
@@ -439,7 +537,8 @@ data class ScannedFile(
     val artist: String,
     val localPath: String,
     val playlistName: String? = null,
-    val source: String = ""
+    val source: String = "",
+    val isTrimmed: Boolean = false
 )
 
 data class SpotifyConverter(

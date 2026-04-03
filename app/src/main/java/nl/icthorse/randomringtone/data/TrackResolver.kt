@@ -242,16 +242,19 @@ class TrackResolver(
         RemoteLogger.d("TrackResolver", "updateLastPlayed", mapOf(
             "playlist" to playlist.name, "trackId" to trackId.toString(), "mode" to playlist.mode.name
         ))
-        val updated = if (playlist.mode == Mode.QUASI_RANDOM) {
-            // Voeg trackId toe aan playedTrackIds lijst
-            val currentIds = playlist.playedTrackIds
+        // Re-read uit DB: resolveForPlaylist() kan een QUASI_RANDOM reset hebben gedaan
+        // waardoor playedTrackIds = null is gezet. Het meegegeven playlist-object is dan stale.
+        val current = db.playlistDao().getById(playlist.id) ?: return
+        val updated = if (current.mode == Mode.QUASI_RANDOM) {
+            // Voeg trackId toe aan playedTrackIds lijst (na evt. reset is dit leeg)
+            val currentIds = current.playedTrackIds
                 ?.split(",")
                 ?.mapNotNull { it.toLongOrNull() }
                 ?.toMutableSet() ?: mutableSetOf()
             currentIds.add(trackId)
-            playlist.copy(lastPlayedTrackId = trackId, playedTrackIds = currentIds.joinToString(","))
+            current.copy(lastPlayedTrackId = trackId, playedTrackIds = currentIds.joinToString(","))
         } else {
-            playlist.copy(lastPlayedTrackId = trackId)
+            current.copy(lastPlayedTrackId = trackId)
         }
         db.playlistDao().update(updated)
     }

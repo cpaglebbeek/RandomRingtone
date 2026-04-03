@@ -1,11 +1,11 @@
 {
   "project": "RandomRingtone",
-  "version": "1.1.0c",
-  "versionCode": 64,
+  "version": "1.2.0c",
+  "versionCode": 65,
   "codename": "Prince",
-  "releaseName": "If_I_Was_Your_Girlfriend",
+  "releaseName": "Purple_Rain",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
-  "last_updated": "2026-04-02",
+  "last_updated": "2026-04-03",
   "status": "stable"
 }

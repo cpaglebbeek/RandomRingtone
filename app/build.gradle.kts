@@ -10,22 +10,32 @@ android {
     namespace = "nl.icthorse.randomringtone"
     compileSdk = 35
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     defaultConfig {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 85
-        versionName = "1.5.10"
+        versionCode = 86
+        versionName = "1.5.11"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"Michael_Jackson\"")
-        buildConfigField("String", "RELEASE_NAME", "\"The_Way_You_Make_Me_Feel\"")
-        buildConfigField("int", "BUILD_NUMBER", "84")
+        buildConfigField("String", "RELEASE_NAME", "\"Thriller\"")
+        buildConfigField("int", "BUILD_NUMBER", "86")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -40,7 +50,7 @@ android {
         val variant = this
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "RandomRingtone-v${variant.versionName}-Michael_Jackson-The_Way_You_Make_Me_Feel-${variant.buildType.name}.apk"
+            output.outputFileName = "RandomRingtone-v${variant.versionName}-Michael_Jackson-Thriller-${variant.buildType.name}.apk"
         }
     }
 

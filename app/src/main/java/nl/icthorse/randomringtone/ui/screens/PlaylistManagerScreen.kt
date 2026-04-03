@@ -664,7 +664,7 @@ private fun AddTracksDialog(
     LaunchedEffect(playlist.id) {
         // Enrich tracks zonder ID3 metadata
         Mp3TagReader.enrichAll(context, db)
-        // Single Point of Truth: zelfde filter als Library
+        // Alleen tracks tonen (geen tones/getrimde bestanden)
         allRingtones = db.savedTrackDao().getAll()
             .filter { track ->
                 val path = track.localPath
@@ -675,6 +675,15 @@ private fun AddTracksDialog(
                     name.startsWith("youtube_mp3_") ||
                     name.startsWith("ringtone_") ||
                     name.startsWith("download_")
+            }
+            .filter { track ->
+                val file = java.io.File(track.localPath!!)
+                if (!file.exists()) return@filter true
+                when (file.extension.lowercase()) {
+                    "mp3" -> !Mp3Marker.isTrimmed(file)
+                    "m4a", "aac" -> false
+                    else -> true
+                }
             }
         val current = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
         currentTrackIds = current.map { it.deezerTrackId }.toSet()

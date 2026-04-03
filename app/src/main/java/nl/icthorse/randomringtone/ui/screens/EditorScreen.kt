@@ -354,6 +354,7 @@ fun EditorScreen(
         }
         var ringtoneName by remember { mutableStateOf(defaultName) }
         var setAsMainRingtone by remember { mutableStateOf(false) }
+        var addToPlaylist by remember { mutableStateOf(true) }
         var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
         var createNew by remember { mutableStateOf(existingPlaylists.isEmpty()) }
         var newPlaylistName by remember { mutableStateOf("") }
@@ -377,43 +378,55 @@ fun EditorScreen(
 
                     HorizontalDivider()
 
-                    Text("Opslaan in playlist:", style = MaterialTheme.typography.labelLarge)
-
-                    if (existingPlaylists.isNotEmpty()) {
-                        existingPlaylists.forEach { playlist ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                RadioButton(
-                                    selected = selectedPlaylist == playlist && !createNew,
-                                    onClick = { selectedPlaylist = playlist; createNew = false }
-                                )
-                                Text(playlist.name, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    }
-
+                    // Playlist selectie (optioneel)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        RadioButton(
-                            selected = createNew,
-                            onClick = { createNew = true; selectedPlaylist = null }
+                        Checkbox(
+                            checked = addToPlaylist,
+                            onCheckedChange = { addToPlaylist = it }
                         )
-                        Text("Nieuwe playlist", style = MaterialTheme.typography.bodyMedium)
+                        Text("Toevoegen aan playlist", style = MaterialTheme.typography.labelLarge)
                     }
-                    if (createNew) {
-                        OutlinedTextField(
-                            value = newPlaylistName,
-                            onValueChange = { newPlaylistName = it },
-                            label = { Text("Playlist naam") },
-                            placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth().padding(start = 40.dp)
-                        )
+
+                    if (addToPlaylist) {
+                        if (existingPlaylists.isNotEmpty()) {
+                            existingPlaylists.forEach { playlist ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp)
+                                ) {
+                                    RadioButton(
+                                        selected = selectedPlaylist == playlist && !createNew,
+                                        onClick = { selectedPlaylist = playlist; createNew = false }
+                                    )
+                                    Text(playlist.name, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp))
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp)
+                        ) {
+                            RadioButton(
+                                selected = createNew,
+                                onClick = { createNew = true; selectedPlaylist = null }
+                            )
+                            Text("Nieuwe playlist", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (createNew) {
+                            OutlinedTextField(
+                                value = newPlaylistName,
+                                onValueChange = { newPlaylistName = it },
+                                label = { Text("Playlist naam") },
+                                placeholder = { Text("bijv. Rock, Chill, Favoriet...") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().padding(start = 56.dp)
+                            )
+                        }
                     }
 
                     HorizontalDivider()
@@ -439,7 +452,7 @@ fun EditorScreen(
             },
             confirmButton = {
                 val canSave = ringtoneName.isNotBlank() &&
-                    (if (createNew) newPlaylistName.isNotBlank() else selectedPlaylist != null)
+                    (!addToPlaylist || (if (createNew) newPlaylistName.isNotBlank() else selectedPlaylist != null))
                 Button(
                     onClick = {
                         isSaving = true
@@ -449,7 +462,11 @@ fun EditorScreen(
                                 val startMs = (startFraction * data.durationMs).toLong()
                                 val endMs = (endFraction * data.durationMs).toLong()
                                 val name = ringtoneName.trim()
-                                val pName = if (createNew) newPlaylistName.trim() else selectedPlaylist!!.name
+                                val pName = when {
+                                    !addToPlaylist -> "Geen"
+                                    createNew -> newPlaylistName.trim()
+                                    else -> selectedPlaylist!!.name
+                                }
                                 val safeName = name.replace(Regex("[^a-zA-Z0-9_\\- ]"), "_")
 
                                 player.stop()
@@ -472,7 +489,7 @@ fun EditorScreen(
                                     Mp3Marker.injectTrimmedMarker(trimmedFile, name, trackArtist)
                                 }
 
-                                // 2. Opslaan in DB + playlist
+                                // 2. Opslaan in DB
                                 db.savedTrackDao().insert(
                                     SavedTrack(
                                         deezerTrackId = deezerTrackId,
@@ -484,17 +501,20 @@ fun EditorScreen(
                                     )
                                 )
 
-                                val playlistId = if (createNew) {
-                                    db.playlistDao().insert(Playlist(name = pName))
-                                } else {
-                                    selectedPlaylist!!.id
+                                // 3. Optioneel: toevoegen aan playlist
+                                if (addToPlaylist) {
+                                    val playlistId = if (createNew) {
+                                        db.playlistDao().insert(Playlist(name = pName))
+                                    } else {
+                                        selectedPlaylist!!.id
+                                    }
+                                    val sortOrder = db.playlistTrackDao().getNextSortOrder(playlistId)
+                                    db.playlistTrackDao().insert(
+                                        PlaylistTrack(playlistId, deezerTrackId, sortOrder)
+                                    )
                                 }
-                                val sortOrder = db.playlistTrackDao().getNextSortOrder(playlistId)
-                                db.playlistTrackDao().insert(
-                                    PlaylistTrack(playlistId, deezerTrackId, sortOrder)
-                                )
 
-                                // 3. Optioneel: instellen als hoofdringtone
+                                // 4. Optioneel: instellen als hoofdringtone
                                 if (setAsMainRingtone) {
                                     val deezerTrack = DeezerTrack(
                                         id = deezerTrackId,
@@ -518,9 +538,12 @@ fun EditorScreen(
                                         if (fadeInEnabled) append(" +fade-in ${fadeInMs}ms")
                                         if (fadeOutEnabled) append(" +fade-out ${fadeOutMs}ms")
                                     }
-                                    snackbarHostState.showSnackbar(
+                                    val msg = if (addToPlaylist) {
                                         "Opgeslagen in '$pName' (${formatTime(endMs - startMs)}$fadeLabel)"
-                                    )
+                                    } else {
+                                        "Opgeslagen (${formatTime(endMs - startMs)}$fadeLabel)"
+                                    }
+                                    snackbarHostState.showSnackbar(msg)
                                 }
 
                                 existingPlaylists = db.playlistDao().getAll()

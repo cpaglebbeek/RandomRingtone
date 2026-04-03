@@ -89,3 +89,5 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 82 | 1.5.7 | Michael_Jackson | Wanna_Be_Startin_Somethin | 2026-04-03 | Nee |
 | 83 | 1.5.8 | Michael_Jackson | Dont_Stop_Til_You_Get_Enough | 2026-04-03 | Nee |
 | 84 | 1.5.9 | Michael_Jackson | The_Way_You_Make_Me_Feel | 2026-04-03 | Nee |
+| 85 | 1.5.10 | Michael_Jackson | — | 2026-04-03 | Nee (corrupt) |
+| 86 | 1.5.11 | Michael_Jackson | Man_In_The_Mirror | 2026-04-03 | Ja |

@@ -59,3 +59,4 @@
 | 55 | Library toont media van hele telefoon — MediaStore scan download_% patroon te breed, matcht alles | Rood | 0.7.29 | 0.7.30 | FIXED |
 | 56 | Ringtone nooit ingesteld — apply verwijderd uit save-flow (crash fix), maar geen ander pad voor nieuwe playlists (isActive=true default) | Rood | 0.7.30 | 0.7.31 | FIXED |
 | 57 | EVERY_CALL: contact playlist overgeslagen bij meerdere actieve playlists — exception in loop stopt verwerking van resterende playlists | Geel | 0.7.34 | 0.7.35 | FIXED |
+| 58 | Release APK corrupt/niet-installeerbaar — geen signingConfig op release buildType, APK unsigned | Groen | 1.5.10 | 1.5.11 | FIXED |

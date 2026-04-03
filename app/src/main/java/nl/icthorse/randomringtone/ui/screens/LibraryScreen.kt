@@ -63,9 +63,10 @@ fun LibraryScreen(
     var playingTrackId by remember { mutableStateOf<Long?>(null) }
     DisposableEffect(Unit) { onDispose { player.release() } }
 
-    // Single point of truth: DB-gedreven, gesplitst op bestandsnaam
+    // Single point of truth: DB-gedreven, gesplitst op marker
     var downloads by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
     var ringtones by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
+    var youtubeClips by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
     var selectedTab by remember { mutableIntStateOf(0) }
 
     // Scan state
@@ -126,9 +127,14 @@ fun LibraryScreen(
                     )
                 }
 
-            // Split op marker: "RandomRingtone trimmed" → Ringtones, rest → Downloads
-            ringtones = allItems.filter { it.isTrimmed }
-            downloads = allItems.filter { !it.isTrimmed }
+            // Split op marker: YouTube / trimmed / rest
+            val (yt, nonYt) = allItems.partition { item ->
+                item.file.exists() && item.file.extension.lowercase() == "mp3" &&
+                    Mp3Marker.isYouTube(item.file)
+            }
+            youtubeClips = yt
+            ringtones = nonYt.filter { it.isTrimmed }
+            downloads = nonYt.filter { !it.isTrimmed }
         }
     }
 
@@ -300,7 +306,7 @@ fun LibraryScreen(
             }
         }
 
-        // Tabs: Downloads / Ringtones
+        // Tabs: Downloads / Tones / YouTube
         TabRow(selectedTabIndex = selectedTab) {
             Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
                 text = { Text("Downloads (${downloads.size})") },
@@ -308,12 +314,35 @@ fun LibraryScreen(
             Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
                 text = { Text("Tones (${ringtones.size})") },
                 icon = { Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp)) })
+            Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
+                text = { Text("YouTube (${youtubeClips.size})") },
+                icon = { Icon(Icons.Default.VideoLibrary, contentDescription = null, modifier = Modifier.size(18.dp)) })
         }
 
-        val items = if (selectedTab == 0) downloads else ringtones
-        val emptyIcon = if (selectedTab == 0) Icons.Default.Download else Icons.Default.MusicNote
-        val emptyTitle = if (selectedTab == 0) "Geen downloads" else "Geen tones"
-        val emptySubtitle = if (selectedTab == 0) "Download nummers via Spotify en druk op Scan" else "Trim een download via de editor"
+        val items = when (selectedTab) {
+            0 -> downloads
+            1 -> ringtones
+            2 -> youtubeClips
+            else -> downloads
+        }
+        val emptyIcon = when (selectedTab) {
+            0 -> Icons.Default.Download
+            1 -> Icons.Default.MusicNote
+            2 -> Icons.Default.VideoLibrary
+            else -> Icons.Default.Download
+        }
+        val emptyTitle = when (selectedTab) {
+            0 -> "Geen downloads"
+            1 -> "Geen tones"
+            2 -> "Geen YouTube clips"
+            else -> "Leeg"
+        }
+        val emptySubtitle = when (selectedTab) {
+            0 -> "Download nummers via Spotify en druk op Scan"
+            1 -> "Trim een download via de editor"
+            2 -> "Download nummers via de YouTube tab"
+            else -> ""
+        }
 
         if (items.isEmpty()) {
             EmptyState(icon = emptyIcon, title = emptyTitle, subtitle = emptySubtitle)
@@ -346,13 +375,13 @@ fun LibraryScreen(
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            if (onOpenEditor != null && selectedTab == 0) {
-                                // Trim knop alleen bij downloads
+                            if (onOpenEditor != null) {
+                                // Trim/Edit knop voor alle tabs
                                 IconButton(onClick = {
                                     player.stop(); playingTrackId = null
                                     onOpenEditor.invoke(item.title, item.artist, item.file, item.trackId, "")
                                 }) {
-                                    Icon(Icons.Default.ContentCut, contentDescription = "Trim")
+                                    Icon(Icons.Default.ContentCut, contentDescription = "Bewerken")
                                 }
                             }
                             IconButton(onClick = {

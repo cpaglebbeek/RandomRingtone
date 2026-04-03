@@ -67,7 +67,8 @@ fun RandomRingtoneApp() {
     }
 
     val tabs = listOf(
-        Triple("spotify", "Zoeken", Icons.Default.CloudDownload),
+        Triple("spotify", "Spotify", Icons.Default.CloudDownload),
+        Triple("youtube", "YouTube", Icons.Default.VideoLibrary),
         Triple("library", "Bibliotheek", Icons.Default.LibraryMusic),
         Triple("playlists", "Playlists", Icons.Default.QueueMusic),
         Triple("overview", "Overzicht", Icons.Default.Dashboard),
@@ -124,6 +125,23 @@ fun RandomRingtoneApp() {
                         navController.currentBackStackEntry?.savedStateHandle?.apply {
                             set("editorTrackTitle", title)
                             set("editorTrackArtist", "Spotify")
+                            set("editorFilePath", file.absolutePath)
+                            set("editorTrackId", file.name.hashCode().toLong())
+                            set("editorPreviewUrl", "")
+                        }
+                        navController.navigate("editor")
+                    }
+                )
+            }
+            composable("youtube") {
+                YouTubeScreen(
+                    ringtoneManager = ringtoneManager,
+                    db = db,
+                    snackbarHostState = snackbarHostState,
+                    onOpenEditor = { title, file ->
+                        navController.currentBackStackEntry?.savedStateHandle?.apply {
+                            set("editorTrackTitle", title)
+                            set("editorTrackArtist", "YouTube")
                             set("editorFilePath", file.absolutePath)
                             set("editorTrackId", file.name.hashCode().toLong())
                             set("editorPreviewUrl", "")

@@ -661,13 +661,27 @@ private fun AddTracksDialog(
     var currentTrackIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
-    // NOTIFICATION/SMS/WHATSAPP → tonen tones (getrimd), CALL → tonen tracks (downloads)
-    val useTones = playlist.channel in setOf(Channel.NOTIFICATION, Channel.SMS, Channel.WHATSAPP)
+    // Vrije filterkeuze: Tracks / Tones / YouTube — niet meer gekoppeld aan trigger
+    var sourceFilter by remember { mutableIntStateOf(0) } // 0=Tracks, 1=Tones, 2=YouTube
+    var allTracksUnfiltered by remember { mutableStateOf<List<SavedTrack>>(emptyList()) }
+
+    // Classificeer tracks op marker
+    fun classifyTrack(track: SavedTrack): Int {
+        val path = track.localPath ?: return 0
+        val file = java.io.File(path)
+        if (!file.exists()) return 0
+        if (file.extension.lowercase() == "mp3" && Mp3Marker.isYouTube(file)) return 2
+        val isTrimmed = when (file.extension.lowercase()) {
+            "mp3" -> Mp3Marker.isTrimmed(file)
+            "m4a", "aac" -> true
+            else -> false
+        }
+        return if (isTrimmed) 1 else 0
+    }
 
     LaunchedEffect(playlist.id) {
-        // Enrich tracks zonder ID3 metadata
         Mp3TagReader.enrichAll(context, db)
-        allRingtones = db.savedTrackDao().getAll()
+        allTracksUnfiltered = db.savedTrackDao().getAll()
             .filter { track ->
                 val path = track.localPath
                 if (path == null || path.isBlank()) return@filter false
@@ -678,28 +692,51 @@ private fun AddTracksDialog(
                     name.startsWith("ringtone_") ||
                     name.startsWith("download_")
             }
-            .filter { track ->
-                val file = java.io.File(track.localPath!!)
-                if (!file.exists()) return@filter !useTones
-                val isTrimmed = when (file.extension.lowercase()) {
-                    "mp3" -> Mp3Marker.isTrimmed(file)
-                    "m4a", "aac" -> true
-                    else -> false
-                }
-                if (useTones) isTrimmed else !isTrimmed
-            }
         val current = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
         currentTrackIds = current.map { it.deezerTrackId }.toSet()
         selectedIds = currentTrackIds.toMutableSet()
     }
 
+    // Filter op basis van geselecteerde bron
+    LaunchedEffect(sourceFilter, allTracksUnfiltered) {
+        allRingtones = allTracksUnfiltered.filter { classifyTrack(it) == sourceFilter }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (useTones) "Tones in '${playlist.name}'" else "Tracks in '${playlist.name}'") },
+        title = { Text("Tracks in '${playlist.name}'") },
         text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Bron filter chips
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = sourceFilter == 0,
+                        onClick = { sourceFilter = 0 },
+                        label = { Text("Tracks") },
+                        leadingIcon = { if (sourceFilter == 0) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                    FilterChip(
+                        selected = sourceFilter == 1,
+                        onClick = { sourceFilter = 1 },
+                        label = { Text("Tones") },
+                        leadingIcon = { if (sourceFilter == 1) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                    FilterChip(
+                        selected = sourceFilter == 2,
+                        onClick = { sourceFilter = 2 },
+                        label = { Text("YouTube") },
+                        leadingIcon = { if (sourceFilter == 2) Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                }
+
             if (allRingtones.isEmpty()) {
-                Text(if (useTones) "Nog geen tones. Trim eerst een download via de editor."
-                    else "Nog geen tracks in de bibliotheek. Download eerst een nummer.")
+                val emptyMsg = when (sourceFilter) {
+                    0 -> "Nog geen tracks. Download eerst een nummer via Spotify."
+                    1 -> "Nog geen tones. Trim eerst een download via de editor."
+                    2 -> "Nog geen YouTube clips. Download eerst via de YouTube tab."
+                    else -> "Leeg"
+                }
+                Text(emptyMsg)
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     items(allRingtones) { track ->
@@ -753,6 +790,7 @@ private fun AddTracksDialog(
                     }
                 }
             }
+            } // Column
         },
         confirmButton = {
             Button(onClick = {

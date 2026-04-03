@@ -69,3 +69,12 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 62 | 1.0.2c | Prince | U_Got_The_Look | 2026-04-02 | Ja |
 | 63 | 1.0.3c | Prince | Soft_And_Wet | 2026-04-02 | Ja (stable) |
 | 64 | 1.1.0c | Prince | If_I_Was_Your_Girlfriend | 2026-04-02 | Ja |
+| 65 | 1.2.0c | Prince | Purple_Rain | 2026-04-02 | Ja |
+| 66 | 1.2.1c | Prince | When_Doves_Cry | 2026-04-02 | Ja |
+| 67 | 1.2.2c | Prince | Kiss | 2026-04-02 | Ja |
+| 68 | 1.2.3c | Prince | Lets_Go_Crazy | 2026-04-02 | Ja |
+| 69 | 1.3.0c | Prince | Raspberry_Beret | 2026-04-03 | Ja |
+| 70 | 1.3.1c | Prince | Little_Red_Corvette | 2026-04-03 | Ja |
+| 71 | 1.3.2c | Prince | I_Would_Die_4_U | 2026-04-03 | Ja |
+| 72 | 1.3.3c | Prince | Sign_O_The_Times | 2026-04-03 | Ja |
+| 73 | 1.4.0 | Prince | Batdance | 2026-04-03 | Nee |

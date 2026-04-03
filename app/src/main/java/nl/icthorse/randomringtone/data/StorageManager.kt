@@ -509,6 +509,14 @@ class StorageManager(private val context: Context) {
             return ScannedFile(trackId = id, title = track, artist = artist, localPath = "")
         }
 
+        // youtube_mp3_<title>
+        val youtubeMatch = Regex("^youtube_mp3_(.+)$").matchEntire(name)
+        if (youtubeMatch != null) {
+            val title = youtubeMatch.groupValues[1].replace("_", " ").trim()
+            val id = name.hashCode().toLong().let { if (it < 0) -it else it }
+            return ScannedFile(trackId = id, title = title, artist = "YouTube", localPath = "")
+        }
+
         // Onbekend formaat — gebruik bestandsnaam als titel
         val id = name.hashCode().toLong().let { if (it < 0) -it else it }
         return ScannedFile(trackId = id, title = name.replace("_", " "), artist = "Onbekend", localPath = "")

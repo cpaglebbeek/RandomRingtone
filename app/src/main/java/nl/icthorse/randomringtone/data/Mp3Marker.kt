@@ -19,6 +19,7 @@ object Mp3Marker {
 
     const val MARKER_TRACK = "RandomRingtone track"
     const val MARKER_TRIMMED = "RandomRingtone trimmed"
+    const val MARKER_YOUTUBE = "RandomRingtone YoutubeClip"
     private const val TAG_SIZE = 128
     private const val TAG_HEADER = "TAG"
     private const val COMMENT_OFFSET = 97   // offset van comment-veld binnen ID3v1 tag
@@ -52,7 +53,7 @@ object Mp3Marker {
      */
     fun hasMarker(file: File): Boolean {
         val comment = readComment(file) ?: return false
-        return comment == MARKER_TRACK || comment == MARKER_TRIMMED
+        return comment == MARKER_TRACK || comment == MARKER_TRIMMED || comment == MARKER_YOUTUBE
     }
 
     /**
@@ -121,6 +122,20 @@ object Mp3Marker {
         if (!hasMarker(file)) {
             writeMarker(file, title, artist, MARKER_TRACK)
         }
+    }
+
+    /**
+     * Check of een MP3 bestand de "YoutubeClip" marker bevat.
+     */
+    fun isYouTube(file: File): Boolean {
+        return readComment(file) == MARKER_YOUTUBE
+    }
+
+    /**
+     * Injecteer de "YoutubeClip" marker (voor YouTube downloads).
+     */
+    fun writeYouTubeMarker(file: File, title: String? = null, artist: String? = null) {
+        writeMarker(file, title, artist, MARKER_YOUTUBE)
     }
 
     private fun padField(value: String, size: Int): ByteArray {

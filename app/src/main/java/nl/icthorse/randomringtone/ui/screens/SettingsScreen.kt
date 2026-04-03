@@ -706,9 +706,9 @@ fun SettingsScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 InfoRow("App", "RandomRingtone")
-                InfoRow("Versie", "${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"Prince\"")
-                InfoRow("Release", "I_Wanna_Be_Your_Lover (Build 29)")
-                InfoRow("Muziekbron", "Spotify Web + converter")
+                InfoRow("Versie", "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"${nl.icthorse.randomringtone.BuildConfig.CODENAME}\"")
+                InfoRow("Release", "${nl.icthorse.randomringtone.BuildConfig.RELEASE_NAME} (Build ${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER})")
+                InfoRow("Muziekbron", "Spotify + YouTube + Deezer")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }
         }

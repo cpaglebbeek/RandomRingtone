@@ -88,3 +88,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 81 | 1.5.6 | Michael_Jackson | Rock_With_You | 2026-04-03 | Nee |
 | 82 | 1.5.7 | Michael_Jackson | Wanna_Be_Startin_Somethin | 2026-04-03 | Nee |
 | 83 | 1.5.8 | Michael_Jackson | Dont_Stop_Til_You_Get_Enough | 2026-04-03 | Nee |
+| 84 | 1.5.9 | Michael_Jackson | The_Way_You_Make_Me_Feel | 2026-04-03 | Nee |

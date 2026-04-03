@@ -304,6 +304,7 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 - Elke functionele of technische wijziging → versienummer verhogen **vóór** build of sync.
 - Elke bugfix → minimaal +0.0.1.
 - Bestanden bijwerken: `version.json` en `app/build.gradle.kts` (versionName + versionCode + releaseName).
+- **"Over" info in app (VERPLICHT bij elke build):** Update `buildConfigField` in `app/build.gradle.kts` — CODENAME, RELEASE_NAME en BUILD_NUMBER. SettingsScreen leest deze automatisch via BuildConfig. Nooit hardcoden in UI.
 
 ### Drie identifiers per release
 | Identifier | Scope | Voorbeeld | Uniek per |

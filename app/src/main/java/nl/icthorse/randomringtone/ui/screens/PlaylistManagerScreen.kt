@@ -661,10 +661,12 @@ private fun AddTracksDialog(
     var currentTrackIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
 
+    // NOTIFICATION/SMS/WHATSAPP → tonen tones (getrimd), CALL → tonen tracks (downloads)
+    val useTones = playlist.channel in setOf(Channel.NOTIFICATION, Channel.SMS, Channel.WHATSAPP)
+
     LaunchedEffect(playlist.id) {
         // Enrich tracks zonder ID3 metadata
         Mp3TagReader.enrichAll(context, db)
-        // Alleen tracks tonen (geen tones/getrimde bestanden)
         allRingtones = db.savedTrackDao().getAll()
             .filter { track ->
                 val path = track.localPath
@@ -678,12 +680,13 @@ private fun AddTracksDialog(
             }
             .filter { track ->
                 val file = java.io.File(track.localPath!!)
-                if (!file.exists()) return@filter true
-                when (file.extension.lowercase()) {
-                    "mp3" -> !Mp3Marker.isTrimmed(file)
-                    "m4a", "aac" -> false
-                    else -> true
+                if (!file.exists()) return@filter !useTones
+                val isTrimmed = when (file.extension.lowercase()) {
+                    "mp3" -> Mp3Marker.isTrimmed(file)
+                    "m4a", "aac" -> true
+                    else -> false
                 }
+                if (useTones) isTrimmed else !isTrimmed
             }
         val current = db.playlistTrackDao().getTracksForPlaylist(playlist.id)
         currentTrackIds = current.map { it.deezerTrackId }.toSet()
@@ -692,10 +695,11 @@ private fun AddTracksDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tracks in '${playlist.name}'") },
+        title = { Text(if (useTones) "Tones in '${playlist.name}'" else "Tracks in '${playlist.name}'") },
         text = {
             if (allRingtones.isEmpty()) {
-                Text("Nog geen ringtones in de bibliotheek. Download en trim eerst een nummer.")
+                Text(if (useTones) "Nog geen tones. Trim eerst een download via de editor."
+                    else "Nog geen tracks in de bibliotheek. Download eerst een nummer.")
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     items(allRingtones) { track ->

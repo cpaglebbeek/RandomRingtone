@@ -82,8 +82,16 @@ object AudioTrimmer {
         onProgress: ((Float) -> Unit)? = null
     ): File = withContext(Dispatchers.IO) {
         // 1. Decode selectie naar PCM (0% - 50%)
-        val (samples, sampleRate, channels) = decodeToPcm(input, startMs, endMs) { p ->
+        val (rawSamples, sampleRate, channels) = decodeToPcm(input, startMs, endMs) { p ->
             onProgress?.invoke(p * 0.5f)
+        }
+
+        // Trim PCM tot bedoelde duur — MP3 decoder voegt padding toe die fade-out onhoorbaar maakt
+        val intendedSampleCount = ((endMs - startMs) * sampleRate / 1000 * channels).toInt()
+        val samples = if (rawSamples.size > intendedSampleCount && intendedSampleCount > 0) {
+            rawSamples.copyOf(intendedSampleCount)
+        } else {
+            rawSamples
         }
 
         // 2. Fade envelope toepassen (instant)

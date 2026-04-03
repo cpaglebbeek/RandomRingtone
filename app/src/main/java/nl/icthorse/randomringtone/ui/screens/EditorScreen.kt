@@ -54,6 +54,7 @@ fun EditorScreen(
     var isPlaying by remember { mutableStateOf(false) }
     var saveProgress by remember { mutableFloatStateOf(-1f) }
     var saveStartTime by remember { mutableStateOf(0L) }
+    var playbackFraction by remember { mutableFloatStateOf(-1f) }
 
     // Zoom state
     var viewStart by remember { mutableFloatStateOf(0f) }
@@ -93,6 +94,19 @@ fun EditorScreen(
 
     DisposableEffect(Unit) {
         onDispose { player.release() }
+    }
+
+    // Playback positie marker — poll elke 50ms tijdens afspelen
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            val data = waveformData
+            while (isPlaying && data != null) {
+                val pos = player.getCurrentPosition()
+                playbackFraction = pos.toFloat() / data.durationMs
+                kotlinx.coroutines.delay(50)
+            }
+        }
+        playbackFraction = -1f
     }
 
     // Zoom functies
@@ -206,6 +220,7 @@ fun EditorScreen(
                     viewEnd = viewEnd,
                     fadeInFraction = if (fadeInEnabled) fadeInMs.toFloat() / data.durationMs else 0f,
                     fadeOutFraction = if (fadeOutEnabled) fadeOutMs.toFloat() / data.durationMs else 0f,
+                    playbackFraction = playbackFraction,
                     onStartChanged = { startFraction = it.coerceIn(0f, endFraction - 0.01f) },
                     onEndChanged = { endFraction = it.coerceIn(startFraction + 0.01f, 1f) },
                     modifier = Modifier
@@ -630,6 +645,7 @@ private fun WaveformView(
     viewEnd: Float,
     fadeInFraction: Float,
     fadeOutFraction: Float,
+    playbackFraction: Float = -1f,
     onStartChanged: (Float) -> Unit,
     onEndChanged: (Float) -> Unit,
     modifier: Modifier = Modifier
@@ -729,6 +745,18 @@ private fun WaveformView(
             drawLine(color = handleColor, start = Offset(endX, 0f), end = Offset(endX, canvasHeight), strokeWidth = 4f)
             drawCircle(color = handleColor, radius = 8f, center = Offset(startX, center))
             drawCircle(color = handleColor, radius = 8f, center = Offset(endX, center))
+
+            // Playback positie marker
+            if (playbackFraction in viewStart..viewEnd) {
+                val playRel = ((playbackFraction - viewStart) / viewRange).coerceIn(0f, 1f)
+                val playX = playRel * canvasWidth
+                drawLine(
+                    color = androidx.compose.ui.graphics.Color.White,
+                    start = Offset(playX, 0f),
+                    end = Offset(playX, canvasHeight),
+                    strokeWidth = 3f
+                )
+            }
         }
     }
 }

@@ -409,15 +409,15 @@ private fun YouTubeWebView(
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowContentAccess = true
-                settings.loadWithOverviewMode = true
-                settings.useWideViewPort = true
-                settings.builtInZoomControls = true
+                settings.loadWithOverviewMode = false
+                settings.useWideViewPort = false
+                settings.builtInZoomControls = false
                 settings.displayZoomControls = false
                 settings.setSupportMultipleWindows(false)
                 settings.mediaPlaybackRequiresUserGesture = true
 
-                // Desktop UA → youtube.com i.p.v. m.youtube.com, betere klikbaarheid
-                settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                // Mobiele UA → m.youtube.com met native mobiel zoekveld
+                // (desktop UA had CSS-hack nodig die niet werkte)
 
                 // Touch events doorlaten naar WebView
                 requestFocusFromTouch()
@@ -435,28 +435,6 @@ private fun YouTubeWebView(
                     }
                     override fun onPageFinished(view: WebView?, pageUrl: String?) {
                         onPageFinished(pageUrl ?: "")
-                        // Vergroot YouTube zoekveld voor mobiel
-                        view?.evaluateJavascript("""
-                            (function() {
-                                var style = document.createElement('style');
-                                style.textContent = `
-                                    input#search, input[name="search_query"] {
-                                        font-size: 16px !important;
-                                        height: 40px !important;
-                                        padding: 8px 12px !important;
-                                    }
-                                    #search-form, ytd-searchbox, #container.ytd-searchbox {
-                                        max-width: none !important;
-                                        min-width: 60vw !important;
-                                    }
-                                    #search-icon-legacy {
-                                        height: 40px !important;
-                                        width: 48px !important;
-                                    }
-                                `;
-                                document.head.appendChild(style);
-                            })();
-                        """.trimIndent(), null)
                     }
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                         val requestUrl = request?.url?.toString() ?: return false

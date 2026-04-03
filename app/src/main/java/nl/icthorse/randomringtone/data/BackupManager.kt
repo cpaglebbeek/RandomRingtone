@@ -72,7 +72,12 @@ data class PlaylistExport(
 data class BackupProgress(
     val phase: String,
     val current: Int,
-    val total: Int
+    val total: Int,
+    val percentage: Float = 0f,     // 0.0 - 1.0 overall
+    val bytesCopied: Long = 0,
+    val totalBytes: Long = 0,
+    val bytesPerSecond: Long = 0,   // huidige kopieersnelheid (EMA)
+    val etaSeconds: Int = -1        // geschatte resterende tijd (-1 = onbekend)
 )
 
 data class BackupResult(
@@ -105,9 +110,29 @@ class BackupManager(private val context: Context) {
                 ?: rootDoc.createDirectory("RandomRingtone_Backup")
                 ?: return@withContext BackupResult(false, "Kan backup map niet aanmaken")
 
-            // Phase 1: Export database
-            onProgress(BackupProgress("Database exporteren...", 1, 5))
+            // Pre-scan: inventariseer bestanden + totale grootte
+            val audioExts = setOf("mp3", "m4a")
+            val downloadDir = storage.getDownloadDir()
+            val ringtoneDir = storage.getRingtoneDir()
+            val downloadFiles = downloadDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExts } ?: emptyList()
+            val ringtoneFiles = ringtoneDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExts } ?: emptyList()
+            val allFiles = downloadFiles + ringtoneFiles
+            val totalBytes = allFiles.sumOf { it.length() }
+            val totalFileCount = allFiles.size
 
+            // Speed tracker: EMA (exponential moving average) van bytes/sec
+            var bytesPerSecond = 0L
+            var bytesCopied = 0L
+            var copiedFiles = 0
+
+            fun reportProgress(phase: String) {
+                val pct = if (totalBytes > 0) bytesCopied.toFloat() / totalBytes else copiedFiles.toFloat() / totalFileCount.coerceAtLeast(1)
+                val eta = if (bytesPerSecond > 0) ((totalBytes - bytesCopied) / bytesPerSecond).toInt() else -1
+                onProgress(BackupProgress(phase, copiedFiles, totalFileCount, pct, bytesCopied, totalBytes, bytesPerSecond, eta))
+            }
+
+            // Phase 1: Export database
+            reportProgress("Database exporteren...")
             val tracks = db.savedTrackDao().getAll()
             val playlists = db.playlistDao().getAll()
             val playlistTracks = db.playlistTrackDao().getAll()
@@ -124,35 +149,45 @@ class BackupManager(private val context: Context) {
             }
 
             // Phase 2: Write JSON files
-            onProgress(BackupProgress("JSON bestanden schrijven...", 2, 5))
+            reportProgress("JSON bestanden schrijven...")
             writeJsonFile(backupDir, "saved_tracks.json", json.encodeToString(trackBackups))
             writeJsonFile(backupDir, "playlists.json", json.encodeToString(playlistBackups))
             writeJsonFile(backupDir, "playlist_tracks.json", json.encodeToString(ptBackups))
 
             // Phase 3: Copy download files
-            onProgress(BackupProgress("Downloads kopiëren...", 3, 5))
-            val downloadDir = storage.getDownloadDir()
-            val audioExts = setOf("mp3", "m4a")
-            val downloadFiles = downloadDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExts } ?: emptyList()
             val dlSafDir = getOrCreateSubDir(backupDir, "downloads")
-            var copiedFiles = 0
             for (file in downloadFiles) {
+                val fileSize = file.length()
+                val fileStart = System.currentTimeMillis()
+                reportProgress("Downloads: ${file.name}")
                 copyFileToSaf(file, dlSafDir)
+                val fileTimeMs = System.currentTimeMillis() - fileStart
+                if (fileTimeMs > 0) {
+                    val fileBps = fileSize * 1000 / fileTimeMs
+                    bytesPerSecond = if (bytesPerSecond == 0L) fileBps else (0.3 * fileBps + 0.7 * bytesPerSecond).toLong()
+                }
+                bytesCopied += fileSize
                 copiedFiles++
             }
 
             // Phase 4: Copy ringtone files
-            onProgress(BackupProgress("Ringtones kopiëren...", 4, 5))
-            val ringtoneDir = storage.getRingtoneDir()
-            val ringtoneFiles = ringtoneDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExts } ?: emptyList()
             val rtSafDir = getOrCreateSubDir(backupDir, "ringtones")
             for (file in ringtoneFiles) {
+                val fileSize = file.length()
+                val fileStart = System.currentTimeMillis()
+                reportProgress("Ringtones: ${file.name}")
                 copyFileToSaf(file, rtSafDir)
+                val fileTimeMs = System.currentTimeMillis() - fileStart
+                if (fileTimeMs > 0) {
+                    val fileBps = fileSize * 1000 / fileTimeMs
+                    bytesPerSecond = if (bytesPerSecond == 0L) fileBps else (0.3 * fileBps + 0.7 * bytesPerSecond).toLong()
+                }
+                bytesCopied += fileSize
                 copiedFiles++
             }
 
             // Phase 5: Write metadata
-            onProgress(BackupProgress("Metadata opslaan...", 5, 5))
+            reportProgress("Metadata opslaan...")
             val meta = BackupMeta(
                 appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?",
                 backupDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
@@ -164,9 +199,10 @@ class BackupManager(private val context: Context) {
             )
             writeJsonFile(backupDir, "backup_meta.json", json.encodeToString(meta))
 
+            val totalMB = "%.1f".format(totalBytes / (1024.0 * 1024.0))
             BackupResult(
                 success = true,
-                message = "Backup geslaagd: ${tracks.size} tracks, ${playlists.size} playlists, $copiedFiles bestanden",
+                message = "Backup geslaagd: ${tracks.size} tracks, ${playlists.size} playlists, $copiedFiles bestanden (${totalMB}MB)",
                 trackCount = tracks.size,
                 playlistCount = playlists.size,
                 fileCount = copiedFiles
@@ -251,35 +287,48 @@ class BackupManager(private val context: Context) {
                 db.playlistTrackDao().insert(PlaylistTrack(pt.playlistId, pt.trackId, pt.sortOrder))
             }
 
-            // Phase 4: Copy files back
-            onProgress(BackupProgress("Bestanden herstellen...", 4, 5))
-            var restoredFiles = 0
-
+            // Phase 4: Copy files back — met speed tracking
             val restoreAudioExts = setOf("mp3", "m4a")
             val dlSafDir = backupDir.findFile("downloads")
-            if (dlSafDir != null && dlSafDir.isDirectory) {
-                val downloadDir = storage.getDownloadDir()
-                for (safFile in dlSafDir.listFiles()) {
-                    val ext = safFile.name?.substringAfterLast(".", "")?.lowercase()
-                    if (safFile.isFile && ext in restoreAudioExts) {
-                        copyFileFromSaf(safFile, File(downloadDir, safFile.name!!))
-                        restoredFiles++
-                    }
-                }
-            }
-
             val rtSafDir = backupDir.findFile("ringtones")
+            val allSafFiles = mutableListOf<Pair<DocumentFile, File>>() // (bron, doel)
+            val downloadDir = storage.getDownloadDir()
+            if (dlSafDir != null && dlSafDir.isDirectory) {
+                for (sf in dlSafDir.listFiles()) {
+                    val ext = sf.name?.substringAfterLast(".", "")?.lowercase()
+                    if (sf.isFile && ext in restoreAudioExts) allSafFiles.add(sf to File(downloadDir, sf.name!!))
+                }
+            }
             if (rtSafDir != null && rtSafDir.isDirectory) {
-                for (safFile in rtSafDir.listFiles()) {
-                    val ext = safFile.name?.substringAfterLast(".", "")?.lowercase()
-                    if (safFile.isFile && ext in restoreAudioExts) {
-                        copyFileFromSaf(safFile, File(ringtoneDir, safFile.name!!))
-                        restoredFiles++
-                    }
+                for (sf in rtSafDir.listFiles()) {
+                    val ext = sf.name?.substringAfterLast(".", "")?.lowercase()
+                    if (sf.isFile && ext in restoreAudioExts) allSafFiles.add(sf to File(ringtoneDir, sf.name!!))
                 }
             }
 
-            onProgress(BackupProgress("Klaar!", 5, 5))
+            val totalRestoreFiles = allSafFiles.size
+            val totalRestoreBytes = allSafFiles.sumOf { it.first.length() }
+            var restBps = 0L
+            var restBytesCopied = 0L
+            var restoredFiles = 0
+
+            for ((safFile, destFile) in allSafFiles) {
+                val fileSize = safFile.length()
+                val fileStart = System.currentTimeMillis()
+                val pct = if (totalRestoreBytes > 0) restBytesCopied.toFloat() / totalRestoreBytes else restoredFiles.toFloat() / totalRestoreFiles.coerceAtLeast(1)
+                val eta = if (restBps > 0) ((totalRestoreBytes - restBytesCopied) / restBps).toInt() else -1
+                onProgress(BackupProgress("Herstellen: ${safFile.name}", restoredFiles, totalRestoreFiles, pct, restBytesCopied, totalRestoreBytes, restBps, eta))
+                copyFileFromSaf(safFile, destFile)
+                val fileTimeMs = System.currentTimeMillis() - fileStart
+                if (fileTimeMs > 0) {
+                    val fileBps = fileSize * 1000 / fileTimeMs
+                    restBps = if (restBps == 0L) fileBps else (0.3 * fileBps + 0.7 * restBps).toLong()
+                }
+                restBytesCopied += fileSize
+                restoredFiles++
+            }
+
+            onProgress(BackupProgress("Klaar!", totalRestoreFiles, totalRestoreFiles, 1f, restBytesCopied, totalRestoreBytes, restBps, 0))
 
             BackupResult(
                 success = true,

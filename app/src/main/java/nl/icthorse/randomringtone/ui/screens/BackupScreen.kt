@@ -45,6 +45,9 @@ fun BackupScreen(
     var progressPhase by remember { mutableStateOf("") }
     var progressCurrent by remember { mutableIntStateOf(0) }
     var progressTotal by remember { mutableIntStateOf(0) }
+    var progressPct by remember { mutableStateOf(0f) }
+    var progressBps by remember { mutableStateOf(0L) }
+    var progressEta by remember { mutableIntStateOf(-1) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
 
     // Load saved state
@@ -93,6 +96,9 @@ fun BackupScreen(
         progressPhase = p.phase
         progressCurrent = p.current
         progressTotal = p.total
+        progressPct = p.percentage
+        progressBps = p.bytesPerSecond
+        progressEta = p.etaSeconds
     }
 
     Column(
@@ -207,13 +213,34 @@ fun BackupScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(progressPhase, style = MaterialTheme.typography.bodyMedium)
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(progressPhase, style = MaterialTheme.typography.bodyMedium, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     LinearProgressIndicator(
-                        progress = { if (progressTotal > 0) progressCurrent.toFloat() / progressTotal else 0f },
+                        progress = { if (progressPct > 0f) progressPct else if (progressTotal > 0) progressCurrent.toFloat() / progressTotal else 0f },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text("$progressCurrent / $progressTotal", style = MaterialTheme.typography.labelSmall)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        val pctText = "${(progressPct * 100).toInt()}%"
+                        val fileText = "$progressCurrent / $progressTotal"
+                        Text("$pctText  ($fileText)", style = MaterialTheme.typography.labelSmall)
+
+                        val speedText = if (progressBps > 0) {
+                            val mbps = progressBps / (1024.0 * 1024.0)
+                            if (mbps >= 1.0) "%.1f MB/s".format(mbps) else "%.0f KB/s".format(progressBps / 1024.0)
+                        } else ""
+                        val etaText = when {
+                            progressEta > 60 -> "${progressEta / 60}m ${progressEta % 60}s"
+                            progressEta > 0 -> "${progressEta}s"
+                            progressEta == 0 -> "<1s"
+                            else -> ""
+                        }
+                        Text(
+                            listOf(speedText, if (etaText.isNotEmpty()) "ETA $etaText" else "").filter { it.isNotEmpty() }.joinToString(" — "),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

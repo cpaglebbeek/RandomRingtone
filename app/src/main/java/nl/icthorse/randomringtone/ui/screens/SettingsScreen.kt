@@ -733,7 +733,7 @@ fun SettingsScreen(
                     }
                     OutlinedButton(onClick = {
                         val intent = Intent(Intent.ACTION_SENDTO).apply {
-                            data = Uri.parse("mailto:info@icthorse.nl")
+                            data = Uri.parse("mailto:RandomRingtone@icthorse.nl")
                             putExtra(Intent.EXTRA_SUBJECT, "RandomRingtone Licentie aanvraag")
                             putExtra(Intent.EXTRA_TEXT, "Device ID: ${licStatus.deviceHash}\nApp versie: v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME}")
                         }

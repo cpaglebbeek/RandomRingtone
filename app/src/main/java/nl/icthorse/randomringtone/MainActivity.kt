@@ -285,7 +285,7 @@ private fun LicenseBlockScreen(
                 }
                 OutlinedButton(onClick = {
                     val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
-                        data = android.net.Uri.parse("mailto:info@icthorse.nl")
+                        data = android.net.Uri.parse("mailto:RandomRingtone@icthorse.nl")
                         putExtra(android.content.Intent.EXTRA_SUBJECT, "RandomRingtone Licentie aanvraag")
                         putExtra(android.content.Intent.EXTRA_TEXT, "Device ID: ${licenseManager.deviceHash}\nApp versie: v${BuildConfig.VERSION_NAME}")
                     }

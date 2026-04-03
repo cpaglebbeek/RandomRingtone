@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
+import nl.icthorse.randomringtone.audio.AudioPlayer
 import nl.icthorse.randomringtone.data.*
 import java.io.File
 
@@ -56,6 +57,11 @@ fun LibraryScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // Audio player voor afspelen vanuit bibliotheek
+    val player = remember { AudioPlayer() }
+    var playingTrackId by remember { mutableStateOf<Long?>(null) }
+    DisposableEffect(Unit) { onDispose { player.release() } }
 
     // Single point of truth: DB-gedreven, gesplitst op bestandsnaam
     var downloads by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
@@ -317,18 +323,42 @@ fun LibraryScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(items, key = { it.trackId }) { item ->
+                    val isItemPlaying = playingTrackId == item.trackId
                     LibraryCard(
                         item = item,
                         actions = {
+                            // Play/Stop knop
+                            IconButton(onClick = {
+                                if (isItemPlaying) {
+                                    player.stop()
+                                    playingTrackId = null
+                                } else if (item.file.exists()) {
+                                    player.stop()
+                                    player.playSelection(item.file, 0, Long.MAX_VALUE) {
+                                        playingTrackId = null
+                                    }
+                                    playingTrackId = item.trackId
+                                }
+                            }) {
+                                Icon(
+                                    if (isItemPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                    contentDescription = if (isItemPlaying) "Stop" else "Afspelen",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                             if (onOpenEditor != null && selectedTab == 0) {
                                 // Trim knop alleen bij downloads
                                 IconButton(onClick = {
+                                    player.stop(); playingTrackId = null
                                     onOpenEditor.invoke(item.title, item.artist, item.file, item.trackId, "")
                                 }) {
                                     Icon(Icons.Default.ContentCut, contentDescription = "Trim")
                                 }
                             }
-                            IconButton(onClick = { showDeleteDialog = item }) {
+                            IconButton(onClick = {
+                                player.stop(); playingTrackId = null
+                                showDeleteDialog = item
+                            }) {
                                 Icon(Icons.Default.Delete, contentDescription = "Verwijderen",
                                     tint = MaterialTheme.colorScheme.error)
                             }

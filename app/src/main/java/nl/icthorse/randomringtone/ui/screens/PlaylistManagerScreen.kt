@@ -697,7 +697,25 @@ private fun AddTracksDialog(
         selectedIds = currentTrackIds.toMutableSet()
     }
 
-    // Filter op basis van geselecteerde bron
+    // Zoeken en sorteren
+    var trackSearchQuery by remember { mutableStateOf("") }
+    var trackSortAsc by remember { mutableStateOf(true) }
+
+    // Filter op basis van geselecteerde bron + zoek + sort
+    val displayTracks = remember(sourceFilter, allTracksUnfiltered, allRingtones, trackSearchQuery, trackSortAsc) {
+        var list = allRingtones
+        if (trackSearchQuery.isNotBlank()) {
+            val q = trackSearchQuery.lowercase()
+            list = list.filter {
+                val title = it.id3Title?.takeIf { t -> t.isNotBlank() } ?: it.title
+                val artist = it.id3Artist?.takeIf { a -> a.isNotBlank() } ?: it.artist
+                title.lowercase().contains(q) || artist.lowercase().contains(q)
+            }
+        }
+        if (trackSortAsc) list.sortedBy { (it.id3Title?.takeIf { t -> t.isNotBlank() } ?: it.title).lowercase() }
+        else list.sortedByDescending { (it.id3Title?.takeIf { t -> t.isNotBlank() } ?: it.title).lowercase() }
+    }
+
     LaunchedEffect(sourceFilter, allTracksUnfiltered) {
         allRingtones = allTracksUnfiltered.filter { classifyTrack(it) == sourceFilter }
     }
@@ -729,8 +747,43 @@ private fun AddTracksDialog(
                     )
                 }
 
-            if (allRingtones.isEmpty()) {
-                val emptyMsg = when (sourceFilter) {
+                // Zoekbalk + sorteer
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    OutlinedTextField(
+                        value = trackSearchQuery,
+                        onValueChange = { trackSearchQuery = it },
+                        placeholder = { Text("Zoeken...", style = MaterialTheme.typography.bodySmall) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        textStyle = MaterialTheme.typography.bodySmall,
+                        trailingIcon = {
+                            if (trackSearchQuery.isNotBlank()) {
+                                IconButton(onClick = { trackSearchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Wissen", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    )
+                    IconButton(onClick = { trackSortAsc = !trackSortAsc }) {
+                        Icon(
+                            if (trackSortAsc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                            contentDescription = if (trackSortAsc) "A-Z" else "Z-A",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        if (trackSortAsc) "A-Z" else "Z-A",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+
+            if (displayTracks.isEmpty()) {
+                val emptyMsg = if (trackSearchQuery.isNotBlank()) {
+                    "Geen resultaten voor \"$trackSearchQuery\""
+                } else when (sourceFilter) {
                     0 -> "Nog geen tracks. Download eerst een nummer via Spotify."
                     1 -> "Nog geen tones. Trim eerst een download via de editor."
                     2 -> "Nog geen YouTube clips. Download eerst via de YouTube tab."
@@ -739,7 +792,7 @@ private fun AddTracksDialog(
                 Text(emptyMsg)
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(allRingtones) { track ->
+                    items(displayTracks) { track ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()

@@ -69,6 +69,11 @@ fun LibraryScreen(
     var youtubeClips by remember { mutableStateOf<List<LibraryItem>>(emptyList()) }
     var selectedTab by remember { mutableIntStateOf(0) }
 
+    // Zoeken en sorteren
+    var searchQuery by remember { mutableStateOf("") }
+    var showSearch by remember { mutableStateOf(false) }
+    var sortAsc by remember { mutableStateOf(true) } // true = A-Z, false = Z-A
+
     // Scan state
     var isScanning by remember { mutableStateOf(false) }
     var scanDiagnostic by remember { mutableStateOf<String?>(null) }
@@ -306,6 +311,46 @@ fun LibraryScreen(
             }
         }
 
+        // Zoekbalk + sorteerknoppen
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (showSearch) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Zoeken...", style = MaterialTheme.typography.bodySmall) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    textStyle = MaterialTheme.typography.bodySmall,
+                    trailingIcon = {
+                        IconButton(onClick = { searchQuery = ""; showSearch = false }) {
+                            Icon(Icons.Default.Close, contentDescription = "Sluiten", modifier = Modifier.size(18.dp))
+                        }
+                    }
+                )
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            IconButton(onClick = { showSearch = !showSearch; if (!showSearch) searchQuery = "" }) {
+                Icon(Icons.Default.Search, contentDescription = "Zoeken", modifier = Modifier.size(20.dp))
+            }
+            IconButton(onClick = { sortAsc = !sortAsc }) {
+                Icon(
+                    if (sortAsc) Icons.Default.ArrowDownward else Icons.Default.ArrowUpward,
+                    contentDescription = if (sortAsc) "A-Z" else "Z-A",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Text(
+                if (sortAsc) "A-Z" else "Z-A",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         // Tabs: Downloads / Tones / YouTube
         TabRow(selectedTabIndex = selectedTab) {
             Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
@@ -319,11 +364,20 @@ fun LibraryScreen(
                 icon = { Icon(Icons.Default.VideoLibrary, contentDescription = null, modifier = Modifier.size(18.dp)) })
         }
 
-        val items = when (selectedTab) {
+        val rawItems = when (selectedTab) {
             0 -> downloads
             1 -> ringtones
             2 -> youtubeClips
             else -> downloads
+        }
+        val items = remember(rawItems, searchQuery, sortAsc) {
+            var list = rawItems
+            if (searchQuery.isNotBlank()) {
+                val q = searchQuery.lowercase()
+                list = list.filter { it.title.lowercase().contains(q) || it.artist.lowercase().contains(q) }
+            }
+            if (sortAsc) list.sortedBy { it.title.lowercase() }
+            else list.sortedByDescending { it.title.lowercase() }
         }
         val emptyIcon = when (selectedTab) {
             0 -> Icons.Default.Download

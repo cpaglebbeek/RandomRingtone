@@ -1,6 +1,8 @@
 package nl.icthorse.randomringtone.ui.screens
 
 import android.annotation.SuppressLint
+import android.content.ClipboardManager
+import android.content.Context
 import android.webkit.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
@@ -21,6 +23,7 @@ import java.io.File
 private const val YOUTUBE_URL = "https://www.youtube.com"
 private val YOUTUBE_WATCH_REGEX = Regex("""youtube\.com/watch\?v=([a-zA-Z0-9_\-]{11})""")
 private val YOUTUBE_SHORTS_REGEX = Regex("""youtube\.com/shorts/([a-zA-Z0-9_\-]{11})""")
+private val YOUTUBE_SHORT_LINK_REGEX = Regex("""youtu\.be/([a-zA-Z0-9_\-]{11})""")
 
 /**
  * YouTube-naar-MP3 scherm.
@@ -50,6 +53,32 @@ fun YouTubeScreen(
     // Track detectie
     var detectedVideoId by remember { mutableStateOf<String?>(null) }
     var detectedVideoTitle by remember { mutableStateOf("") }
+    var processedClipUrls by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    // Clipboard monitoring voor youtu.be share links
+    val clipboardManager = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
+
+    DisposableEffect(Unit) {
+        val listener = ClipboardManager.OnPrimaryClipChangedListener {
+            try {
+                val clip = clipboardManager.primaryClip
+                if (clip != null && clip.itemCount > 0) {
+                    val clipText = clip.getItemAt(0).text?.toString() ?: ""
+                    val shortMatch = YOUTUBE_SHORT_LINK_REGEX.find(clipText)
+                    val watchMatch = YOUTUBE_WATCH_REGEX.find(clipText)
+                    val match = shortMatch ?: watchMatch
+                    if (match != null) {
+                        val videoId = match.groupValues[1]
+                        if (clipText !in processedClipUrls) {
+                            detectedVideoId = videoId
+                        }
+                    }
+                }
+            } catch (_: Exception) { }
+        }
+        clipboardManager.addPrimaryClipChangedListener(listener)
+        onDispose { clipboardManager.removePrimaryClipChangedListener(listener) }
+    }
 
     // Download state
     var isDownloading by remember { mutableStateOf(false) }
@@ -64,11 +93,12 @@ fun YouTubeScreen(
     var pendingOverwriteFile by remember { mutableStateOf<File?>(null) }
     var pendingOverwriteTitle by remember { mutableStateOf<String?>(null) }
 
-    // URL monitoring voor video detectie
+    // URL monitoring voor video detectie (adresbalk + youtu.be)
     LaunchedEffect(currentUrl) {
         val watchMatch = YOUTUBE_WATCH_REGEX.find(currentUrl)
         val shortsMatch = YOUTUBE_SHORTS_REGEX.find(currentUrl)
-        val match = watchMatch ?: shortsMatch
+        val shortLinkMatch = YOUTUBE_SHORT_LINK_REGEX.find(currentUrl)
+        val match = watchMatch ?: shortsMatch ?: shortLinkMatch
         if (match != null) {
             detectedVideoId = match.groupValues[1]
         } else {
@@ -160,6 +190,8 @@ fun YouTubeScreen(
             ExtendedFloatingActionButton(
                 onClick = {
                     val videoId = detectedVideoId ?: return@ExtendedFloatingActionButton
+                    // Markeer als verwerkt (voorkom dubbele clipboard triggers)
+                    processedClipUrls = processedClipUrls + "youtu.be/$videoId" + "youtube.com/watch?v=$videoId"
                     isDownloading = true
                     scope.launch {
                         val result = y2MateClient.downloadTrack(

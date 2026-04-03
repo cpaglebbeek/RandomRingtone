@@ -374,7 +374,8 @@ fun YouTubeScreen(
                                         artist = "YouTube",
                                         previewUrl = "",
                                         localPath = file.absolutePath,
-                                        playlistName = "_youtube"
+                                        playlistName = "_youtube",
+                                        markerType = "youtube"
                                     )
                                 )
                                 snackbarHostState.showSnackbar("YouTube clip opgeslagen in bibliotheek")

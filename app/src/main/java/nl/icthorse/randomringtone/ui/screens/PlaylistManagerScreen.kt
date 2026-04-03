@@ -666,22 +666,16 @@ private fun AddTracksDialog(
     var sourceFilter by remember { mutableIntStateOf(0) } // 0=Tracks, 1=Tones, 2=YouTube
     var allTracksUnfiltered by remember { mutableStateOf<List<SavedTrack>>(emptyList()) }
 
-    // Classificeer tracks op marker
+    // Classificeer tracks op cached markerType — geen disk I/O
     fun classifyTrack(track: SavedTrack): Int {
-        val path = track.localPath ?: return 0
-        val file = java.io.File(path)
-        if (!file.exists()) return 0
-        if (file.extension.lowercase() == "mp3" && Mp3Marker.isYouTube(file)) return 2
-        val isTrimmed = when (file.extension.lowercase()) {
-            "mp3" -> Mp3Marker.isTrimmed(file)
-            "m4a", "aac" -> true
-            else -> false
+        return when (track.markerType) {
+            "youtube" -> 2
+            "trimmed" -> 1
+            else -> 0
         }
-        return if (isTrimmed) 1 else 0
     }
 
     LaunchedEffect(playlist.id) {
-        Mp3TagReader.enrichAll(context, db)
         allTracksUnfiltered = db.savedTrackDao().getAll()
             .filter { track ->
                 val path = track.localPath

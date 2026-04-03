@@ -93,7 +93,8 @@ data class SavedTrack(
     val playlistName: String,         // Legacy veld — nieuwe tracks gebruiken playlist_tracks
     val id3Title: String? = null,     // Titel uit MP3 ID3 tags
     val id3Artist: String? = null,    // Artiest uit MP3 ID3 tags
-    val albumArtPath: String? = null  // Pad naar geëxtraheerde album art
+    val albumArtPath: String? = null, // Pad naar geëxtraheerde album art
+    val markerType: String? = null    // Cached marker: "track", "trimmed", "youtube" (vermijdt disk I/O)
 )
 
 // --- DAO's ---
@@ -180,13 +181,19 @@ interface SavedTrackDao {
 
     @Query("DELETE FROM saved_tracks WHERE deezerTrackId = :trackId AND playlistName = :playlistName")
     suspend fun removeFromPlaylist(trackId: Long, playlistName: String)
+
+    @Query("UPDATE saved_tracks SET markerType = :markerType WHERE deezerTrackId = :trackId")
+    suspend fun updateMarkerType(trackId: Long, markerType: String)
+
+    @Query("SELECT * FROM saved_tracks WHERE markerType IS NULL AND localPath IS NOT NULL")
+    suspend fun getTracksWithoutMarker(): List<SavedTrack>
 }
 
 // --- Database ---
 
 @Database(
     entities = [SavedTrack::class, Playlist::class, PlaylistTrack::class],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -216,6 +223,12 @@ abstract class RingtoneDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE saved_tracks ADD COLUMN markerType TEXT")
+            }
+        }
+
         fun getInstance(context: Context): RingtoneDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(
@@ -223,7 +236,7 @@ abstract class RingtoneDatabase : RoomDatabase() {
                     RingtoneDatabase::class.java,
                     "randomringtone.db"
                 )
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }

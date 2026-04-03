@@ -630,7 +630,8 @@ fun SpotifyScreen(
                                         artist = "Spotify",
                                         previewUrl = "",
                                         localPath = file.absolutePath,
-                                        playlistName = "_spotify"
+                                        playlistName = "_spotify",
+                                        markerType = "track"
                                     )
                                 )
                                 snackbarHostState.showSnackbar("Track opgeslagen in bibliotheek")

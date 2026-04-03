@@ -96,12 +96,30 @@ fun LibraryScreen(
     // Delete dialoog state
     var showDeleteDialog by remember { mutableStateOf<LibraryItem?>(null) }
 
-    // === SINGLE POINT OF TRUTH: refresh uit DB, split op marker ===
+    // === SINGLE POINT OF TRUTH: refresh uit DB, split op cached markerType ===
     fun refresh() {
         scope.launch {
-            // Enrich tracks: ID3 metadata + marker injectie (eenmalig per track)
-            Mp3TagReader.enrichAll(context, db)
+            // Stap 1: Cache markers voor tracks die nog geen markerType hebben (eenmalig disk I/O)
+            val uncached = db.savedTrackDao().getTracksWithoutMarker()
+            for (track in uncached) {
+                val file = File(track.localPath!!)
+                val marker = if (!file.exists()) "track"
+                else when (file.extension.lowercase()) {
+                    "mp3" -> when {
+                        Mp3Marker.isYouTube(file) -> "youtube"
+                        Mp3Marker.isTrimmed(file) -> "trimmed"
+                        else -> "track"
+                    }
+                    "m4a", "aac" -> "trimmed"
+                    else -> "track"
+                }
+                db.savedTrackDao().updateMarkerType(track.deezerTrackId, marker)
+            }
 
+            // Stap 2: Enrich ID3 alleen voor tracks zonder ID3 data (niet elke keer alles)
+            if (uncached.isNotEmpty()) Mp3TagReader.enrichAll(context, db)
+
+            // Stap 3: Lees alle tracks uit DB — geen disk I/O meer
             val allItems = db.savedTrackDao().getAll()
                 .filter { track ->
                     val path = track.localPath
@@ -113,14 +131,9 @@ fun LibraryScreen(
                         name.startsWith("ringtone_") ||
                         name.startsWith("download_")
                 }
-                .distinctBy { it.localPath } // Dedup: één entry per bestand
+                .distinctBy { it.localPath }
                 .map { track ->
                     val file = File(track.localPath!!)
-                    val trimmed = file.exists() && when (file.extension.lowercase()) {
-                        "mp3" -> Mp3Marker.isTrimmed(file)
-                        "m4a", "aac" -> true  // M4A = altijd getrimd (fade output)
-                        else -> false
-                    }
                     LibraryItem(
                         file = file,
                         trackId = track.deezerTrackId,
@@ -129,18 +142,15 @@ fun LibraryScreen(
                         sizeFormatted = if (file.exists()) formatFileSize(file.length()) else "niet op schijf",
                         isScanned = true,
                         albumArtPath = track.albumArtPath,
-                        isTrimmed = trimmed
+                        isTrimmed = track.markerType == "trimmed"
                     )
                 }
 
-            // Split op marker: YouTube / trimmed / rest
-            val (yt, nonYt) = allItems.partition { item ->
-                item.file.exists() && item.file.extension.lowercase() == "mp3" &&
-                    Mp3Marker.isYouTube(item.file)
-            }
-            youtubeClips = yt
-            ringtones = nonYt.filter { it.isTrimmed }
-            downloads = nonYt.filter { !it.isTrimmed }
+            // Split op cached markerType — geen disk I/O
+            val allTracks = db.savedTrackDao().getAll().associateBy { it.deezerTrackId }
+            youtubeClips = allItems.filter { allTracks[it.trackId]?.markerType == "youtube" }
+            ringtones = allItems.filter { it.isTrimmed && allTracks[it.trackId]?.markerType != "youtube" }
+            downloads = allItems.filter { !it.isTrimmed && allTracks[it.trackId]?.markerType != "youtube" }
         }
     }
 

@@ -654,7 +654,8 @@ private suspend fun saveToDB(
     }
     db.savedTrackDao().insert(SavedTrack(
         deezerTrackId = trackId, title = name, artist = artist,
-        previewUrl = previewUrl, localPath = file.absolutePath, playlistName = playlistName
+        previewUrl = previewUrl, localPath = file.absolutePath, playlistName = playlistName,
+        markerType = if (isNewFile) "trimmed" else null  // Getrimd bestand = trimmed marker
     ))
     if (addToPlaylist) {
         val playlistId = if (createNew) db.playlistDao().insert(Playlist(name = playlistName))

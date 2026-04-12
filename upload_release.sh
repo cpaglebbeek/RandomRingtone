@@ -46,7 +46,7 @@ rsync -avz -e "ssh" "$APK_PATH" "${REMOTE_HOST}:${REMOTE_PATH}/"
 
 # Upload build.timestamp
 echo "Uploading build.timestamp..."
-rsync -avz -e "ssh" build.timestamp "${REMOTE_HOST}:${REMOTE_PATH}/"
+rsync -avz --chmod=F644 -e "ssh" build.timestamp "${REMOTE_HOST}:${REMOTE_PATH}/"
 
 # Kopieer APK naar GitHub releases/
 mkdir -p releases

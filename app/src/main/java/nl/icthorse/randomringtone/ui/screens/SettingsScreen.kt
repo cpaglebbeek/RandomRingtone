@@ -736,7 +736,8 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        text = "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} — Build ${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER} \"${nl.icthorse.randomringtone.BuildConfig.CODENAME} / ${nl.icthorse.randomringtone.BuildConfig.RELEASE_NAME}\"",
+                        text = "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} — Build ${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER} \"${nl.icthorse.randomringtone.BuildConfig.CODENAME} / ${nl.icthorse.randomringtone.BuildConfig.RELEASE_NAME}\"" +
+                            if (nl.icthorse.randomringtone.BuildConfig.BUILD_STATUS == "DEBUG") " [DEBUG]" else "",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1014,7 +1015,8 @@ fun SettingsScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 InfoRow("App", "RandomRingtone")
-                InfoRow("Versie", "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME}")
+                InfoRow("Versie", "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME}" +
+                    if (nl.icthorse.randomringtone.BuildConfig.BUILD_STATUS == "DEBUG") " [DEBUG]" else " [STABLE]")
                 InfoRow("Build", "${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER} — ${nl.icthorse.randomringtone.BuildConfig.CODENAME} / ${nl.icthorse.randomringtone.BuildConfig.RELEASE_NAME}")
                 InfoRow("Muziekbron", "Spotify + YouTube + Deezer")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
@@ -1168,7 +1170,7 @@ private fun UpdateDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            if (version.marker != null && !isCurrent) {
+                            if (version.marker != null) {
                                 Surface(
                                     shape = MaterialTheme.shapes.small,
                                     color = when {

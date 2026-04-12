@@ -12,10 +12,8 @@
 set -e
 
 # === Configuratie ===
-# TODO: Vul de juiste SSH-gegevens in voor Hostinger
-REMOTE_USER="TODO_USER"
-REMOTE_HOST="TODO_HOST"
-REMOTE_PATH="TODO_PATH/RandomRing/Apk"
+REMOTE_HOST="icthorse"
+REMOTE_PATH="~/domains/icthorse.nl/public_html/RandomRing/Apk"
 # ===
 
 MARKER="${1:-}"
@@ -44,11 +42,11 @@ echo "build.timestamp bijgewerkt: $ENTRY"
 
 # Upload APK naar icthorse.nl
 echo "Uploading $APK_NAME..."
-rsync -avz "$APK_PATH" "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/"
+rsync -avz -e "ssh" "$APK_PATH" "${REMOTE_HOST}:${REMOTE_PATH}/"
 
 # Upload build.timestamp
 echo "Uploading build.timestamp..."
-rsync -avz build.timestamp "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/"
+rsync -avz -e "ssh" build.timestamp "${REMOTE_HOST}:${REMOTE_PATH}/"
 
 # Kopieer APK naar GitHub releases/
 mkdir -p releases

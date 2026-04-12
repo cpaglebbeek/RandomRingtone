@@ -7,6 +7,7 @@ import android.provider.MediaStore
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -35,6 +36,9 @@ class StorageManager(private val context: Context) {
         private val KEY_SPOTIFY_CONVERTER = stringPreferencesKey("spotify_converter")
         private val KEY_BACKUP_URI = stringPreferencesKey("backup_uri")
         private val KEY_DIRECT_API = booleanPreferencesKey("use_direct_api")
+        private val KEY_DEBUG_LOGGING = booleanPreferencesKey("debug_logging")
+        private val KEY_LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
+        private val KEY_INSTALL_APK_ALLOWED = booleanPreferencesKey("install_apk_allowed")
 
         // Standaard subfolders
         private const val DEFAULT_DOWNLOAD_SUBFOLDER = "downloads"
@@ -159,6 +163,48 @@ class StorageManager(private val context: Context) {
     suspend fun setDirectApiEnabled(enabled: Boolean) {
         context.settingsStore.edit { prefs ->
             prefs[KEY_DIRECT_API] = enabled
+        }
+    }
+
+    // --- Debug Logging ---
+
+    suspend fun isDebugLoggingEnabled(): Boolean {
+        return context.settingsStore.data.map { prefs ->
+            prefs[KEY_DEBUG_LOGGING] ?: true
+        }.first()
+    }
+
+    suspend fun setDebugLoggingEnabled(enabled: Boolean) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_DEBUG_LOGGING] = enabled
+        }
+    }
+
+    // --- Update Check ---
+
+    suspend fun getLastUpdateCheck(): Long {
+        return context.settingsStore.data.map { prefs ->
+            prefs[KEY_LAST_UPDATE_CHECK] ?: 0L
+        }.first()
+    }
+
+    suspend fun setLastUpdateCheck(timestamp: Long) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_LAST_UPDATE_CHECK] = timestamp
+        }
+    }
+
+    // --- APK Installatie ---
+
+    suspend fun isInstallApkAllowed(): Boolean {
+        return context.settingsStore.data.map { prefs ->
+            prefs[KEY_INSTALL_APK_ALLOWED] ?: false
+        }.first()
+    }
+
+    suspend fun setInstallApkAllowed(enabled: Boolean) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_INSTALL_APK_ALLOWED] = enabled
         }
     }
 

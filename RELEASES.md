@@ -91,3 +91,10 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 84 | 1.5.9 | Michael_Jackson | The_Way_You_Make_Me_Feel | 2026-04-03 | Nee |
 | 85 | 1.5.10 | Michael_Jackson | — | 2026-04-03 | Nee (corrupt) |
 | 86 | 1.5.11 | Michael_Jackson | Man_In_The_Mirror | 2026-04-03 | Ja |
+| 87 | 1.5.12 | Michael_Jackson | Smooth_Criminal | 2026-04-04 | Nee |
+| 88 | 1.6.0 | Michael_Jackson | Man_In_The_Mirror | 2026-04-04 | Nee |
+| 89 | 1.6.1 | Michael_Jackson | Remember_The_Time | 2026-04-04 | Nee |
+| 90 | 1.6.2 | Michael_Jackson | Heal_The_World | 2026-04-04 | Nee |
+| 91 | 1.6.3 | Michael_Jackson | PYT | 2026-04-04 | Nee |
+| 92 | 1.6.4 | Michael_Jackson | ABC | 2026-04-04 | Ja |
+| 93 | 1.7.0 | Michael_Jackson | Earth_Song | 2026-04-12 | Nee |

@@ -28,9 +28,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.AppRingtoneManager
+import nl.icthorse.randomringtone.data.RemoteLogger
+import nl.icthorse.randomringtone.data.RemoteVersion
 import nl.icthorse.randomringtone.data.RingtoneDatabase
 import nl.icthorse.randomringtone.data.SavedTrack
 import nl.icthorse.randomringtone.data.SpotifyConverter
+import nl.icthorse.randomringtone.data.UpdateManager
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,6 +57,18 @@ fun SettingsScreen(
     var writeContactsGranted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED)
     }
+
+    // Debug & Update state
+    var debugLoggingEnabled by remember { mutableStateOf(true) }
+    var installApkAllowed by remember { mutableStateOf(false) }
+    var canInstallPackages by remember { mutableStateOf(context.packageManager.canRequestPackageInstalls()) }
+    val updateManager = remember { UpdateManager(context) }
+    var isCheckingUpdates by remember { mutableStateOf(false) }
+    var updateVersions by remember { mutableStateOf<List<RemoteVersion>>(emptyList()) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableStateOf(0f) }
+    var downloadingVersion by remember { mutableStateOf<RemoteVersion?>(null) }
 
     val phoneStatePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -80,6 +95,7 @@ fun SettingsScreen(
                 phoneStateGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
                 readCallLogGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
                 writeContactsGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED
+                canInstallPackages = context.packageManager.canRequestPackageInstalls()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -372,6 +388,8 @@ fun SettingsScreen(
             downloadPath = ringtoneManager.storage.getDownloadDir().absolutePath
             ringtonePath = ringtoneManager.storage.getRingtoneDir().absolutePath
             diskUsage = ringtoneManager.storage.getDiskUsage()
+            debugLoggingEnabled = ringtoneManager.storage.isDebugLoggingEnabled()
+            installApkAllowed = ringtoneManager.storage.isInstallApkAllowed()
         }
 
         // SAF directory pickers
@@ -698,6 +716,157 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Updates sectie
+        Text(text = "Updates", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "App updates",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = "Huidige versie: v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} (Build ${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                FilledTonalButton(
+                    onClick = {
+                        scope.launch {
+                            isCheckingUpdates = true
+                            updateVersions = updateManager.fetchVersions()
+                            isCheckingUpdates = false
+                            if (updateVersions.isEmpty()) {
+                                snackbarHostState.showSnackbar("Kon geen versie-informatie ophalen")
+                            } else if (debugLoggingEnabled) {
+                                showUpdateDialog = true
+                            } else {
+                                val best = updateManager.getBestUpdate(
+                                    updateVersions,
+                                    nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER
+                                )
+                                if (best != null) {
+                                    showUpdateDialog = true
+                                } else {
+                                    snackbarHostState.showSnackbar("App is up-to-date")
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isCheckingUpdates
+                ) {
+                    if (isCheckingUpdates) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Check updates")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "APK installatie toestaan",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = when {
+                            installApkAllowed && canInstallPackages -> "Updates worden automatisch geinstalleerd"
+                            installApkAllowed && !canInstallPackages -> "Systeemtoestemming nog vereist"
+                            else -> "Updates worden alleen gedownload"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = installApkAllowed,
+                    onCheckedChange = { enabled ->
+                        installApkAllowed = enabled
+                        scope.launch { ringtoneManager.storage.setInstallApkAllowed(enabled) }
+                        if (enabled && !context.packageManager.canRequestPackageInstalls()) {
+                            context.startActivity(
+                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+        }
+
+        if (showUpdateDialog) {
+            UpdateDialog(
+                versions = updateVersions,
+                debugMode = debugLoggingEnabled,
+                currentBuild = nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER,
+                onDismiss = { showUpdateDialog = false },
+                onDownload = { version ->
+                    showUpdateDialog = false
+                    if (version.isUpgrade) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                "v${version.version} vereist dat de app eerst verwijderd wordt. Automatische update is niet mogelijk."
+                            )
+                        }
+                    } else {
+                        downloadingVersion = version
+                        isDownloading = true
+                        downloadProgress = 0f
+                        scope.launch {
+                            val apkFile = updateManager.downloadApk(version) { read, total ->
+                                downloadProgress = if (total > 0) read.toFloat() / total else 0f
+                            }
+                            isDownloading = false
+                            if (apkFile != null) {
+                                if (installApkAllowed && canInstallPackages) {
+                                    updateManager.installApk(apkFile)
+                                } else {
+                                    snackbarHostState.showSnackbar("APK gedownload: ${apkFile.name}")
+                                }
+                            } else {
+                                snackbarHostState.showSnackbar("Download mislukt")
+                            }
+                        }
+                    }
+                }
+            )
+        }
+
+        if (isDownloading && downloadingVersion != null) {
+            DownloadProgressDialog(
+                version = downloadingVersion!!,
+                progress = downloadProgress,
+                onCancel = {
+                    isDownloading = false
+                    downloadingVersion = null
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // Licentie
         Text(text = "Licentie", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(12.dp))
@@ -744,6 +913,50 @@ fun SettingsScreen(
                         Text("Mail ID")
                     }
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Debug sectie
+        Text(text = "Debug", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Remote logging",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = if (debugLoggingEnabled)
+                            "Verbose logging naar remote server actief"
+                        else
+                            "Logging uitgeschakeld",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = debugLoggingEnabled,
+                    onCheckedChange = { enabled ->
+                        debugLoggingEnabled = enabled
+                        RemoteLogger.enabled = enabled
+                        scope.launch {
+                            ringtoneManager.storage.setDebugLoggingEnabled(enabled)
+                            snackbarHostState.showSnackbar(
+                                if (enabled) "Remote logging ingeschakeld"
+                                else "Remote logging uitgeschakeld"
+                            )
+                        }
+                    }
+                )
             }
         }
 
@@ -842,6 +1055,165 @@ private fun FileMoveDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Annuleren") }
+        }
+    )
+}
+
+@Composable
+private fun UpdateDialog(
+    versions: List<RemoteVersion>,
+    debugMode: Boolean,
+    currentBuild: Int,
+    onDismiss: () -> Unit,
+    onDownload: (RemoteVersion) -> Unit
+) {
+    val displayVersions = if (debugMode) {
+        versions.sortedByDescending { it.build }
+    } else {
+        versions.filter { !it.isDebug }.sortedByDescending { it.build }
+    }
+
+    val bestVersion = versions
+        .filter { !it.isDebug && !it.isBug && !it.isUpgrade }
+        .maxByOrNull { it.build }
+        ?.takeIf { it.build > currentBuild }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Info, contentDescription = null) },
+        title = {
+            Text(if (debugMode) "Alle versies" else if (bestVersion != null) "Update beschikbaar" else "Versies")
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                displayVersions.forEach { version ->
+                    val isCurrent = version.build == currentBuild
+                    val isNewer = version.build > currentBuild
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = when {
+                                isCurrent -> MaterialTheme.colorScheme.primaryContainer
+                                version.isBug -> MaterialTheme.colorScheme.errorContainer
+                                version.isUpgrade -> MaterialTheme.colorScheme.tertiaryContainer
+                                isNewer -> MaterialTheme.colorScheme.secondaryContainer
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            }
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "v${version.version} (Build ${version.build})",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = version.timestamp,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (version.marker != null) {
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = when {
+                                        version.isBug -> MaterialTheme.colorScheme.error
+                                        version.isDebug -> MaterialTheme.colorScheme.tertiary
+                                        version.isUpgrade -> MaterialTheme.colorScheme.secondary
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                ) {
+                                    Text(
+                                        text = version.marker,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        color = when {
+                                            version.isBug -> MaterialTheme.colorScheme.onError
+                                            version.isDebug -> MaterialTheme.colorScheme.onTertiary
+                                            version.isUpgrade -> MaterialTheme.colorScheme.onSecondary
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                }
+                            }
+                            if (isCurrent) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "huidig",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else if (isNewer || debugMode) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = { onDownload(version) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.CloudDownload,
+                                        contentDescription = "Download",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (!debugMode && bestVersion != null) {
+                Button(onClick = { onDownload(bestVersion) }) {
+                    Text("Update naar v${bestVersion.version}")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Sluiten") }
+        }
+    )
+}
+
+@Composable
+private fun DownloadProgressDialog(
+    version: RemoteVersion,
+    progress: Float,
+    onCancel: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        icon = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
+        title = { Text("Downloaden...") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("v${version.version} (Build ${version.build})")
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onCancel) { Text("Annuleren") }
         }
     )
 }

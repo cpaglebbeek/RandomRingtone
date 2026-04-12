@@ -22,7 +22,9 @@ import nl.icthorse.randomringtone.data.AppRingtoneManager
 import nl.icthorse.randomringtone.data.BackupManager
 import nl.icthorse.randomringtone.data.LicenseManager
 import nl.icthorse.randomringtone.data.RemoteLogger
+import nl.icthorse.randomringtone.data.RemoteVersion
 import nl.icthorse.randomringtone.data.RingtoneDatabase
+import nl.icthorse.randomringtone.data.UpdateManager
 import nl.icthorse.randomringtone.ui.screens.*
 import java.io.File
 import nl.icthorse.randomringtone.ui.theme.RandomRingtoneTheme
@@ -56,6 +58,7 @@ fun RandomRingtoneApp() {
     val licenseManager = remember { LicenseManager(context) }
     var licenseStatus by remember { mutableStateOf(licenseManager.getCachedStatus()) }
     var licenseChecked by remember { mutableStateOf(false) }
+    var pendingUpdate by remember { mutableStateOf<RemoteVersion?>(null) }
 
     LaunchedEffect(Unit) {
         licenseStatus = licenseManager.checkLicense()
@@ -87,6 +90,26 @@ fun RandomRingtoneApp() {
     LaunchedEffect(selectedTab) {
         RemoteLogger.d("Navigation", "Tab wissel → auto-backup", mapOf("tabIndex" to selectedTab.toString()))
         backupManager.autoBackupToLocal(db, ringtoneManager.storage)
+    }
+
+    // Debug mode init + auto-update check (1x per 24 uur)
+    LaunchedEffect(Unit) {
+        val debugMode = ringtoneManager.storage.isDebugLoggingEnabled()
+        RemoteLogger.enabled = debugMode
+
+        if (!debugMode) {
+            val lastCheck = ringtoneManager.storage.getLastUpdateCheck()
+            val now = System.currentTimeMillis()
+            if (now - lastCheck > 24 * 60 * 60 * 1000) {
+                val updateMgr = UpdateManager(context)
+                val versions = updateMgr.fetchVersions()
+                val best = updateMgr.getBestUpdate(versions, BuildConfig.BUILD_NUMBER)
+                if (best != null) {
+                    pendingUpdate = best
+                }
+                ringtoneManager.storage.setLastUpdateCheck(now)
+            }
+        }
     }
 
     val tabs = listOf(
@@ -239,6 +262,32 @@ fun RandomRingtoneApp() {
                 )
             }
         }
+    }
+
+    // Auto-update notificatie dialog
+    if (pendingUpdate != null) {
+        val update = pendingUpdate!!
+        AlertDialog(
+            onDismissRequest = { pendingUpdate = null },
+            icon = { Icon(Icons.Default.Info, contentDescription = null) },
+            title = { Text("Update beschikbaar") },
+            text = {
+                Text("v${update.version} (Build ${update.build}) is beschikbaar.\nWil je naar Instellingen gaan om te updaten?")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    pendingUpdate = null
+                    selectedTab = 6
+                    navController.navigate("settings") {
+                        popUpTo("spotify") { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }) { Text("Naar updates") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingUpdate = null }) { Text("Later") }
+            }
+        )
     }
 }
 

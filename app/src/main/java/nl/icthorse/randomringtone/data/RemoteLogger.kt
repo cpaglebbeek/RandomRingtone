@@ -48,6 +48,9 @@ object RemoteLogger {
     private var deviceId: String = "unknown"
     private var initialized = false
 
+    /** Schakel remote logging in/uit. Lokale logcat blijft altijd actief. */
+    var enabled: Boolean = true
+
     @Serializable
     data class LogEntry(
         val timestamp: String,
@@ -74,14 +77,14 @@ object RemoteLogger {
         scope.launch {
             while (isActive) {
                 delay(FLUSH_INTERVAL_MS)
-                flush()
+                if (enabled) flush()
             }
         }
 
         // Start heartbeat loop
         scope.launch {
             while (isActive) {
-                heartbeat(context)
+                if (enabled) heartbeat(context)
                 delay(HEARTBEAT_INTERVAL_MS)
             }
         }
@@ -206,6 +209,8 @@ object RemoteLogger {
             "WARN" -> Log.w(tag, message)
             "ERROR" -> Log.e(tag, message)
         }
+
+        if (!enabled) return
 
         if (queue.size >= MAX_QUEUE_SIZE) {
             queue.poll() // drop oldest

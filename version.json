@@ -1,11 +1,11 @@
 {
   "project": "RandomRingtone",
-  "version": "1.6.4",
-  "versionCode": 92,
+  "version": "1.7.0",
+  "versionCode": 93,
   "codename": "Michael_Jackson",
-  "releaseName": "ABC",
+  "releaseName": "Earth_Song",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
-  "last_updated": "2026-04-03",
-  "status": "stable"
+  "last_updated": "2026-04-12",
+  "status": "development"
 }

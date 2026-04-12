@@ -39,7 +39,7 @@ class StorageManager(private val context: Context) {
         private val KEY_DEBUG_LOGGING = booleanPreferencesKey("debug_logging")
         private val KEY_LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
         private val KEY_INSTALL_APK_ALLOWED = booleanPreferencesKey("install_apk_allowed")
-        private val KEY_OLD_BUILD = booleanPreferencesKey("old_build")
+        private val KEY_DEBUG_BUILD = booleanPreferencesKey("debug_build")
 
         // Standaard subfolders
         private const val DEFAULT_DOWNLOAD_SUBFOLDER = "downloads"
@@ -209,17 +209,17 @@ class StorageManager(private val context: Context) {
         }
     }
 
-    // --- Old Build ---
+    // --- Debug Build ---
 
-    suspend fun isOldBuildEnabled(): Boolean {
+    suspend fun isDebugBuildEnabled(): Boolean {
         return context.settingsStore.data.map { prefs ->
-            prefs[KEY_OLD_BUILD] ?: false
+            prefs[KEY_DEBUG_BUILD] ?: false
         }.first()
     }
 
-    suspend fun setOldBuildEnabled(enabled: Boolean) {
+    suspend fun setDebugBuildEnabled(enabled: Boolean) {
         context.settingsStore.edit { prefs ->
-            prefs[KEY_OLD_BUILD] = enabled
+            prefs[KEY_DEBUG_BUILD] = enabled
         }
     }
 

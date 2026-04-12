@@ -100,9 +100,9 @@ fun RandomRingtoneApp() {
     // Debug mode init + auto-update check (1x per 24 uur)
     LaunchedEffect(Unit) {
         RemoteLogger.enabled = ringtoneManager.storage.isDebugLoggingEnabled()
-        val oldBuild = ringtoneManager.storage.isOldBuildEnabled()
+        val debugBuild = ringtoneManager.storage.isDebugBuildEnabled()
 
-        if (!oldBuild) {
+        if (!debugBuild) {
             val lastCheck = ringtoneManager.storage.getLastUpdateCheck()
             val now = System.currentTimeMillis()
             if (now - lastCheck > 24 * 60 * 60 * 1000) {

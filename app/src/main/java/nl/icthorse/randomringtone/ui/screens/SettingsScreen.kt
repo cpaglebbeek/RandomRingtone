@@ -60,7 +60,7 @@ fun SettingsScreen(
     }
 
     // Debug & Update state
-    var oldBuildEnabled by remember { mutableStateOf(false) }
+    var debugBuildEnabled by remember { mutableStateOf(false) }
     var remoteLoggingEnabled by remember { mutableStateOf(true) }
     var installApkAllowed by remember { mutableStateOf(false) }
     var canInstallPackages by remember { mutableStateOf(context.packageManager.canRequestPackageInstalls()) }
@@ -390,7 +390,7 @@ fun SettingsScreen(
             downloadPath = ringtoneManager.storage.getDownloadDir().absolutePath
             ringtonePath = ringtoneManager.storage.getRingtoneDir().absolutePath
             diskUsage = ringtoneManager.storage.getDiskUsage()
-            oldBuildEnabled = ringtoneManager.storage.isOldBuildEnabled()
+            debugBuildEnabled = ringtoneManager.storage.isDebugBuildEnabled()
             remoteLoggingEnabled = ringtoneManager.storage.isDebugLoggingEnabled()
             installApkAllowed = ringtoneManager.storage.isInstallApkAllowed()
         }
@@ -749,7 +749,7 @@ fun SettingsScreen(
                             isCheckingUpdates = false
                             if (updateVersions.isEmpty()) {
                                 snackbarHostState.showSnackbar("Kon geen versie-informatie ophalen")
-                            } else if (oldBuildEnabled) {
+                            } else if (debugBuildEnabled) {
                                 showUpdateDialog = true
                             } else {
                                 val best = updateManager.getBestUpdate(
@@ -822,7 +822,7 @@ fun SettingsScreen(
         if (showUpdateDialog) {
             UpdateDialog(
                 versions = updateVersions,
-                debugMode = oldBuildEnabled,
+                debugMode = debugBuildEnabled,
                 currentBuild = nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER,
                 onDismiss = { showUpdateDialog = false },
                 onDownload = { version ->
@@ -940,7 +940,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        text = if (oldBuildEnabled)
+                        text = if (debugBuildEnabled)
                             "DEBUG versies zichtbaar, geen auto-update"
                         else
                             "Alleen vrijgegeven versies",
@@ -949,11 +949,11 @@ fun SettingsScreen(
                     )
                 }
                 Switch(
-                    checked = oldBuildEnabled,
+                    checked = debugBuildEnabled,
                     onCheckedChange = { enabled ->
-                        oldBuildEnabled = enabled
+                        debugBuildEnabled = enabled
                         scope.launch {
-                            ringtoneManager.storage.setOldBuildEnabled(enabled)
+                            ringtoneManager.storage.setDebugBuildEnabled(enabled)
                             snackbarHostState.showSnackbar(
                                 if (enabled) "DEBUG builds zichtbaar"
                                 else "Alleen vrijgegeven builds"

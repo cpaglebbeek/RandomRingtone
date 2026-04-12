@@ -627,8 +627,8 @@ fun EditorScreen(
                                     }
 
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
-                                    // Album art overnemen van origineel bestand
-                                    val artPath = extractAlbumArt(context, audioFile, finalFile)
+                                    // Album art: probeer origineel → trimmed → DB fallback
+                                    val artPath = extractAlbumArt(context, audioFile, finalFile, db, deezerTrackId)
                                     // M4A metadata embedden (titel, artiest, cover, marker)
                                     if (ext == "m4a") {
                                         val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
@@ -646,7 +646,7 @@ fun EditorScreen(
 
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
                                     saveProgress = 1f
-                                    val artPath = extractAlbumArt(context, audioFile, finalFile)
+                                    val artPath = extractAlbumArt(context, audioFile, finalFile, db, deezerTrackId)
                                     if (ext == "m4a") {
                                         val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
                                         M4aMetadata.write(finalFile, name, trackArtist, artBytes, "RandomRingtone trimmed")
@@ -721,29 +721,40 @@ private suspend fun saveToDB(
 
 /**
  * Extract album art uit het bronbestand en sla op in cache.
- * Probeert eerst het origineel, dan het getrimde bestand.
+ * Probeert: 1) origineel, 2) getrimd bestand, 3) bestaande DB art.
  */
-private fun extractAlbumArt(context: android.content.Context, originalFile: File, trimmedFile: File): String? {
-    val retriever = android.media.MediaMetadataRetriever()
-    return try {
-        // Probeer origineel bestand (heeft waarschijnlijk embedded art)
-        retriever.setDataSource(originalFile.absolutePath)
-        val artBytes = retriever.embeddedPicture
-        if (artBytes != null) {
-            val artDir = File(context.cacheDir, "album_art").apply { mkdirs() }
-            val artFile = File(artDir, "${trimmedFile.nameWithoutExtension.hashCode()}.jpg")
-            artFile.outputStream().use { it.write(artBytes) }
-            RemoteLogger.d("EditorScreen", "Album art geëxtraheerd", mapOf(
-                "source" to originalFile.name, "size" to "${artBytes.size / 1024}KB"
-            ))
-            artFile.absolutePath
-        } else null
-    } catch (e: Exception) {
-        RemoteLogger.w("EditorScreen", "Album art extractie mislukt", mapOf("error" to (e.message ?: "")))
-        null
-    } finally {
-        try { retriever.release() } catch (_: Exception) {}
+private fun extractAlbumArt(context: android.content.Context, originalFile: File, trimmedFile: File, db: RingtoneDatabase? = null, trackId: Long = 0): String? {
+    fun tryExtract(file: File): ByteArray? {
+        if (!file.exists()) return null
+        val retriever = android.media.MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(file.absolutePath)
+            retriever.embeddedPicture
+        } catch (_: Exception) { null }
+        finally { try { retriever.release() } catch (_: Exception) {} }
     }
+
+    // Probeer origineel, dan getrimd bestand
+    val artBytes = tryExtract(originalFile) ?: tryExtract(trimmedFile)
+
+    if (artBytes != null) {
+        val artDir = File(context.cacheDir, "album_art").apply { mkdirs() }
+        val artFile = File(artDir, "${trimmedFile.nameWithoutExtension.hashCode()}.jpg")
+        artFile.outputStream().use { it.write(artBytes) }
+        RemoteLogger.d("EditorScreen", "Album art geëxtraheerd", mapOf(
+            "source" to if (tryExtract(originalFile) != null) originalFile.name else trimmedFile.name,
+            "size" to "${artBytes.size / 1024}KB"
+        ))
+        return artFile.absolutePath
+    }
+
+    // Fallback: bestaand albumArtPath uit DB (cache kan verlopen zijn, maar art kan nog bestaan)
+    if (db != null && trackId != 0L) {
+        return kotlinx.coroutines.runBlocking {
+            db.savedTrackDao().getById(trackId)?.albumArtPath?.takeIf { File(it).exists() }
+        }
+    }
+    return null
 }
 
 private suspend fun handlePostSave(

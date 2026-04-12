@@ -120,7 +120,20 @@ fun LibraryScreen(
             // Stap 2: Enrich ID3 alleen voor tracks zonder ID3 data (niet elke keer alles)
             if (uncached.isNotEmpty()) Mp3TagReader.enrichAll(context, db)
 
-            // Stap 2b: Orphan cleanup — verwijder playlist_tracks die naar niet-bestaande saved_tracks wijzen
+            // Stap 2b: Dedup — verwijder DB entries met duplicate bestandsnamen (houdt oudste)
+            val allTrx = db.savedTrackDao().getAll()
+            val seenNames = mutableSetOf<String>()
+            for (track in allTrx) {
+                val name = track.localPath?.let { File(it).name } ?: continue
+                if (name in seenNames) {
+                    db.savedTrackDao().delete(track)
+                    db.playlistTrackDao().removeByTrackId(track.deezerTrackId)
+                } else {
+                    seenNames.add(name)
+                }
+            }
+
+            // Stap 2c: Orphan cleanup — verwijder playlist_tracks die naar niet-bestaande saved_tracks wijzen
             val allSavedIds = db.savedTrackDao().getAll().map { it.deezerTrackId }.toSet()
             val allPtIds = db.playlistTrackDao().getAllTrackIds()
             for (orphanId in allPtIds) {
@@ -201,12 +214,20 @@ fun LibraryScreen(
                         }
                     }
                 } else {
+                    // Bouw dedup-set op basis van bestandsnaam (voorkomt dubbelen door pad-variaties)
+                    val knownFileNames = db.savedTrackDao().getAll()
+                        .mapNotNull { it.localPath?.let { lp -> File(lp).name } }
+                        .toMutableSet()
+
                     var added = 0
                     for (sf in scanned) {
-                        // Dedup: check of bestand al in DB staat via localPath
                         if (sf.localPath.isNotBlank()) {
+                            val fileName = File(sf.localPath).name
+                            // Dedup op bestandsnaam (vangt /data/user/0/ vs /data/data/ symlink verschil)
+                            if (fileName in knownFileNames) continue
                             val byPath = db.savedTrackDao().getByLocalPath(sf.localPath)
-                            if (byPath != null) continue // bestand al geregistreerd
+                            if (byPath != null) continue
+                            knownFileNames.add(fileName)
                         }
 
                         val byId = db.savedTrackDao().getById(sf.trackId)

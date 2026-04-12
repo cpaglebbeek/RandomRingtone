@@ -47,6 +47,7 @@ object RemoteLogger {
     }
 
     private var deviceId: String = "unknown"
+    private var deviceOwner: String = "unknown"
     private var initialized = false
 
     /** Schakel remote logging in/uit. Lokale logcat blijft altijd actief. */
@@ -59,7 +60,8 @@ object RemoteLogger {
         val level: String,
         val message: String,
         val data: Map<String, String> = emptyMap(),
-        val deviceId: String = ""
+        val deviceId: String = "",
+        val deviceOwner: String = ""
     )
 
     /**
@@ -73,6 +75,8 @@ object RemoteLogger {
         deviceId = try {
             Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
         } catch (_: Exception) { "unknown" }
+
+        deviceOwner = getDeviceOwnerName(context)
 
         // Start flush loop
         scope.launch {
@@ -212,7 +216,8 @@ object RemoteLogger {
                 level = "INFO",
                 message = "Remote logging verbindingstest",
                 data = mapOf("deviceId" to deviceId),
-                deviceId = deviceId
+                deviceId = deviceId,
+                deviceOwner = deviceOwner
             )
             val body = json.encodeToString(listOf(entry))
                 .toRequestBody("application/json".toMediaType())
@@ -256,7 +261,8 @@ object RemoteLogger {
             level = level,
             message = message,
             data = data,
-            deviceId = deviceId
+            deviceId = deviceId,
+            deviceOwner = deviceOwner
         ))
     }
 

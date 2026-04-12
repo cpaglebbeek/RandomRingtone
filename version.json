@@ -1,11 +1,11 @@
 {
   "project": "RandomRingtone",
-  "version": "1.8.9",
-  "versionCode": 110,
+  "version": "1.9.0",
+  "versionCode": 111,
   "codename": "Michael_Jackson",
-  "releaseName": "Remember_The_Time",
+  "releaseName": "Man_In_The_Mirror",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-04-12",
-  "status": "stable"
+  "status": "development"
 }

@@ -30,7 +30,7 @@ android {
         buildConfigField("String", "CODENAME", "\"Michael_Jackson\"")
         buildConfigField("String", "RELEASE_NAME", "\"Remember_The_Time\"")
         buildConfigField("int", "BUILD_NUMBER", "110")
-        buildConfigField("String", "BUILD_STATUS", "\"DEBUG\"")  // DEBUG of STABLE
+        buildConfigField("String", "BUILD_STATUS", "\"STABLE\"")  // DEBUG of STABLE
     }
 
     buildTypes {

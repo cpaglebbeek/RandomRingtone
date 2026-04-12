@@ -120,6 +120,13 @@ fun LibraryScreen(
             // Stap 2: Enrich ID3 alleen voor tracks zonder ID3 data (niet elke keer alles)
             if (uncached.isNotEmpty()) Mp3TagReader.enrichAll(context, db)
 
+            // Stap 2b: Orphan cleanup — verwijder playlist_tracks die naar niet-bestaande saved_tracks wijzen
+            val allSavedIds = db.savedTrackDao().getAll().map { it.deezerTrackId }.toSet()
+            val allPtIds = db.playlistTrackDao().getAllTrackIds()
+            for (orphanId in allPtIds) {
+                if (orphanId !in allSavedIds) db.playlistTrackDao().removeByTrackId(orphanId)
+            }
+
             // Stap 3: Lees alle tracks uit DB — geen disk I/O meer
             val allItems = db.savedTrackDao().getAll()
                 .filter { track ->
@@ -229,6 +236,18 @@ fun LibraryScreen(
                     }
                     snackbarHostState.showSnackbar(msg)
                 }
+                // Orphan cleanup: verwijder DB tracks waarvan het bestand niet meer bestaat
+                var removed = 0
+                for (track in db.savedTrackDao().getAll()) {
+                    val lp = track.localPath
+                    if (lp != null && lp.isNotBlank() && !File(lp).exists()) {
+                        db.savedTrackDao().delete(track)
+                        db.playlistTrackDao().removeByTrackId(track.deezerTrackId)
+                        removed++
+                    }
+                }
+                if (removed > 0) snackbarHostState.showSnackbar("$removed verwijderde bestanden opgeruimd uit bibliotheek")
+
                 refresh()
             } catch (e: Exception) {
                 scanDiagnostic = "Scan mislukt:\n${e.message}\n\n${e.stackTraceToString().take(500)}"
@@ -257,6 +276,7 @@ fun LibraryScreen(
                             scope.launch {
                                 val existing = db.savedTrackDao().getById(item.trackId)
                                 if (existing != null) db.savedTrackDao().delete(existing)
+                                db.playlistTrackDao().removeByTrackId(item.trackId)
                                 refresh()
                                 snackbarHostState.showSnackbar("Uit bibliotheek verwijderd: ${item.title}")
                             }
@@ -273,6 +293,7 @@ fun LibraryScreen(
                             scope.launch {
                                 val existing = db.savedTrackDao().getById(item.trackId)
                                 if (existing != null) db.savedTrackDao().delete(existing)
+                                db.playlistTrackDao().removeByTrackId(item.trackId)
                                 val deleted = item.file.delete()
                                 refresh()
                                 if (deleted) snackbarHostState.showSnackbar("Permanent verwijderd: ${item.title}")

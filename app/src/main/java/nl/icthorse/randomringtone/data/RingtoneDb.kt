@@ -152,6 +152,12 @@ interface PlaylistTrackDao {
     @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun removeAll(playlistId: Long)
 
+    @Query("DELETE FROM playlist_tracks WHERE trackId = :trackId")
+    suspend fun removeByTrackId(trackId: Long)
+
+    @Query("SELECT DISTINCT trackId FROM playlist_tracks")
+    suspend fun getAllTrackIds(): List<Long>
+
     @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM playlist_tracks WHERE playlistId = :playlistId")
     suspend fun getNextSortOrder(playlistId: Long): Int
 }

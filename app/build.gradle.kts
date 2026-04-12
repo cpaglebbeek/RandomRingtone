@@ -29,7 +29,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "nl.icthorse.randomringtone"
+        applicationId = "nl.icthorse.randomringtone.videoring"
         minSdk = 26
         targetSdk = 35
         versionCode = 127

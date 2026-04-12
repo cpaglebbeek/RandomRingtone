@@ -658,12 +658,14 @@ private suspend fun saveToDB(
     addToPlaylist: Boolean, createNew: Boolean, selectedPlaylist: Playlist?
 ): Long {
     // Bij trim: origineel behouden, nieuw record aanmaken met unieke ID
-    // Check of het origineel al bestaat met een ander pad (= dit is een trim)
     val existing = db.savedTrackDao().getById(deezerTrackId)
-    val isNewFile = existing != null && existing.localPath != null &&
+    val isDifferentFile = existing != null && existing.localPath != null &&
         existing.localPath != file.absolutePath
-    val trackId = if (isNewFile) {
+    val trackId = if (isDifferentFile) {
         // Genereer unieke ID voor het getrimde bestand, behoud origineel
+        file.absolutePath.hashCode().toLong().let { if (it < 0) -it else it }
+    } else if (existing == null) {
+        // Nieuw bestand zonder bestaand record → gebruik hash als ID
         file.absolutePath.hashCode().toLong().let { if (it < 0) -it else it }
     } else {
         deezerTrackId
@@ -671,7 +673,7 @@ private suspend fun saveToDB(
     db.savedTrackDao().insert(SavedTrack(
         deezerTrackId = trackId, title = name, artist = artist,
         previewUrl = previewUrl, localPath = file.absolutePath, playlistName = playlistName,
-        markerType = if (isNewFile) "trimmed" else null  // Getrimd bestand = trimmed marker
+        markerType = "trimmed"  // Editor slaat altijd getrimde bestanden op
     ))
     if (addToPlaylist) {
         val playlistId = if (createNew) db.playlistDao().insert(Playlist(name = playlistName))

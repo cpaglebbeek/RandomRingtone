@@ -17,8 +17,8 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 
 /**
- * Remote debug logger — stuurt alle app-events naar horsecloud55:3800
- * voor live monitoring via web-based tail -f.
+ * Remote debug logger — stuurt alle app-events naar horsecloud55/rrlog/
+ * via nginx reverse proxy met API key authenticatie.
  *
  * Gebruik:
  *   RemoteLogger.init(context)
@@ -27,7 +27,8 @@ import java.util.concurrent.TimeUnit
 object RemoteLogger {
 
     private const val TAG = "RemoteLogger"
-    private const val SERVER_URL = "http://157.180.29.184:3800/log"
+    private const val SERVER_URL = "https://horsecloud55.ddns.net/rrlog/log"
+    private const val API_KEY = "a27b57cdf56e023e3fa4947681e912291abf910ff5b90bb8"
     private const val HEARTBEAT_INTERVAL_MS = 30_000L
     private const val FLUSH_INTERVAL_MS = 2_000L
     private const val MAX_QUEUE_SIZE = 500
@@ -255,6 +256,7 @@ object RemoteLogger {
 
             val request = Request.Builder()
                 .url(SERVER_URL)
+                .addHeader("X-Api-Key", API_KEY)
                 .post(body)
                 .build()
 

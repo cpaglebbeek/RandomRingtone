@@ -151,19 +151,38 @@ class IctHorseBackupClient(private val context: Context) {
                 uploadFile(slot, File(tempDir, file), file)
             }
 
-            // Phase 4: Upload download files
-            onProgress(BackupProgress("Downloads uploaden (${downloadFiles.size})...", 4, 7))
+            // Phase 4+5: Upload audio files met per-file progress
+            val allUploads = downloadFiles.map { "downloads/${it.name}" to it } +
+                    ringtoneFiles.map { "ringtones/${it.name}" to it }
+            val totalUploadBytes = allUploads.sumOf { it.second.length() }
+            var uploadedBytes = 0L
             var uploadedFiles = 0
-            downloadFiles.forEach { file ->
-                uploadFile(slot, file, "downloads/${file.name}")
-                uploadedFiles++
-            }
+            var uploadBps = 0L
 
-            // Phase 5: Upload ringtone files
-            onProgress(BackupProgress("Ringtones uploaden (${ringtoneFiles.size})...", 5, 7))
-            ringtoneFiles.forEach { file ->
-                uploadFile(slot, file, "ringtones/${file.name}")
+            allUploads.forEachIndexed { index, (remotePath, file) ->
+                val isDownload = remotePath.startsWith("downloads/")
+                val phase = if (isDownload) 4 else 5
+                val pct = if (totalUploadBytes > 0) uploadedBytes.toFloat() / totalUploadBytes else 0f
+                val eta = if (uploadBps > 0) ((totalUploadBytes - uploadedBytes) / uploadBps).toInt() else -1
+                onProgress(BackupProgress(
+                    phase = "${if (isDownload) "Downloads" else "Ringtones"} uploaden (${index + 1}/${allUploads.size})...",
+                    current = phase,
+                    total = 7,
+                    percentage = pct,
+                    bytesPerSecond = uploadBps,
+                    etaSeconds = eta
+                ))
+
+                val startTime = System.currentTimeMillis()
+                uploadFile(slot, file, remotePath)
+                val elapsed = System.currentTimeMillis() - startTime
+
+                uploadedBytes += file.length()
                 uploadedFiles++
+                if (elapsed > 0) {
+                    val fileBps = file.length() * 1000 / elapsed
+                    uploadBps = if (uploadBps == 0L) fileBps else (0.3 * fileBps + 0.7 * uploadBps).toLong()
+                }
             }
 
             // Phase 6: Re-upload meta met finale counts

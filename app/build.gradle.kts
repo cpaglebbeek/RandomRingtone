@@ -23,13 +23,13 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 102
-        versionName = "1.8.1"
+        versionCode = 103
+        versionName = "1.8.2"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"Michael_Jackson\"")
-        buildConfigField("String", "RELEASE_NAME", "\"Beat_It\"")
-        buildConfigField("int", "BUILD_NUMBER", "102")
+        buildConfigField("String", "RELEASE_NAME", "\"Wanna_Be_Startin_Somethin\"")
+        buildConfigField("int", "BUILD_NUMBER", "103")
     }
 
     buildTypes {

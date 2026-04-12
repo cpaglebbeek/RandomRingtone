@@ -690,19 +690,8 @@ private suspend fun saveToDB(
     addToPlaylist: Boolean, createNew: Boolean, selectedPlaylist: Playlist?,
     albumArtPath: String? = null
 ): Long {
-    // Bij trim: origineel behouden, nieuw record aanmaken met unieke ID
-    val existing = db.savedTrackDao().getById(deezerTrackId)
-    val isDifferentFile = existing != null && existing.localPath != null &&
-        existing.localPath != file.absolutePath
-    val trackId = if (isDifferentFile) {
-        // Genereer unieke ID voor het getrimde bestand, behoud origineel
-        file.absolutePath.hashCode().toLong().let { if (it < 0) -it else it }
-    } else if (existing == null) {
-        // Nieuw bestand zonder bestaand record → gebruik hash als ID
-        file.absolutePath.hashCode().toLong().let { if (it < 0) -it else it }
-    } else {
-        deezerTrackId
-    }
+    // Altijd nieuw trackId voor getrimde bestanden → origineel (download/youtube/spotify) blijft behouden
+    val trackId = file.absolutePath.hashCode().toLong().let { if (it < 0) -it else it }
     db.savedTrackDao().insert(SavedTrack(
         deezerTrackId = trackId, title = name, artist = artist,
         previewUrl = previewUrl, localPath = file.absolutePath, playlistName = playlistName,
@@ -864,7 +853,27 @@ private fun WaveformView(
                 val x = index * barWidth
                 val absFrac = viewStart + index.toFloat() / visibleAmps.size * viewRange
                 val inSelection = absFrac in startFraction..endFraction
-                val barHeight = amplitude * canvasHeight * 0.8f
+
+                // Fade envelope toepassen op barhoogte
+                val fadeFactor = if (inSelection) {
+                    val fadeInEnd = startFraction + fadeInFraction
+                    val fadeOutStart = endFraction - fadeOutFraction
+                    when {
+                        fadeInFraction > 0f && absFrac < fadeInEnd -> {
+                            // Fade-in: lineair 0→1
+                            ((absFrac - startFraction) / fadeInFraction).coerceIn(0f, 1f)
+                        }
+                        fadeOutFraction > 0f && absFrac > fadeOutStart -> {
+                            // Fade-out: exponentieel naar 0 (zelfde curve als audio)
+                            val progress = ((absFrac - fadeOutStart) / fadeOutFraction).coerceIn(0f, 1f)
+                            val expFactor = Math.exp(-5.0 * progress).toFloat()
+                            if (progress > 0.95f) expFactor * ((1f - progress) / 0.05f) else expFactor
+                        }
+                        else -> 1f
+                    }
+                } else 1f
+
+                val barHeight = amplitude * fadeFactor * canvasHeight * 0.8f
                 val color = if (inSelection) primaryColor else inactiveColor
                 drawLine(color = color, start = Offset(x + barWidth / 2, center - barHeight / 2),
                     end = Offset(x + barWidth / 2, center + barHeight / 2), strokeWidth = barWidth * 0.7f)

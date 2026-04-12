@@ -104,14 +104,16 @@ object AudioTrimmer {
                 samples[i] = (samples[i] * factor).toInt().toShort()
             }
         }
-        // Fade-out: exponentieel A_new = A * e^(-5 * t/T) — natuurlijke afname zoals akoestisch verval
+        // Fade-out: exponentieel A_new = A * e^(-5 * t/T) — met garantie naar 0 dB
         if (fadeOutMs > 0) {
             val fadeOutSamples = (fadeOutMs * sampleRate / 1000 * channels).toInt()
                 .coerceAtMost(samples.size)
             val fadeStartIdx = samples.size - fadeOutSamples
             for (i in 0 until fadeOutSamples) {
                 val progress = i.toFloat() / fadeOutSamples  // 0.0 (start fade) → 1.0 (einde track)
-                val factor = Math.exp(-5.0 * progress).toFloat()  // 1.0 → ~0.007
+                var factor = Math.exp(-5.0 * progress).toFloat()
+                // Laatste 5%: lineair naar 0 voor gegarandeerde stilte
+                if (progress > 0.95f) factor *= (1f - progress) / 0.05f
                 val idx = fadeStartIdx + i
                 samples[idx] = (samples[idx] * factor).toInt().toShort()
             }

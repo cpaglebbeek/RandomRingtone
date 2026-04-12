@@ -71,3 +71,4 @@
 | 67 | Geen album art na trim: extractAlbumArt probeert alleen origineel, faalt als werkbestand na Toepassen geen embedded art heeft | Geel | 1.9.9 | 1.9.10 | FIXED |
 | 68 | Delete van schijf: verwijdert slechts één DB entry, duplicate met ander trackId blijft zichtbaar | Geel | 1.9.10 | 1.9.11 | FIXED |
 | 69 | Album art niet bewaard bij Openen in editor voor Spotify/YouTube: geen DB pre-registratie, editor fallback vindt niets | Geel | 1.9.13 | 1.9.14 | FIXED |
+| 70 | Trimmed bestand vervangt originele Spotify/YouTube entry: saveToDB() hergebruikte soms deezerTrackId waardoor origineel overschreven werd | Geel | 1.9.14 | 1.9.15 | FIXED |

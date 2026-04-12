@@ -53,6 +53,11 @@ object RemoteLogger {
     /** Schakel remote logging in/uit. Lokale logcat blijft altijd actief. */
     var enabled: Boolean = true
 
+    /** Update de device owner (bijv. vanuit licentie-check). */
+    fun updateOwner(name: String) {
+        if (name.isNotBlank()) deviceOwner = name
+    }
+
     @Serializable
     data class LogEntry(
         val timestamp: String,
@@ -76,7 +81,10 @@ object RemoteLogger {
             Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
         } catch (_: Exception) { "unknown" }
 
-        deviceOwner = getDeviceOwnerName(context)
+        // Naam uit licentie-cache (betrouwbaarder dan Google account)
+        val licPrefs = context.getSharedPreferences("randomringtone_license", android.content.Context.MODE_PRIVATE)
+        val licenseName = licPrefs.getString("name", null)
+        deviceOwner = if (!licenseName.isNullOrBlank()) licenseName else getDeviceOwnerName(context)
 
         // Start flush loop
         scope.launch {

@@ -89,8 +89,9 @@ class LicenseManager(private val context: Context) {
                     isInfinite = isInfinite
                 )
 
-                // Cache in prefs
+                // Cache in prefs + update RemoteLogger owner
                 cacheStatus(status)
+                if (status.name.isNotBlank()) RemoteLogger.updateOwner(status.name)
                 RemoteLogger.output("LicenseManager", "License check OK", mapOf(
                     "active" to status.active.toString(),
                     "name" to status.name,

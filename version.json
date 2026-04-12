@@ -1,11 +1,11 @@
 {
   "project": "RandomRingtone",
-  "version": "2.0.0",
-  "versionCode": 127,
+  "version": "2.1.0",
+  "versionCode": 128,
   "codename": "Michael_Jackson",
-  "releaseName": "Scream",
+  "releaseName": "Black_Or_White",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
-  "last_updated": "2026-04-12",
+  "last_updated": "2026-04-13",
   "status": "development"
 }

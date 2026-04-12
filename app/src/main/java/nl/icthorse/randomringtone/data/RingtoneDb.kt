@@ -198,11 +198,49 @@ interface SavedTrackDao {
     suspend fun getByLocalPath(path: String): SavedTrack?
 }
 
+// --- VideoRingtone Entity ---
+
+@Entity(tableName = "video_ringtones")
+data class VideoRingtone(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val artist: String = "",
+    val localPath: String,
+    val thumbnailPath: String? = null,
+    val durationMs: Long = 0,
+    val isActive: Boolean = false,
+    val videoId: String? = null
+)
+
+@Dao
+interface VideoRingtoneDao {
+    @Query("SELECT * FROM video_ringtones ORDER BY title ASC")
+    suspend fun getAll(): List<VideoRingtone>
+
+    @Query("SELECT * FROM video_ringtones WHERE isActive = 1 LIMIT 1")
+    suspend fun getActive(): VideoRingtone?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(video: VideoRingtone): Long
+
+    @Delete
+    suspend fun delete(video: VideoRingtone)
+
+    @Query("UPDATE video_ringtones SET isActive = 0")
+    suspend fun deactivateAll()
+
+    @Query("UPDATE video_ringtones SET isActive = 1 WHERE id = :id")
+    suspend fun activate(id: Long)
+
+    @Query("SELECT * FROM video_ringtones WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): VideoRingtone?
+}
+
 // --- Database ---
 
 @Database(
-    entities = [SavedTrack::class, Playlist::class, PlaylistTrack::class],
-    version = 7,
+    entities = [SavedTrack::class, Playlist::class, PlaylistTrack::class, VideoRingtone::class],
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -210,6 +248,7 @@ abstract class RingtoneDatabase : RoomDatabase() {
     abstract fun savedTrackDao(): SavedTrackDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun playlistTrackDao(): PlaylistTrackDao
+    abstract fun videoRingtoneDao(): VideoRingtoneDao
 
     companion object {
         @Volatile
@@ -217,9 +256,7 @@ abstract class RingtoneDatabase : RoomDatabase() {
 
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // 1. Nieuw veld voor QUASI_RANDOM tracking
                 db.execSQL("ALTER TABLE playlists ADD COLUMN playedTrackIds TEXT")
-                // 2. RANDOM → SEMI_RANDOM (behoud huidig gedrag)
                 db.execSQL("UPDATE playlists SET mode = 'SEMI_RANDOM' WHERE mode = 'RANDOM'")
             }
         }
@@ -238,6 +275,21 @@ abstract class RingtoneDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""CREATE TABLE IF NOT EXISTS video_ringtones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    title TEXT NOT NULL,
+                    artist TEXT NOT NULL DEFAULT '',
+                    localPath TEXT NOT NULL,
+                    thumbnailPath TEXT,
+                    durationMs INTEGER NOT NULL DEFAULT 0,
+                    isActive INTEGER NOT NULL DEFAULT 0,
+                    videoId TEXT
+                )""")
+            }
+        }
+
         fun getInstance(context: Context): RingtoneDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(
@@ -245,7 +297,7 @@ abstract class RingtoneDatabase : RoomDatabase() {
                     RingtoneDatabase::class.java,
                     "randomringtone.db"
                 )
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
             }

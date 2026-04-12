@@ -29,6 +29,11 @@
     <!-- In-app APK installatie -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- VideoRing: overlay boven lockscreen -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+
     <application
         android:allowBackup="true"
         android:usesCleartextTraffic="true"
@@ -76,6 +81,12 @@
                 <action android:name="android.intent.action.PHONE_STATE" />
             </intent-filter>
         </receiver>
+
+        <!-- VideoRingtoneService: video overlay bij inkomend gesprek -->
+        <service
+            android:name=".service.VideoRingtoneService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" />
 
     </application>
 

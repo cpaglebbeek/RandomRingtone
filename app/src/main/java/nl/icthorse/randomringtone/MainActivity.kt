@@ -120,6 +120,7 @@ fun RandomRingtoneApp() {
     val tabs = listOf(
         Triple("spotify", "Spotify", Icons.Default.CloudDownload),
         Triple("youtube", "YouTube", Icons.Default.VideoLibrary),
+        Triple("videoring", "VideoRing", Icons.Default.SlowMotionVideo),
         Triple("library", "Bibliotheek", Icons.Default.LibraryMusic),
         Triple("playlists", "Playlists", Icons.Default.QueueMusic),
         Triple("overview", "Overzicht", Icons.Default.Dashboard),
@@ -200,6 +201,12 @@ fun RandomRingtoneApp() {
                         }
                         navController.navigate("editor")
                     }
+                )
+            }
+            composable("videoring") {
+                VideoRingScreen(
+                    db = db,
+                    snackbarHostState = snackbarHostState
                 )
             }
             composable("editor") {

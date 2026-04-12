@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
 import nl.icthorse.randomringtone.data.RemoteLogger
+import nl.icthorse.randomringtone.service.VideoRingtoneService
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -71,11 +72,47 @@ class CallStateReceiver : BroadcastReceiver() {
                     "hint" to "READ_CALL_LOG permissie nodig voor nummer op Android 10+"
                 ))
             }
+        } else if (currentState == TelephonyManager.CALL_STATE_IDLE ||
+                   currentState == TelephonyManager.CALL_STATE_OFFHOOK) {
+            // Gesprek opgenomen of beëindigd → stop video overlay
+            VideoRingtoneService.stop(context)
+            RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf(
+                "from" to lastState.toString(),
+                "to" to currentState.toString()
+            ))
         } else {
             RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf(
                 "from" to lastState.toString(),
                 "to" to currentState.toString()
             ))
+        }
+
+        // VideoRing: start video overlay bij inkomend gesprek
+        if (currentState == TelephonyManager.CALL_STATE_RINGING) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val db = RingtoneDatabase.getInstance(context)
+                    val activeVideo = db.videoRingtoneDao().getActive()
+                    if (activeVideo != null && java.io.File(activeVideo.localPath).exists()) {
+                        if (android.provider.Settings.canDrawOverlays(context)) {
+                            VideoRingtoneService.start(
+                                context,
+                                activeVideo.localPath,
+                                lastCallerName ?: "Onbekend",
+                                lastCallerNumber
+                            )
+                            RemoteLogger.i("CallState", "VideoRing gestart", mapOf(
+                                "video" to activeVideo.title,
+                                "caller" to (lastCallerName ?: "onbekend")
+                            ))
+                        }
+                    }
+                } catch (e: Exception) {
+                    RemoteLogger.e("CallState", "VideoRing start mislukt", mapOf(
+                        "error" to (e.message ?: "")
+                    ))
+                }
+            }
         }
 
         // Gesprek beëindigd: was OFFHOOK of RINGING, nu IDLE

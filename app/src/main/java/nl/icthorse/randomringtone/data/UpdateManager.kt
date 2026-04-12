@@ -15,14 +15,24 @@ data class RemoteVersion(
     val build: Int,
     val timestamp: String,
     val apkFilename: String,
-    val marker: String? = null
+    val marker: String? = null,
+    val codename: String? = null,
+    val releaseName: String? = null
 ) {
     val isBug get() = marker?.uppercase()?.contains("BUG") == true
     val isDebug get() = marker?.uppercase()?.contains("DEBUG") == true
     val isUpgrade get() = marker?.uppercase()?.contains("UPGRADE") == true
 
+    val buildName: String? get() = when {
+        codename != null && releaseName != null -> "$codename / $releaseName"
+        codename != null -> codename
+        releaseName != null -> releaseName
+        else -> null
+    }
+
     val displayLabel: String get() = buildString {
         append("v$version (Build $build)")
+        buildName?.let { append(" \"$it\"") }
         marker?.let { append(" [$it]") }
     }
 }
@@ -72,7 +82,9 @@ class UpdateManager(private val context: Context) {
                     build = parts[1].trim().toIntOrNull() ?: return@mapNotNull null,
                     timestamp = parts[2].trim(),
                     apkFilename = parts[3].trim(),
-                    marker = parts.getOrNull(4)?.trim()?.takeIf { it.isNotBlank() }
+                    marker = parts.getOrNull(4)?.trim()?.takeIf { it.isNotBlank() },
+                    codename = parts.getOrNull(5)?.trim()?.takeIf { it.isNotBlank() },
+                    releaseName = parts.getOrNull(6)?.trim()?.takeIf { it.isNotBlank() }
                 )
             }
     }

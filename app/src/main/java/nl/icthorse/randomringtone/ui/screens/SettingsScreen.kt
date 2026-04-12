@@ -1164,6 +1164,13 @@ private fun UpdateDialog(
                                     text = "v${version.version} (Build ${version.build})",
                                     style = MaterialTheme.typography.bodyMedium
                                 )
+                                if (version.buildName != null) {
+                                    Text(
+                                        text = version.buildName!!,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                                 Text(
                                     text = version.timestamp,
                                     style = MaterialTheme.typography.labelSmall,

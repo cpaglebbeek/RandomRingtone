@@ -65,3 +65,4 @@
 | 61 | Fresh install: scan voegt dubbelen toe — auto-restore trackId vs scan hashCode mismatch, geen localPath dedup | Groen | 1.6.4 | 1.7.4 | FIXED |
 | 62 | Tabblad kan altijd gewisseld worden, ook als er een proces op het huidige tabblad bezig is | Groen | 1.6.4 | 1.7.6 | FIXED |
 | 63 | Backup/restore toont geen voortgangsbalk met resterende ETA | Groen | 1.7.0 | 1.7.5 | FIXED |
+| 64 | Getrimde .m4a bestanden missen embedded metadata (titel, artiest, cover, marker) + enrichAll overschrijft albumArtPath met null | Geel | 1.9.5 | 1.9.6 | FIXED |

@@ -49,18 +49,28 @@ object Mp3Marker {
     }
 
     /**
-     * Check of een MP3 bestand een RandomRingtone marker bevat (track of trimmed).
+     * Check of een bestand een RandomRingtone marker bevat (track of trimmed).
+     * Ondersteunt MP3 (ID3v1 comment) en M4A (©cmt atom).
      */
     fun hasMarker(file: File): Boolean {
-        val comment = readComment(file) ?: return false
+        val comment = readCommentAny(file) ?: return false
         return comment == MARKER_TRACK || comment == MARKER_TRIMMED || comment == MARKER_YOUTUBE
     }
 
     /**
-     * Check of een MP3 bestand de "trimmed" marker bevat.
+     * Check of een bestand de "trimmed" marker bevat.
+     * Ondersteunt MP3 (ID3v1 comment) en M4A (©cmt atom).
      */
     fun isTrimmed(file: File): Boolean {
-        return readComment(file) == MARKER_TRIMMED
+        return readCommentAny(file) == MARKER_TRIMMED
+    }
+
+    /** Lees comment uit MP3 of M4A bestand */
+    private fun readCommentAny(file: File): String? {
+        return when (file.extension.lowercase()) {
+            "m4a", "mp4", "aac" -> M4aMetadata.readComment(file)
+            else -> readComment(file)
+        }
     }
 
     /**
@@ -125,10 +135,11 @@ object Mp3Marker {
     }
 
     /**
-     * Check of een MP3 bestand de "YoutubeClip" marker bevat.
+     * Check of een bestand de "YoutubeClip" marker bevat.
+     * Ondersteunt MP3 (ID3v1 comment) en M4A (©cmt atom).
      */
     fun isYouTube(file: File): Boolean {
-        return readComment(file) == MARKER_YOUTUBE
+        return readCommentAny(file) == MARKER_YOUTUBE
     }
 
     /**

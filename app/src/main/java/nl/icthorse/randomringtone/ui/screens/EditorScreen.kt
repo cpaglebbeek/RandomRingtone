@@ -609,6 +609,11 @@ fun EditorScreen(
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
                                     // Album art overnemen van origineel bestand
                                     val artPath = extractAlbumArt(context, audioFile, finalFile)
+                                    // M4A metadata embedden (titel, artiest, cover, marker)
+                                    if (ext == "m4a") {
+                                        val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
+                                        M4aMetadata.write(finalFile, name, trackArtist, artBytes, "RandomRingtone trimmed")
+                                    }
                                     val savedTrackId = saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
                                         addToPlaylist, createNew, selectedPlaylist, artPath)
                                     handlePostSave(setAsMainRingtone, ringtoneManager, snackbarHostState,
@@ -622,6 +627,10 @@ fun EditorScreen(
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
                                     saveProgress = 1f
                                     val artPath = extractAlbumArt(context, audioFile, finalFile)
+                                    if (ext == "m4a") {
+                                        val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
+                                        M4aMetadata.write(finalFile, name, trackArtist, artBytes, "RandomRingtone trimmed")
+                                    }
                                     val savedTrackId = saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
                                         addToPlaylist, createNew, selectedPlaylist, artPath)
                                     handlePostSave(setAsMainRingtone, ringtoneManager, snackbarHostState,
@@ -678,6 +687,7 @@ private suspend fun saveToDB(
         deezerTrackId = trackId, title = name, artist = artist,
         previewUrl = previewUrl, localPath = file.absolutePath, playlistName = playlistName,
         markerType = "trimmed",  // Editor slaat altijd getrimde bestanden op
+        id3Title = name, id3Artist = artist,
         albumArtPath = albumArtPath
     ))
     if (addToPlaylist) {

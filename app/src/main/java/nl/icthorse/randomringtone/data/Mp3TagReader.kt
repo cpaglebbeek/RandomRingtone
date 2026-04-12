@@ -66,7 +66,7 @@ object Mp3TagReader {
                     db.savedTrackDao().insert(track.copy(
                         id3Title = info.title ?: "",
                         id3Artist = info.artist ?: "",
-                        albumArtPath = info.albumArtPath
+                        albumArtPath = info.albumArtPath ?: track.albumArtPath // Bewaar bestaande art
                     ))
                 }
             }

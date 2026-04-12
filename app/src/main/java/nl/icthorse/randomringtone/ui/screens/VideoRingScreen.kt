@@ -1,6 +1,9 @@
 package nl.icthorse.randomringtone.ui.screens
 
 import android.media.MediaMetadataRetriever
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,9 +58,8 @@ fun VideoRingScreen(
     var downloadProgress by remember { mutableFloatStateOf(0f) }
 
     // Quality selection
-    var qualities by remember { mutableStateOf<List<Yt1sClient.QualityOption>>(emptyList()) }
-    var videoTitle by remember { mutableStateOf<String?>(null) }
-    var showQualityDialog by remember { mutableStateOf(false) }
+    var selectedQuality by remember { mutableStateOf("720p") }
+    val qualityOptions = listOf("360p", "720p", "1080p")
     var detectedVideoId by remember { mutableStateOf<String?>(null) }
 
     // Video library
@@ -71,6 +74,11 @@ fun VideoRingScreen(
 
     // Delete dialog
     var showDeleteDialog by remember { mutableStateOf<VideoItem?>(null) }
+
+    // Folder picker / indexing
+    var isIndexing by remember { mutableStateOf(false) }
+    var indexProgress by remember { mutableFloatStateOf(0f) }
+    var indexStatus by remember { mutableStateOf("") }
 
     val videoDir = remember {
         File(context.filesDir, "videoring").apply { mkdirs() }
@@ -88,6 +96,119 @@ fun VideoRingScreen(
                     thumbnailPath = vr.thumbnailPath,
                     isActive = vr.isActive
                 )
+            }
+        }
+    }
+
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        // Persistent permission zodat we er later bij kunnen
+        context.contentResolver.takePersistableUriPermission(
+            uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+        isIndexing = true
+        AppBusyState.isBusy = true
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val docTree = DocumentFile.fromTreeUri(context, uri) ?: return@withContext
+                val mp4Files = docTree.listFiles().filter { doc ->
+                    doc.isFile && doc.name?.lowercase()?.endsWith(".mp4") == true
+                }
+                if (mp4Files.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        indexStatus = ""
+                        isIndexing = false
+                        AppBusyState.isBusy = false
+                        snackbarHostState.showSnackbar("Geen MP4-bestanden gevonden in deze map")
+                    }
+                    return@withContext
+                }
+
+                var imported = 0
+                var skipped = 0
+                val existingPaths = db.videoRingtoneDao().getAll().map { it.localPath }.toSet()
+
+                mp4Files.forEachIndexed { idx, doc ->
+                    val fileName = doc.name ?: "video_${System.currentTimeMillis()}.mp4"
+                    val safeName = fileName.replace(Regex("[^a-zA-Z0-9._\\-]"), "_")
+                    val destFile = File(videoDir, safeName)
+
+                    // Skip als al geïndexeerd
+                    if (existingPaths.contains(destFile.absolutePath)) {
+                        skipped++
+                        indexProgress = (idx + 1).toFloat() / mp4Files.size
+                        indexStatus = "Overslaan: $fileName (al geïmporteerd)"
+                        return@forEachIndexed
+                    }
+
+                    indexProgress = (idx + 0.3f) / mp4Files.size
+                    indexStatus = "Kopiëren: $fileName (${idx + 1}/${mp4Files.size})"
+
+                    // Kopieer naar interne opslag
+                    try {
+                        context.contentResolver.openInputStream(doc.uri)?.use { input ->
+                            destFile.outputStream().use { output ->
+                                input.copyTo(output, bufferSize = 8192)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        skipped++
+                        indexProgress = (idx + 1).toFloat() / mp4Files.size
+                        return@forEachIndexed
+                    }
+
+                    indexProgress = (idx + 0.7f) / mp4Files.size
+                    indexStatus = "Indexeren: $fileName (${idx + 1}/${mp4Files.size})"
+
+                    // Metadata + thumbnail
+                    val retriever = MediaMetadataRetriever()
+                    var durationMs = 0L
+                    var title = destFile.nameWithoutExtension
+                    var artist = "Lokaal"
+                    try {
+                        retriever.setDataSource(destFile.absolutePath)
+                        durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)?.takeIf { it.isNotBlank() }?.let { title = it }
+                        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)?.takeIf { it.isNotBlank() }?.let { artist = it }
+                    } catch (_: Exception) {} finally {
+                        try { retriever.release() } catch (_: Exception) {}
+                    }
+
+                    // Thumbnail
+                    var thumbPath: String? = null
+                    try {
+                        val bmp = VideoTrimmer.extractThumbnail(destFile)
+                        if (bmp != null) {
+                            val thumbFile = File(videoDir, "${destFile.nameWithoutExtension}_thumb.jpg")
+                            thumbFile.outputStream().use {
+                                bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it)
+                            }
+                            thumbPath = thumbFile.absolutePath
+                        }
+                    } catch (_: Exception) {}
+
+                    db.videoRingtoneDao().insert(VideoRingtone(
+                        title = title,
+                        artist = artist,
+                        localPath = destFile.absolutePath,
+                        thumbnailPath = thumbPath,
+                        durationMs = durationMs
+                    ))
+                    imported++
+                    indexProgress = (idx + 1).toFloat() / mp4Files.size
+                }
+
+                withContext(Dispatchers.Main) {
+                    indexStatus = ""
+                    isIndexing = false
+                    AppBusyState.isBusy = false
+                    refresh()
+                    val msg = "$imported video('s) geïmporteerd" +
+                        if (skipped > 0) ", $skipped overgeslagen" else ""
+                    snackbarHostState.showSnackbar(msg)
+                }
             }
         }
     }
@@ -111,7 +232,7 @@ fun VideoRingScreen(
     ) {
         // === HEADER ===
         Text("VideoRing", style = MaterialTheme.typography.headlineSmall)
-        Text("Download YouTube video's als video-ringtone",
+        Text("YouTube downloaden of lokale MP4's importeren",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -136,40 +257,94 @@ fun VideoRingScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // === DOWNLOAD BUTTON ===
-        Button(
-            onClick = {
-                val vidId = extractVideoId(youtubeUrl)
-                if (vidId == null) {
-                    scope.launch { snackbarHostState.showSnackbar("Geen geldige YouTube URL") }
-                    return@Button
+        // === KWALITEIT + DOWNLOAD ===
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Kwaliteit dropdown
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(onClick = { expanded = true }) {
+                    Text(selectedQuality)
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                 }
-                detectedVideoId = vidId
-                isDownloading = true
-                AppBusyState.isBusy = true
-                scope.launch {
-                    val (title, opts) = yt1sClient.fetchQualities("https://www.youtube.com/watch?v=$vidId")
-                    isDownloading = false
-                    AppBusyState.isBusy = false
-                    if (opts.isEmpty()) {
-                        snackbarHostState.showSnackbar("Geen kwaliteitsopties gevonden")
-                    } else {
-                        videoTitle = title
-                        qualities = opts
-                        showQualityDialog = true
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    qualityOptions.forEach { q ->
+                        DropdownMenuItem(
+                            text = { Text(q) },
+                            onClick = { selectedQuality = q; expanded = false }
+                        )
                     }
                 }
-            },
-            enabled = youtubeUrl.isNotBlank() && !isDownloading,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (isDownloading && downloadProgress < 0.1f) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                Spacer(modifier = Modifier.width(8.dp))
             }
-            Icon(Icons.Default.CloudDownload, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Download MP4")
+
+            // Download button
+            Button(
+                onClick = {
+                    val vidId = extractVideoId(youtubeUrl)
+                    if (vidId == null) {
+                        scope.launch { snackbarHostState.showSnackbar("Geen geldige YouTube URL") }
+                        return@Button
+                    }
+                    detectedVideoId = vidId
+                    isDownloading = true
+                    AppBusyState.isBusy = true
+                    scope.launch {
+                        val result = yt1sClient.downloadVideo(
+                            videoId = vidId,
+                            quality = selectedQuality,
+                            destDir = videoDir,
+                            onProgress = { phase, progress ->
+                                downloadPhase = phase
+                                downloadProgress = progress
+                            }
+                        )
+                        isDownloading = false
+                        AppBusyState.isBusy = false
+                        downloadProgress = 0f
+
+                        if (result.success && result.file != null) {
+                            // Thumbnail genereren
+                            var thumbPath: String? = null
+                            withContext(Dispatchers.IO) {
+                                val bmp = VideoTrimmer.extractThumbnail(result.file)
+                                if (bmp != null) {
+                                    val thumbFile = File(videoDir, "${result.file.nameWithoutExtension}_thumb.jpg")
+                                    thumbFile.outputStream().use {
+                                        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it)
+                                    }
+                                    thumbPath = thumbFile.absolutePath
+                                }
+                            }
+                            db.videoRingtoneDao().insert(VideoRingtone(
+                                title = result.title ?: result.file.nameWithoutExtension,
+                                artist = "YouTube",
+                                localPath = result.file.absolutePath,
+                                thumbnailPath = thumbPath,
+                                durationMs = result.durationMs,
+                                videoId = vidId
+                            ))
+                            refresh()
+                            youtubeUrl = ""
+                            snackbarHostState.showSnackbar("Video opgeslagen: ${result.title ?: result.file.name}")
+                        } else {
+                            snackbarHostState.showSnackbar(result.error ?: "Download mislukt")
+                        }
+                    }
+                },
+                enabled = youtubeUrl.isNotBlank() && !isDownloading,
+                modifier = Modifier.weight(1f)
+            ) {
+                if (isDownloading) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Icon(Icons.Default.CloudDownload, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Download MP4")
+            }
         }
 
         // === DOWNLOAD PROGRESS ===
@@ -177,6 +352,26 @@ fun VideoRingScreen(
             Spacer(modifier = Modifier.height(8.dp))
             Text(downloadPhase, style = MaterialTheme.typography.labelMedium)
             LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth())
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // === MAP KIEZEN (LOKALE MP4's) ===
+        OutlinedButton(
+            onClick = { folderPickerLauncher.launch(null) },
+            enabled = !isIndexing && !isDownloading,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.FolderOpen, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Importeer MP4's uit map")
+        }
+
+        // === INDEXERING PROGRESS ===
+        if (isIndexing) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(indexStatus, style = MaterialTheme.typography.labelMedium)
+            LinearProgressIndicator(progress = { indexProgress }, modifier = Modifier.fillMaxWidth())
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -224,83 +419,7 @@ fun VideoRingScreen(
         }
     }
 
-    // === QUALITY SELECTIE DIALOOG ===
-    if (showQualityDialog) {
-        AlertDialog(
-            onDismissRequest = { showQualityDialog = false },
-            title = { Text(videoTitle ?: "Kwaliteit kiezen") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    qualities.forEach { opt ->
-                        OutlinedButton(
-                            onClick = {
-                                showQualityDialog = false
-                                val vidId = detectedVideoId ?: return@OutlinedButton
-                                isDownloading = true
-                                AppBusyState.isBusy = true
-                                scope.launch {
-                                    val result = yt1sClient.downloadVideo(
-                                        videoId = vidId,
-                                        qualityKey = opt.key,
-                                        title = videoTitle,
-                                        destDir = videoDir,
-                                        onProgress = { phase, progress ->
-                                            downloadPhase = phase
-                                            downloadProgress = progress
-                                        }
-                                    )
-                                    isDownloading = false
-                                    AppBusyState.isBusy = false
-                                    downloadProgress = 0f
 
-                                    if (result.success && result.file != null) {
-                                        // Thumbnail genereren
-                                        var thumbPath: String? = null
-                                        withContext(Dispatchers.IO) {
-                                            val bmp = VideoTrimmer.extractThumbnail(result.file)
-                                            if (bmp != null) {
-                                                val thumbFile = File(videoDir, "${result.file.nameWithoutExtension}_thumb.jpg")
-                                                thumbFile.outputStream().use {
-                                                    bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it)
-                                                }
-                                                thumbPath = thumbFile.absolutePath
-                                            }
-                                        }
-
-                                        db.videoRingtoneDao().insert(VideoRingtone(
-                                            title = videoTitle ?: result.file.nameWithoutExtension,
-                                            artist = "YouTube",
-                                            localPath = result.file.absolutePath,
-                                            thumbnailPath = thumbPath,
-                                            durationMs = result.durationMs,
-                                            videoId = vidId
-                                        ))
-                                        refresh()
-                                        youtubeUrl = ""
-                                        snackbarHostState.showSnackbar("Video opgeslagen: ${videoTitle ?: result.file.name}")
-                                    } else {
-                                        snackbarHostState.showSnackbar(result.error ?: "Download mislukt")
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("${opt.quality}p")
-                            if (opt.size.isNotBlank()) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("(${opt.size})", style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showQualityDialog = false }) { Text("Annuleren") }
-            }
-        )
-    }
 
     // === TRIM DIALOOG ===
     showTrimDialog?.let { video ->

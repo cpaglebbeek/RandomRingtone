@@ -1,5 +1,6 @@
 package nl.icthorse.randomringtone.ui.screens
 
+import nl.icthorse.randomringtone.AppBusyState
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -157,6 +158,7 @@ fun LibraryScreen(
     // === SCAN ===
     fun doScan() {
         isScanning = true
+        AppBusyState.isBusy = true
         scope.launch {
             try {
                 val result = ringtoneManager.storage.scanExistingFiles()
@@ -232,6 +234,7 @@ fun LibraryScreen(
                 scanDiagnostic = "Scan mislukt:\n${e.message}\n\n${e.stackTraceToString().take(500)}"
             } finally {
                 isScanning = false
+                AppBusyState.isBusy = false
             }
         }
     }

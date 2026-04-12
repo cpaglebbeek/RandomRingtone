@@ -27,6 +27,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
+import nl.icthorse.randomringtone.AppBusyState
 import nl.icthorse.randomringtone.data.AppRingtoneManager
 import nl.icthorse.randomringtone.data.RemoteLogger
 import nl.icthorse.randomringtone.data.RemoteVersion
@@ -835,12 +836,14 @@ fun SettingsScreen(
                     } else {
                         downloadingVersion = version
                         isDownloading = true
+                        AppBusyState.isBusy = true
                         downloadProgress = 0f
                         scope.launch {
                             val apkFile = updateManager.downloadApk(version) { read, total ->
                                 downloadProgress = if (total > 0) read.toFloat() / total else 0f
                             }
                             isDownloading = false
+                            AppBusyState.isBusy = false
                             if (apkFile != null) {
                                 if (installApkAllowed && canInstallPackages) {
                                     updateManager.installApk(apkFile)

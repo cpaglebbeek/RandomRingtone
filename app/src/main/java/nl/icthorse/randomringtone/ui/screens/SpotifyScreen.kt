@@ -1,5 +1,6 @@
 package nl.icthorse.randomringtone.ui.screens
 
+import nl.icthorse.randomringtone.AppBusyState
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
@@ -296,11 +297,13 @@ fun SpotifyScreen(
                     if (useDirectApi) {
                         // === DIRECTE API: FASE 1 — metadata ophalen + bevestigen ===
                         isDirectDownloading = true
+                        AppBusyState.isBusy = true
                         scope.launch {
                             directDownloadPhase = "Track info ophalen..."
                             directDownloadProgress = 0.1f
                             val trackInfo = spotMateClient.fetchTrackInfo(trackUrl)
                             isDirectDownloading = false
+                            AppBusyState.isBusy = false
                             if (trackInfo != null) {
                                 confirmTrackInfo = trackInfo
                                 confirmTrackUrl = trackUrl
@@ -551,6 +554,7 @@ fun SpotifyScreen(
                         pendingOverwriteFile = null
                         pendingOverwriteTrackInfo = null
                         isDirectDownloading = true
+                        AppBusyState.isBusy = true
                         scope.launch {
                             val result = spotMateClient.downloadTrack(
                                 spotifyUrl = url,
@@ -562,6 +566,7 @@ fun SpotifyScreen(
                                 forceOverwrite = true
                             )
                             isDirectDownloading = false
+                            AppBusyState.isBusy = false
                             if (result.success && result.file != null) {
                                 lastDownloadedFile = result.file
                                 showActionsDialog = true

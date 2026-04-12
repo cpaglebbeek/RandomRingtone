@@ -23,13 +23,13 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 98
-        versionName = "1.7.5"
+        versionCode = 99
+        versionName = "1.7.6"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"Michael_Jackson\"")
-        buildConfigField("String", "RELEASE_NAME", "\"Blood_On_The_Dance_Floor\"")
-        buildConfigField("int", "BUILD_NUMBER", "98")
+        buildConfigField("String", "RELEASE_NAME", "\"HIStory\"")
+        buildConfigField("int", "BUILD_NUMBER", "99")
     }
 
     buildTypes {
@@ -50,7 +50,7 @@ android {
         val variant = this
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "RandomRingtone-v${variant.versionName}-Michael_Jackson-Blood_On_The_Dance_Floor-${variant.buildType.name}.apk"
+            output.outputFileName = "RandomRingtone-v${variant.versionName}-Michael_Jackson-HIStory-${variant.buildType.name}.apk"
         }
     }
 

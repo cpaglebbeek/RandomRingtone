@@ -29,6 +29,11 @@ import nl.icthorse.randomringtone.ui.screens.*
 import java.io.File
 import nl.icthorse.randomringtone.ui.theme.RandomRingtoneTheme
 
+/** Gedeelde staat: voorkomt tab-wisseling tijdens actieve processen */
+object AppBusyState {
+    var isBusy by androidx.compose.runtime.mutableStateOf(false)
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -140,6 +145,7 @@ fun RandomRingtoneApp() {
                         icon = { Icon(icon, contentDescription = label) },
                         label = { Text(label) },
                         selected = selectedTab == index,
+                        enabled = !AppBusyState.isBusy,
                         onClick = {
                             RemoteLogger.trigger("Navigation", "Tab tapped: $label (index=$index)")
                             selectedTab = index

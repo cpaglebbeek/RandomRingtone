@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.launch
+import nl.icthorse.randomringtone.AppBusyState
 import nl.icthorse.randomringtone.data.*
 import java.io.File
 
@@ -193,6 +194,7 @@ fun YouTubeScreen(
                     // Markeer als verwerkt (voorkom dubbele clipboard triggers)
                     processedClipUrls = processedClipUrls + "youtu.be/$videoId" + "youtube.com/watch?v=$videoId"
                     isDownloading = true
+                    AppBusyState.isBusy = true
                     scope.launch {
                         val result = y2MateClient.downloadTrack(
                             videoId = videoId,
@@ -204,6 +206,7 @@ fun YouTubeScreen(
                             }
                         )
                         isDownloading = false
+                        AppBusyState.isBusy = false
                         if (result.fileExists && result.file != null) {
                             pendingOverwriteVideoId = videoId
                             pendingOverwriteFile = result.file
@@ -293,6 +296,7 @@ fun YouTubeScreen(
                     pendingOverwriteFile = null
                     pendingOverwriteTitle = null
                     isDownloading = true
+                    AppBusyState.isBusy = true
                     scope.launch {
                         val result = y2MateClient.downloadTrack(
                             videoId = videoId,
@@ -305,6 +309,7 @@ fun YouTubeScreen(
                             forceOverwrite = true
                         )
                         isDownloading = false
+                        AppBusyState.isBusy = false
                         if (result.success && result.file != null) {
                             lastDownloadedFile = result.file
                             showActionsDialog = true

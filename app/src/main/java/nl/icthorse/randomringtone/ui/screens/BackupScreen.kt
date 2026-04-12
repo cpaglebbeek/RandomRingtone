@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import nl.icthorse.randomringtone.AppBusyState
 import nl.icthorse.randomringtone.data.*
 
 private enum class BackupProvider(val label: String) {
@@ -257,12 +258,14 @@ fun BackupScreen(
                 onClick = {
                     scope.launch {
                         isProcessing = true
+                        AppBusyState.isBusy = true
                         val result = if (selectedProvider == BackupProvider.ICT_HORSE) {
                             ictHorseClient.backup(db, storage, backupManager, onProgress)
                         } else {
                             backupManager.backup(Uri.parse(backupUri), db, storage, onProgress)
                         }
                         isProcessing = false
+                        AppBusyState.isBusy = false
                         if (result.success) {
                             // Refresh meta
                             backupMeta = if (selectedProvider == BackupProvider.ICT_HORSE) {
@@ -315,12 +318,14 @@ fun BackupScreen(
                         showRestoreConfirm = false
                         scope.launch {
                             isProcessing = true
+                            AppBusyState.isBusy = true
                             val result = if (selectedProvider == BackupProvider.ICT_HORSE) {
                                 ictHorseClient.restore(db, storage, onProgress)
                             } else {
                                 backupManager.restore(Uri.parse(backupUri), db, storage, onProgress)
                             }
                             isProcessing = false
+                            AppBusyState.isBusy = false
                             if (result.success) {
                                 backupMeta = if (selectedProvider == BackupProvider.ICT_HORSE) {
                                     try { ictHorseClient.getStatus().meta } catch (_: Exception) { null }

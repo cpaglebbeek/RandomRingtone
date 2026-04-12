@@ -13,6 +13,7 @@ import java.io.File
 
 /**
  * HTTP client voor backup/restore via icthorse.nl/randomringtone/backup_api.php
+ * Ondersteunt maximaal 2 backup-slots per device.
  */
 class IctHorseBackupClient(private val context: Context) {
 
@@ -37,39 +38,44 @@ class IctHorseBackupClient(private val context: Context) {
             .addHeader("X-Api-Key", API_KEY)
             .addHeader("X-Device-Id", deviceId)
 
-    // ── Status: check of backup bestaat ──────────────────────────────
+    // ── Status: ophalen van beide slots ─────────────────────────────
 
-    suspend fun getStatus(): IctHorseStatus = withContext(Dispatchers.IO) {
-        val request = baseRequest()
-            .url("$BASE_URL?action=status")
-            .get()
-            .build()
-
-        val response = client.newCall(request).execute()
-        val body = response.body?.string() ?: "{}"
-        response.close()
-        if (!response.isSuccessful) {
-            return@withContext IctHorseStatus(exists = false, error = "HTTP ${response.code}")
-        }
-
+    suspend fun getSlotStatus(): List<SlotInfo> = withContext(Dispatchers.IO) {
         try {
+            val request = baseRequest()
+                .url("$BASE_URL?action=status")
+                .get()
+                .build()
+
+            val response = client.newCall(request).execute()
+            val body = response.body?.string() ?: "{}"
+            response.close()
+            if (!response.isSuccessful) {
+                return@withContext emptyList()
+            }
+
             val map = json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(body)
-            val exists = map["exists"]?.toString() == "true"
-            val meta = if (exists) {
-                val metaObj = map["meta"]
-                if (metaObj != null) json.decodeFromString<BackupMeta>(metaObj.toString()) else null
-            } else null
-            IctHorseStatus(exists = exists, meta = meta)
-        } catch (_: Exception) {
-            IctHorseStatus(exists = false, error = body)
+            val slotsArray = map["slots"]?.toString() ?: "[]"
+            val rawSlots = json.decodeFromString<List<RawSlotStatus>>(slotsArray)
+
+            rawSlots.map { raw ->
+                val meta = if (raw.exists && raw.meta != null) {
+                    json.decodeFromString<BackupMeta>(raw.meta.toString())
+                } else null
+                SlotInfo(slot = raw.slot, exists = raw.exists, meta = meta)
+            }
+        } catch (e: Exception) {
+            RemoteLogger.e("IctHorseBackup", "Status ophalen mislukt", mapOf("error" to (e.message ?: "unknown")))
+            emptyList()
         }
     }
 
-    // ── Backup: init + upload files + complete ───────────────────────
+    // ── Backup: init + upload files + complete ──────────────────────
 
     private val audioExtensions = setOf("mp3", "m4a")
 
     suspend fun backup(
+        slot: Int,
         db: RingtoneDatabase,
         storage: StorageManager,
         backupManager: BackupManager,
@@ -77,9 +83,9 @@ class IctHorseBackupClient(private val context: Context) {
     ): BackupResult = withContext(Dispatchers.IO) {
         try {
             // Phase 1: Init
-            onProgress(BackupProgress("Server voorbereiden...", 1, 7))
-            RemoteLogger.i("IctHorseBackup", "Backup gestart")
-            val initResponse = post("$BASE_URL?action=init")
+            onProgress(BackupProgress("Server voorbereiden (slot $slot)...", 1, 7))
+            RemoteLogger.i("IctHorseBackup", "Backup gestart", mapOf("slot" to slot.toString()))
+            val initResponse = post("$BASE_URL?action=init&slot=$slot")
             if (!initResponse.isSuccessful) {
                 val code = initResponse.code
                 initResponse.close()
@@ -110,7 +116,6 @@ class IctHorseBackupClient(private val context: Context) {
                 PlaylistTrackBackup(it.playlistId, it.trackId, it.sortOrder)
             }
 
-            // Tel bestanden vooraf voor meta
             val downloadDir = storage.getDownloadDir()
             val ringtoneDir = storage.getRingtoneDir()
             val downloadFiles = downloadDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExtensions } ?: emptyList()
@@ -143,44 +148,44 @@ class IctHorseBackupClient(private val context: Context) {
             onProgress(BackupProgress("Database uploaden...", 3, 7))
             val jsonFileNames = listOf("backup_meta.json", "saved_tracks.json", "playlists.json", "playlist_tracks.json")
             for (file in jsonFileNames) {
-                uploadFile(File(tempDir, file), file)
+                uploadFile(slot, File(tempDir, file), file)
             }
 
             // Phase 4: Upload download files
             onProgress(BackupProgress("Downloads uploaden (${downloadFiles.size})...", 4, 7))
             var uploadedFiles = 0
             downloadFiles.forEach { file ->
-                uploadFile(file, "downloads/${file.name}")
+                uploadFile(slot, file, "downloads/${file.name}")
                 uploadedFiles++
             }
 
             // Phase 5: Upload ringtone files
             onProgress(BackupProgress("Ringtones uploaden (${ringtoneFiles.size})...", 5, 7))
             ringtoneFiles.forEach { file ->
-                uploadFile(file, "ringtones/${file.name}")
+                uploadFile(slot, file, "ringtones/${file.name}")
                 uploadedFiles++
             }
 
             // Phase 6: Re-upload meta met finale counts
             onProgress(BackupProgress("Metadata bijwerken...", 6, 7))
-            uploadFile(File(tempDir, "backup_meta.json"), "backup_meta.json")
+            uploadFile(slot, File(tempDir, "backup_meta.json"), "backup_meta.json")
 
             // Phase 7: Complete
             onProgress(BackupProgress("Afronden...", 7, 7))
-            val completeResponse = post("$BASE_URL?action=complete")
+            val completeResponse = post("$BASE_URL?action=complete&slot=$slot")
             completeResponse.close()
 
-            // Cleanup temp
             tempDir.deleteRecursively()
 
             RemoteLogger.i("IctHorseBackup", "Backup voltooid", mapOf(
+                "slot" to slot.toString(),
                 "tracks" to tracks.size.toString(),
                 "files" to uploadedFiles.toString()
             ))
 
             BackupResult(
                 success = true,
-                message = "Backup naar iCt Horse geslaagd: ${tracks.size} tracks, ${playlists.size} playlists, $uploadedFiles bestanden",
+                message = "Backup naar slot $slot geslaagd: ${tracks.size} tracks, ${playlists.size} playlists, $uploadedFiles bestanden",
                 trackCount = tracks.size,
                 playlistCount = playlists.size,
                 fileCount = uploadedFiles
@@ -191,17 +196,18 @@ class IctHorseBackupClient(private val context: Context) {
         }
     }
 
-    // ── Restore: list + download files ───────────────────────────────
+    // ── Restore: list + download files ──────────────────────────────
 
     suspend fun restore(
+        slot: Int,
         db: RingtoneDatabase,
         storage: StorageManager,
         onProgress: (BackupProgress) -> Unit
     ): BackupResult = withContext(Dispatchers.IO) {
         try {
             // Phase 1: Get file list
-            onProgress(BackupProgress("Bestandslijst ophalen...", 1, 5))
-            val listResponse = get("$BASE_URL?action=list")
+            onProgress(BackupProgress("Bestandslijst ophalen (slot $slot)...", 1, 5))
+            val listResponse = get("$BASE_URL?action=list&slot=$slot")
             val listBody = listResponse.body?.string() ?: "{}"
             if (!listResponse.isSuccessful) {
                 return@withContext BackupResult(false, "Lijst ophalen mislukt: HTTP ${listResponse.code}")
@@ -216,7 +222,7 @@ class IctHorseBackupClient(private val context: Context) {
 
             val jsonFiles = listOf("saved_tracks.json", "playlists.json", "playlist_tracks.json")
             for (file in jsonFiles) {
-                downloadFile(file, File(tempDir, file))
+                downloadFile(slot, file, File(tempDir, file))
             }
 
             // Phase 3: Restore database
@@ -255,7 +261,6 @@ class IctHorseBackupClient(private val context: Context) {
             onProgress(BackupProgress("Bestanden downloaden...", 4, 5))
             var restoredFiles = 0
 
-            // Parse file list to find MP3s
             val listMap = jsonDecoder.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(listBody)
             val filesArray = listMap["files"]?.let {
                 jsonDecoder.decodeFromString<List<FileEntry>>(it.toString())
@@ -265,10 +270,10 @@ class IctHorseBackupClient(private val context: Context) {
             for (entry in filesArray) {
                 val isAudio = audioExtensions.any { entry.path.endsWith(".$it") }
                 if (entry.path.startsWith("downloads/") && isAudio) {
-                    downloadFile(entry.path, File(downloadDir, File(entry.path).name))
+                    downloadFile(slot, entry.path, File(downloadDir, File(entry.path).name))
                     restoredFiles++
                 } else if (entry.path.startsWith("ringtones/") && isAudio) {
-                    downloadFile(entry.path, File(ringtoneDir, File(entry.path).name))
+                    downloadFile(slot, entry.path, File(ringtoneDir, File(entry.path).name))
                     restoredFiles++
                 }
             }
@@ -278,7 +283,7 @@ class IctHorseBackupClient(private val context: Context) {
 
             BackupResult(
                 success = true,
-                message = "Herstel van iCt Horse geslaagd: ${trackBackups.size} tracks, ${playlistBackups.size} playlists, $restoredFiles bestanden",
+                message = "Herstel van slot $slot geslaagd: ${trackBackups.size} tracks, ${playlistBackups.size} playlists, $restoredFiles bestanden",
                 trackCount = trackBackups.size,
                 playlistCount = playlistBackups.size,
                 fileCount = restoredFiles
@@ -288,7 +293,7 @@ class IctHorseBackupClient(private val context: Context) {
         }
     }
 
-    // ── HTTP helpers ─────────────────────────────────────────────────
+    // ── HTTP helpers ────────────────────────────────────────────────
 
     private fun post(url: String): Response {
         val request = baseRequest()
@@ -306,7 +311,7 @@ class IctHorseBackupClient(private val context: Context) {
         return client.newCall(request).execute()
     }
 
-    private fun uploadFile(file: File, remotePath: String) {
+    private fun uploadFile(slot: Int, file: File, remotePath: String) {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("path", remotePath)
@@ -314,7 +319,7 @@ class IctHorseBackupClient(private val context: Context) {
             .build()
 
         val request = baseRequest()
-            .url("$BASE_URL?action=upload")
+            .url("$BASE_URL?action=upload&slot=$slot")
             .post(body)
             .build()
 
@@ -325,9 +330,9 @@ class IctHorseBackupClient(private val context: Context) {
         response.close()
     }
 
-    private fun downloadFile(remotePath: String, destFile: File) {
+    private fun downloadFile(slot: Int, remotePath: String, destFile: File) {
         val request = baseRequest()
-            .url("$BASE_URL?action=download&file=$remotePath")
+            .url("$BASE_URL?action=download&slot=$slot&file=$remotePath")
             .get()
             .build()
 
@@ -346,6 +351,19 @@ class IctHorseBackupClient(private val context: Context) {
         response.close()
     }
 }
+
+data class SlotInfo(
+    val slot: Int,
+    val exists: Boolean,
+    val meta: BackupMeta? = null
+)
+
+@kotlinx.serialization.Serializable
+data class RawSlotStatus(
+    val slot: Int,
+    val exists: Boolean,
+    val meta: kotlinx.serialization.json.JsonElement? = null
+)
 
 data class IctHorseStatus(
     val exists: Boolean,

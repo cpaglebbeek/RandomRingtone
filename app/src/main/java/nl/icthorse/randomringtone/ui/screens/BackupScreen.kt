@@ -41,7 +41,6 @@ fun BackupScreen(
 
     var selectedProvider by remember { mutableStateOf(BackupProvider.ICT_HORSE) }
     var backupUri by remember { mutableStateOf("") }
-    var backupMeta by remember { mutableStateOf<BackupMeta?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
     var progressPhase by remember { mutableStateOf("") }
     var progressCurrent by remember { mutableIntStateOf(0) }
@@ -49,33 +48,42 @@ fun BackupScreen(
     var progressPct by remember { mutableStateOf(0f) }
     var progressBps by remember { mutableStateOf(0L) }
     var progressEta by remember { mutableIntStateOf(-1) }
+
+    // Slot state (iCt Horse)
+    var slots by remember { mutableStateOf<List<SlotInfo>>(emptyList()) }
+    var showSlotBackupDialog by remember { mutableStateOf(false) }
+    var showSlotRestoreDialog by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
+    var selectedSlot by remember { mutableIntStateOf(0) }
+
+    // SAF backup meta (voor non-iCt Horse providers)
+    var safBackupMeta by remember { mutableStateOf<BackupMeta?>(null) }
 
     // Load saved state
     LaunchedEffect(Unit) {
         backupUri = storage.getBackupUri() ?: ""
         if (backupUri.isNotBlank()) {
-            backupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+            safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
         }
     }
 
-    // Load iCt Horse status wanneer provider geselecteerd
+    // Load iCt Horse slot status wanneer provider geselecteerd
     LaunchedEffect(selectedProvider) {
         if (selectedProvider == BackupProvider.ICT_HORSE) {
-            try {
-                val status = ictHorseClient.getStatus()
-                backupMeta = status.meta
-            } catch (_: Exception) {
-                backupMeta = null
-            }
+            slots = try { ictHorseClient.getSlotStatus() } catch (_: Exception) { emptyList() }
         } else if (backupUri.isNotBlank()) {
-            backupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+            safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
         } else {
-            backupMeta = null
+            safBackupMeta = null
         }
     }
 
-    // SAF directory picker (voor GDrive/Dropbox/OneDrive)
+    // Refresh slots na backup/restore
+    suspend fun refreshSlots() {
+        slots = try { ictHorseClient.getSlotStatus() } catch (_: Exception) { emptyList() }
+    }
+
+    // SAF directory picker
     val directoryPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
@@ -87,7 +95,7 @@ fun BackupScreen(
             scope.launch {
                 storage.setBackupUri(uri.toString())
                 backupUri = uri.toString()
-                backupMeta = backupManager.readBackupInfo(uri)
+                safBackupMeta = backupManager.readBackupInfo(uri)
             }
         }
     }
@@ -100,6 +108,32 @@ fun BackupScreen(
         progressPct = p.percentage
         progressBps = p.bytesPerSecond
         progressEta = p.etaSeconds
+    }
+
+    // Backup uitvoeren voor gekozen slot
+    fun doBackup(slot: Int) {
+        scope.launch {
+            isProcessing = true
+            AppBusyState.isBusy = true
+            val result = ictHorseClient.backup(slot, db, storage, backupManager, onProgress)
+            isProcessing = false
+            AppBusyState.isBusy = false
+            if (result.success) refreshSlots()
+            snackbarHostState.showSnackbar(result.message)
+        }
+    }
+
+    // Restore uitvoeren voor gekozen slot
+    fun doRestore(slot: Int) {
+        scope.launch {
+            isProcessing = true
+            AppBusyState.isBusy = true
+            val result = ictHorseClient.restore(slot, db, storage, onProgress)
+            isProcessing = false
+            AppBusyState.isBusy = false
+            if (result.success) refreshSlots()
+            snackbarHostState.showSnackbar(result.message)
+        }
     }
 
     Column(
@@ -133,7 +167,6 @@ fun BackupScreen(
 
         // === Provider-specifieke config ===
         if (selectedProvider == BackupProvider.ICT_HORSE) {
-            // iCt Horse: auto-geconfigureerd
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -147,10 +180,50 @@ fun BackupScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        "Automatisch gekoppeld aan dit apparaat",
+                        "Maximaal 2 backups per apparaat",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
+                }
+            }
+
+            // === Slot overzicht ===
+            slots.forEach { slotInfo ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (slotInfo.exists)
+                            MaterialTheme.colorScheme.secondaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                if (slotInfo.exists) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Slot ${slotInfo.slot}",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                        }
+                        if (slotInfo.exists && slotInfo.meta != null) {
+                            val meta = slotInfo.meta
+                            Text("Datum: ${meta.backupDate}", style = MaterialTheme.typography.bodySmall)
+                            Text("v${meta.appVersion} — ${meta.trackCount} tracks, ${meta.playlistCount} playlists",
+                                style = MaterialTheme.typography.bodySmall)
+                            Text("${meta.downloadFileCount} downloads + ${meta.ringtoneFileCount} ringtones",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            Text("Leeg", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                 }
             }
         } else {
@@ -162,7 +235,6 @@ fun BackupScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("${selectedProvider.label} map", style = MaterialTheme.typography.titleMedium)
                     }
-
                     if (backupUri.isNotBlank()) {
                         Text(
                             text = Uri.parse(backupUri).lastPathSegment ?: backupUri,
@@ -176,7 +248,6 @@ fun BackupScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-
                     Button(
                         onClick = { directoryPicker.launch(null) },
                         enabled = !isProcessing
@@ -187,23 +258,22 @@ fun BackupScreen(
                     }
                 }
             }
-        }
 
-        // === Laatste Backup Info ===
-        if (backupMeta != null) {
-            val meta = backupMeta!!
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Laatste backup", style = MaterialTheme.typography.titleMedium)
+            // SAF backup info
+            if (safBackupMeta != null) {
+                val meta = safBackupMeta!!
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Laatste backup", style = MaterialTheme.typography.titleMedium)
+                        }
+                        Text("Datum: ${meta.backupDate}")
+                        Text("App versie: ${meta.appVersion}")
+                        Text("Tracks: ${meta.trackCount} | Playlists: ${meta.playlistCount}")
+                        Text("Bestanden: ${meta.downloadFileCount} downloads + ${meta.ringtoneFileCount} ringtones")
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Datum: ${meta.backupDate}")
-                    Text("App versie: ${meta.appVersion}")
-                    Text("Tracks: ${meta.trackCount} | Playlists: ${meta.playlistCount}")
-                    Text("Bestanden: ${meta.downloadFileCount} downloads + ${meta.ringtoneFileCount} ringtones")
                 }
             }
         }
@@ -225,7 +295,6 @@ fun BackupScreen(
                         val pctText = "${(progressPct * 100).toInt()}%"
                         val fileText = "$progressCurrent / $progressTotal"
                         Text("$pctText  ($fileText)", style = MaterialTheme.typography.labelSmall)
-
                         val speedText = if (progressBps > 0) {
                             val mbps = progressBps / (1024.0 * 1024.0)
                             if (mbps >= 1.0) "%.1f MB/s".format(mbps) else "%.0f KB/s".format(progressBps / 1024.0)
@@ -248,7 +317,11 @@ fun BackupScreen(
 
         // === Actieknoppen ===
         val canBackup = if (selectedProvider == BackupProvider.ICT_HORSE) true else backupUri.isNotBlank()
-        val canRestore = canBackup && backupMeta != null
+        val canRestore = if (selectedProvider == BackupProvider.ICT_HORSE) {
+            slots.any { it.exists }
+        } else {
+            backupUri.isNotBlank() && safBackupMeta != null
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -256,25 +329,27 @@ fun BackupScreen(
         ) {
             Button(
                 onClick = {
-                    scope.launch {
-                        isProcessing = true
-                        AppBusyState.isBusy = true
-                        val result = if (selectedProvider == BackupProvider.ICT_HORSE) {
-                            ictHorseClient.backup(db, storage, backupManager, onProgress)
+                    if (selectedProvider == BackupProvider.ICT_HORSE) {
+                        val freeSlot = slots.firstOrNull { !it.exists }
+                        if (freeSlot != null) {
+                            // Vrije slot beschikbaar → direct gebruiken
+                            doBackup(freeSlot.slot)
                         } else {
-                            backupManager.backup(Uri.parse(backupUri), db, storage, onProgress)
+                            // Beide vol → gebruiker laten kiezen
+                            showSlotBackupDialog = true
                         }
-                        isProcessing = false
-                        AppBusyState.isBusy = false
-                        if (result.success) {
-                            // Refresh meta
-                            backupMeta = if (selectedProvider == BackupProvider.ICT_HORSE) {
-                                try { ictHorseClient.getStatus().meta } catch (_: Exception) { null }
-                            } else {
-                                backupManager.readBackupInfo(Uri.parse(backupUri))
+                    } else {
+                        scope.launch {
+                            isProcessing = true
+                            AppBusyState.isBusy = true
+                            val result = backupManager.backup(Uri.parse(backupUri), db, storage, onProgress)
+                            isProcessing = false
+                            AppBusyState.isBusy = false
+                            if (result.success) {
+                                safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
                             }
+                            snackbarHostState.showSnackbar(result.message)
                         }
-                        snackbarHostState.showSnackbar(result.message)
                     }
                 },
                 enabled = canBackup && !isProcessing,
@@ -286,7 +361,22 @@ fun BackupScreen(
             }
 
             OutlinedButton(
-                onClick = { showRestoreConfirm = true },
+                onClick = {
+                    if (selectedProvider == BackupProvider.ICT_HORSE) {
+                        val filledSlots = slots.filter { it.exists }
+                        if (filledSlots.size == 1) {
+                            // Maar 1 backup → direct bevestigingsdialoog
+                            selectedSlot = filledSlots[0].slot
+                            showRestoreConfirm = true
+                        } else {
+                            // Meerdere → gebruiker laten kiezen
+                            showSlotRestoreDialog = true
+                        }
+                    } else {
+                        selectedSlot = 0
+                        showRestoreConfirm = true
+                    }
+                },
                 enabled = canRestore && !isProcessing,
                 modifier = Modifier.weight(1f)
             ) {
@@ -297,43 +387,131 @@ fun BackupScreen(
         }
     }
 
+    // === Dialoog: welke slot overschrijven? (backup) ===
+    if (showSlotBackupDialog) {
+        AlertDialog(
+            onDismissRequest = { showSlotBackupDialog = false },
+            icon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
+            title = { Text("Welke backup overschrijven?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Beide slots zijn bezet. Kies welke je wilt overschrijven:")
+                    slots.filter { it.exists }.forEach { slotInfo ->
+                        Card(
+                            onClick = {
+                                showSlotBackupDialog = false
+                                doBackup(slotInfo.slot)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Slot ${slotInfo.slot}", style = MaterialTheme.typography.titleSmall)
+                                    if (slotInfo.meta != null) {
+                                        Text(slotInfo.meta.backupDate, style = MaterialTheme.typography.bodySmall)
+                                        Text("v${slotInfo.meta.appVersion} — ${slotInfo.meta.trackCount} tracks",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                Icon(Icons.Default.ChevronRight, contentDescription = null)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showSlotBackupDialog = false }) { Text("Annuleren") }
+            }
+        )
+    }
+
+    // === Dialoog: welke slot herstellen? (restore) ===
+    if (showSlotRestoreDialog) {
+        AlertDialog(
+            onDismissRequest = { showSlotRestoreDialog = false },
+            icon = { Icon(Icons.Default.Restore, contentDescription = null) },
+            title = { Text("Welke backup herstellen?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Kies de backup die je wilt herstellen:")
+                    slots.filter { it.exists }.forEach { slotInfo ->
+                        Card(
+                            onClick = {
+                                showSlotRestoreDialog = false
+                                selectedSlot = slotInfo.slot
+                                showRestoreConfirm = true
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Slot ${slotInfo.slot}", style = MaterialTheme.typography.titleSmall)
+                                    if (slotInfo.meta != null) {
+                                        Text(slotInfo.meta.backupDate, style = MaterialTheme.typography.bodySmall)
+                                        Text("v${slotInfo.meta.appVersion} — ${slotInfo.meta.trackCount} tracks, ${slotInfo.meta.playlistCount} playlists",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                Icon(Icons.Default.ChevronRight, contentDescription = null)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showSlotRestoreDialog = false }) { Text("Annuleren") }
+            }
+        )
+    }
+
     // === Herstel bevestigingsdialoog ===
     if (showRestoreConfirm) {
+        val restoreMeta = if (selectedProvider == BackupProvider.ICT_HORSE) {
+            slots.firstOrNull { it.slot == selectedSlot }?.meta
+        } else safBackupMeta
+
         AlertDialog(
             onDismissRequest = { showRestoreConfirm = false },
             icon = { Icon(Icons.Default.Warning, contentDescription = null) },
             title = { Text("Backup herstellen?") },
             text = {
                 Text(
-                    "Dit vervangt ALLE huidige data met de backup van ${selectedProvider.label}. " +
-                        "Dit kan niet ongedaan worden gemaakt.\n\n" +
-                        "Backup van: ${backupMeta?.backupDate ?: "?"}\n" +
-                        "Tracks: ${backupMeta?.trackCount ?: 0}\n" +
-                        "Playlists: ${backupMeta?.playlistCount ?: 0}"
+                    "Dit vervangt ALLE huidige data" +
+                        (if (selectedProvider == BackupProvider.ICT_HORSE) " met slot $selectedSlot" else "") +
+                        ". Dit kan niet ongedaan worden gemaakt.\n\n" +
+                        "Backup van: ${restoreMeta?.backupDate ?: "?"}\n" +
+                        "Tracks: ${restoreMeta?.trackCount ?: 0}\n" +
+                        "Playlists: ${restoreMeta?.playlistCount ?: 0}"
                 )
             },
             confirmButton = {
                 Button(
                     onClick = {
                         showRestoreConfirm = false
-                        scope.launch {
-                            isProcessing = true
-                            AppBusyState.isBusy = true
-                            val result = if (selectedProvider == BackupProvider.ICT_HORSE) {
-                                ictHorseClient.restore(db, storage, onProgress)
-                            } else {
-                                backupManager.restore(Uri.parse(backupUri), db, storage, onProgress)
-                            }
-                            isProcessing = false
-                            AppBusyState.isBusy = false
-                            if (result.success) {
-                                backupMeta = if (selectedProvider == BackupProvider.ICT_HORSE) {
-                                    try { ictHorseClient.getStatus().meta } catch (_: Exception) { null }
-                                } else {
-                                    backupManager.readBackupInfo(Uri.parse(backupUri))
+                        if (selectedProvider == BackupProvider.ICT_HORSE) {
+                            doRestore(selectedSlot)
+                        } else {
+                            scope.launch {
+                                isProcessing = true
+                                AppBusyState.isBusy = true
+                                val result = backupManager.restore(Uri.parse(backupUri), db, storage, onProgress)
+                                isProcessing = false
+                                AppBusyState.isBusy = false
+                                if (result.success) {
+                                    safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
                                 }
+                                snackbarHostState.showSnackbar(result.message)
                             }
-                            snackbarHostState.showSnackbar(result.message)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)

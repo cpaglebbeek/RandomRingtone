@@ -99,3 +99,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 92 | 1.6.4 | Michael_Jackson | ABC | 2026-04-04 | Ja |
 | 93 | 1.7.0 | Michael_Jackson | Earth_Song | 2026-04-12 | Nee |
 | 117 | 1.9.6 | Michael_Jackson | Thriller | 2026-04-12 | Nee |
+| 118 | 1.9.7 | Michael_Jackson | Beat_It | 2026-04-12 | Nee |

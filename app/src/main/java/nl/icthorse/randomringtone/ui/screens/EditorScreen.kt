@@ -287,6 +287,22 @@ fun EditorScreen(
                     }
                 }
 
+                // === LIVE POSITIE TELLER ===
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isPlaying && playbackFraction >= 0f) {
+                        val posMs = (playbackFraction * data.durationMs).toLong()
+                        val elapsedMs = posMs - startMs
+                        Text(
+                            "Duur: ${formatTime(elapsedMs.coerceAtLeast(0))} / ${formatTime(selectionMs)}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
                 // === WAVEFORM ===
                 WaveformView(
                     amplitudes = data.amplitudes,

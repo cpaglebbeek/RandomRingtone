@@ -194,6 +194,12 @@ fun LibraryScreen(
                 } else {
                     var added = 0
                     for (sf in scanned) {
+                        // Dedup: check of bestand al in DB staat via localPath
+                        if (sf.localPath.isNotBlank()) {
+                            val byPath = db.savedTrackDao().getByLocalPath(sf.localPath)
+                            if (byPath != null) continue // bestand al geregistreerd
+                        }
+
                         val byId = db.savedTrackDao().getById(sf.trackId)
                         if (byId == null) {
                             db.savedTrackDao().insert(

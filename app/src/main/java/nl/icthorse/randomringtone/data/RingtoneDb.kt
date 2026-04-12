@@ -187,6 +187,9 @@ interface SavedTrackDao {
 
     @Query("SELECT * FROM saved_tracks WHERE markerType IS NULL AND localPath IS NOT NULL")
     suspend fun getTracksWithoutMarker(): List<SavedTrack>
+
+    @Query("SELECT * FROM saved_tracks WHERE localPath = :path LIMIT 1")
+    suspend fun getByLocalPath(path: String): SavedTrack?
 }
 
 // --- Database ---

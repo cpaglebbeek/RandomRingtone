@@ -59,7 +59,8 @@ fun SettingsScreen(
     }
 
     // Debug & Update state
-    var debugLoggingEnabled by remember { mutableStateOf(true) }
+    var oldBuildEnabled by remember { mutableStateOf(false) }
+    var remoteLoggingEnabled by remember { mutableStateOf(true) }
     var installApkAllowed by remember { mutableStateOf(false) }
     var canInstallPackages by remember { mutableStateOf(context.packageManager.canRequestPackageInstalls()) }
     val updateManager = remember { UpdateManager(context) }
@@ -388,7 +389,8 @@ fun SettingsScreen(
             downloadPath = ringtoneManager.storage.getDownloadDir().absolutePath
             ringtonePath = ringtoneManager.storage.getRingtoneDir().absolutePath
             diskUsage = ringtoneManager.storage.getDiskUsage()
-            debugLoggingEnabled = ringtoneManager.storage.isDebugLoggingEnabled()
+            oldBuildEnabled = ringtoneManager.storage.isOldBuildEnabled()
+            remoteLoggingEnabled = ringtoneManager.storage.isDebugLoggingEnabled()
             installApkAllowed = ringtoneManager.storage.isInstallApkAllowed()
         }
 
@@ -746,7 +748,7 @@ fun SettingsScreen(
                             isCheckingUpdates = false
                             if (updateVersions.isEmpty()) {
                                 snackbarHostState.showSnackbar("Kon geen versie-informatie ophalen")
-                            } else if (debugLoggingEnabled) {
+                            } else if (oldBuildEnabled) {
                                 showUpdateDialog = true
                             } else {
                                 val best = updateManager.getBestUpdate(
@@ -819,7 +821,7 @@ fun SettingsScreen(
         if (showUpdateDialog) {
             UpdateDialog(
                 versions = updateVersions,
-                debugMode = debugLoggingEnabled,
+                debugMode = oldBuildEnabled,
                 currentBuild = nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER,
                 onDismiss = { showUpdateDialog = false },
                 onDownload = { version ->
@@ -931,11 +933,50 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
+                        text = "Old build",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = if (oldBuildEnabled)
+                            "Alle versies zichtbaar, geen auto-update"
+                        else
+                            "Normaal update-gedrag",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = oldBuildEnabled,
+                    onCheckedChange = { enabled ->
+                        oldBuildEnabled = enabled
+                        scope.launch {
+                            ringtoneManager.storage.setOldBuildEnabled(enabled)
+                            snackbarHostState.showSnackbar(
+                                if (enabled) "Old build modus ingeschakeld"
+                                else "Old build modus uitgeschakeld"
+                            )
+                        }
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
                         text = "Remote logging",
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        text = if (debugLoggingEnabled)
+                        text = if (remoteLoggingEnabled)
                             "Verbose logging naar remote server actief"
                         else
                             "Logging uitgeschakeld",
@@ -944,9 +985,9 @@ fun SettingsScreen(
                     )
                 }
                 Switch(
-                    checked = debugLoggingEnabled,
+                    checked = remoteLoggingEnabled,
                     onCheckedChange = { enabled ->
-                        debugLoggingEnabled = enabled
+                        remoteLoggingEnabled = enabled
                         RemoteLogger.enabled = enabled
                         scope.launch {
                             ringtoneManager.storage.setDebugLoggingEnabled(enabled)

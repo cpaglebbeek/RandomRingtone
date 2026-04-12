@@ -39,6 +39,7 @@ class StorageManager(private val context: Context) {
         private val KEY_DEBUG_LOGGING = booleanPreferencesKey("debug_logging")
         private val KEY_LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
         private val KEY_INSTALL_APK_ALLOWED = booleanPreferencesKey("install_apk_allowed")
+        private val KEY_OLD_BUILD = booleanPreferencesKey("old_build")
 
         // Standaard subfolders
         private const val DEFAULT_DOWNLOAD_SUBFOLDER = "downloads"
@@ -205,6 +206,20 @@ class StorageManager(private val context: Context) {
     suspend fun setInstallApkAllowed(enabled: Boolean) {
         context.settingsStore.edit { prefs ->
             prefs[KEY_INSTALL_APK_ALLOWED] = enabled
+        }
+    }
+
+    // --- Old Build ---
+
+    suspend fun isOldBuildEnabled(): Boolean {
+        return context.settingsStore.data.map { prefs ->
+            prefs[KEY_OLD_BUILD] ?: false
+        }.first()
+    }
+
+    suspend fun setOldBuildEnabled(enabled: Boolean) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_OLD_BUILD] = enabled
         }
     }
 

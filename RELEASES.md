@@ -100,3 +100,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 93 | 1.7.0 | Michael_Jackson | Earth_Song | 2026-04-12 | Nee |
 | 117 | 1.9.6 | Michael_Jackson | Thriller | 2026-04-12 | Nee |
 | 118 | 1.9.7 | Michael_Jackson | Beat_It | 2026-04-12 | Nee |
+| 119 | 1.9.8 | Michael_Jackson | Billie_Jean | 2026-04-12 | Nee |

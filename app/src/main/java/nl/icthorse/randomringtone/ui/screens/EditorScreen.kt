@@ -315,13 +315,17 @@ fun EditorScreen(
                     playbackFraction = playbackFraction,
                     onStartChanged = { startFraction = it.coerceIn(0f, endFraction - 0.01f) },
                     onEndChanged = { endFraction = it.coerceIn(startFraction + 0.01f, 1f) },
+                    onViewPan = { delta ->
+                        val range = viewEnd - viewStart
+                        val newStart = (viewStart + delta).coerceIn(0f, 1f - range)
+                        viewStart = newStart
+                        viewEnd = newStart + range
+                    },
                     onTapped = { fraction ->
                         if (isPlaying && !isFadePreview) {
-                            // Tijdens afspelen: skip naar geklikte positie
                             val seekMs = (fraction * data.durationMs).toLong()
                             player.seekTo(seekMs)
                         } else if (!isPlaying) {
-                            // Niet aan het spelen: verplaats start marker
                             startFraction = fraction.coerceIn(0f, endFraction - 0.01f)
                         }
                     },
@@ -776,6 +780,7 @@ private fun WaveformView(
     playbackFraction: Float = -1f,
     onStartChanged: (Float) -> Unit,
     onEndChanged: (Float) -> Unit,
+    onViewPan: ((Float) -> Unit)? = null,
     onTapped: ((Float) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -784,31 +789,61 @@ private fun WaveformView(
     val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
     val handleColor = MaterialTheme.colorScheme.primary
     val fadeColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
-    val viewRange = viewEnd - viewStart
+
+    // Gebruik rememberUpdatedState zodat gesture handlers altijd actuele waarden lezen
+    // zonder dat de pointerInput coroutine herstart wordt (wat drag zou onderbreken)
+    val curViewStart by rememberUpdatedState(viewStart)
+    val curViewEnd by rememberUpdatedState(viewEnd)
+    val curStartFrac by rememberUpdatedState(startFraction)
+    val curEndFrac by rememberUpdatedState(endFraction)
 
     Box(modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(8.dp)) {
         Canvas(
             modifier = Modifier.fillMaxSize()
-                .pointerInput(amplitudes.size, viewStart, viewEnd) {
+                .pointerInput(amplitudes.size) {
                     detectTapGestures { offset ->
+                        val vRange = curViewEnd - curViewStart
                         val relFraction = (offset.x / size.width).coerceIn(0f, 1f)
-                        val absFraction = viewStart + relFraction * viewRange
+                        val absFraction = curViewStart + relFraction * vRange
                         onTapped?.invoke(absFraction)
                     }
                 }
-                .pointerInput(amplitudes.size, viewStart, viewEnd) {
-                    detectHorizontalDragGestures { change, _ ->
-                        val relFraction = (change.position.x / size.width).coerceIn(0f, 1f)
-                        val absFraction = viewStart + relFraction * viewRange
-                        val distToStart = kotlin.math.abs(absFraction - startFraction)
-                        val distToEnd = kotlin.math.abs(absFraction - endFraction)
-                        if (distToStart < distToEnd) onStartChanged(absFraction) else onEndChanged(absFraction)
-                    }
+                .pointerInput(amplitudes.size) {
+                    var isDraggingMarker = false
+                    var isNearStart = false
+
+                    detectHorizontalDragGestures(
+                        onDragStart = { offset ->
+                            val vRange = curViewEnd - curViewStart
+                            val relFrac = (offset.x / size.width).coerceIn(0f, 1f)
+                            val absFrac = curViewStart + relFrac * vRange
+                            val dStart = kotlin.math.abs(absFrac - curStartFrac)
+                            val dEnd = kotlin.math.abs(absFrac - curEndFrac)
+                            val threshold = vRange * 0.05f
+                            isDraggingMarker = minOf(dStart, dEnd) < threshold
+                            isNearStart = dStart < dEnd
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            if (isDraggingMarker) {
+                                val vRange = curViewEnd - curViewStart
+                                val relFrac = (change.position.x / size.width).coerceIn(0f, 1f)
+                                val absFrac = curViewStart + relFrac * vRange
+                                if (isNearStart) onStartChanged(absFrac) else onEndChanged(absFrac)
+                            } else {
+                                val vRange = curViewEnd - curViewStart
+                                if (vRange < 0.99f) {
+                                    val panDelta = -dragAmount / size.width * vRange
+                                    onViewPan?.invoke(panDelta)
+                                }
+                            }
+                        }
+                    )
                 }
         ) {
             val canvasWidth = size.width
             val canvasHeight = size.height
             val center = canvasHeight / 2
+            val viewRange = viewEnd - viewStart
             val startIdx = (viewStart * amplitudes.size).toInt().coerceIn(0, amplitudes.size)
             val endIdx = (viewEnd * amplitudes.size).toInt().coerceIn(startIdx, amplitudes.size)
             val visibleAmps = if (startIdx < endIdx) amplitudes.subList(startIdx, endIdx) else emptyList()

@@ -200,6 +200,39 @@ object RemoteLogger {
         return "Onbekend"
     }
 
+    /**
+     * Test de verbinding door direct (synchroon) een entry te sturen.
+     * Retourneert true als de server 200 antwoordt.
+     */
+    suspend fun testConnection(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val entry = LogEntry(
+                timestamp = dateFormat.format(Date()),
+                tag = "CONNECTION_TEST",
+                level = "INFO",
+                message = "Remote logging verbindingstest",
+                data = mapOf("deviceId" to deviceId),
+                deviceId = deviceId
+            )
+            val body = json.encodeToString(listOf(entry))
+                .toRequestBody("application/json".toMediaType())
+
+            val request = Request.Builder()
+                .url(SERVER_URL)
+                .addHeader("X-Api-Key", API_KEY)
+                .post(body)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                Log.i(TAG, "Connection test: HTTP ${response.code}")
+                response.isSuccessful
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Connection test failed: ${e.message}")
+            false
+        }
+    }
+
     // --- Internals ---
 
     private fun enqueue(level: String, tag: String, message: String, data: Map<String, String>) {

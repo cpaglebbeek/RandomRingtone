@@ -1009,10 +1009,17 @@ fun SettingsScreen(
                         RemoteLogger.enabled = enabled
                         scope.launch {
                             ringtoneManager.storage.setDebugLoggingEnabled(enabled)
-                            snackbarHostState.showSnackbar(
-                                if (enabled) "Remote logging ingeschakeld"
-                                else "Remote logging uitgeschakeld"
-                            )
+                            if (enabled) {
+                                // Direct test: stuur een entry en forceer flush
+                                RemoteLogger.i("Settings", "Remote logging ingeschakeld door gebruiker")
+                                val result = RemoteLogger.testConnection()
+                                snackbarHostState.showSnackbar(
+                                    if (result) "Remote logging actief — verbinding OK"
+                                    else "Remote logging AAN maar server niet bereikbaar"
+                                )
+                            } else {
+                                snackbarHostState.showSnackbar("Remote logging uitgeschakeld")
+                            }
                         }
                     }
                 )

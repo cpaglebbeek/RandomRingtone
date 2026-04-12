@@ -1044,6 +1044,57 @@ fun SettingsScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Deel app
+        var isLoadingShare by remember { mutableStateOf(false) }
+        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+        val updateManager = remember { UpdateManager(context) }
+
+        Button(
+            onClick = {
+                scope.launch {
+                    isLoadingShare = true
+                    val versions = updateManager.fetchVersions()
+                    val stable = versions
+                        .filter { !it.isDebug && !it.isBug && !it.isUpgrade }
+                        .maxByOrNull { it.build }
+
+                    if (stable != null) {
+                        val url = "${UpdateManager.BASE_URL}${stable.apkFilename}"
+                        val shareText = "RandomRing v${stable.version}" +
+                            (stable.buildName?.let { " \"$it\"" } ?: "") +
+                            "\n\nDownload: $url"
+
+                        // Kopieer naar clipboard
+                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(url))
+
+                        // Open share dialog
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, shareText)
+                            putExtra(Intent.EXTRA_SUBJECT, "RandomRing")
+                            type = "text/plain"
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Deel RandomRing"))
+                    } else {
+                        snackbarHostState.showSnackbar("Geen stable versie beschikbaar")
+                    }
+                    isLoadingShare = false
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoadingShare
+        ) {
+            if (isLoadingShare) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Deel app")
+        }
+
     }
 }
 

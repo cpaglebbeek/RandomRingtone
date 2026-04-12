@@ -32,7 +32,7 @@ class UpdateManager(private val context: Context) {
     companion object {
         private const val TAG = "UpdateManager"
         const val BASE_URL = "https://icthorse.nl/RandomRing/Apk/"
-        private const val TIMESTAMP_URL = "${BASE_URL}build.timestamp"
+        private const val TIMESTAMP_URL = "${BASE_URL}build_info.php"
     }
 
     private val client = OkHttpClient.Builder()

@@ -1168,7 +1168,7 @@ private fun UpdateDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            if (version.marker != null) {
+                            if (version.marker != null && !isCurrent) {
                                 Surface(
                                     shape = MaterialTheme.shapes.small,
                                     color = when {

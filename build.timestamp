@@ -1,9 +1,9 @@
 # build.timestamp — RandomRingtone
 # versie|build|timestamp|apk_bestandsnaam|marker(optioneel)
 # Markers: BUG (skip versie), DEBUG (alleen in debug modus), UPGRADE (vereist deinstallatie)
-1.7.0|93|2026-04-12T10:33:00|RandomRingtone-v1.7.0-Michael_Jackson-Earth_Song-debug.apk
+1.7.0|93|2026-04-12T10:33:00|RandomRingtone-v1.7.0-Michael_Jackson-Earth_Song-debug.apk|DEBUG
 1.7.1|94|2026-04-12T11:00:00|RandomRingtone-v1.7.1-Michael_Jackson-Scream-debug.apk|DEBUG
 1.7.2|95|2026-04-12T11:30:00|RandomRingtone-v1.7.2-Michael_Jackson-They_Dont_Care_About_Us-debug.apk|DEBUG
 1.7.3|96|2026-04-12T12:00:00|RandomRingtone-v1.7.3-Michael_Jackson-You_Are_Not_Alone-debug.apk|DEBUG
 1.7.4|97|2026-04-12T12:30:00|RandomRingtone-v1.7.4-Michael_Jackson-Stranger_In_Moscow-debug.apk|DEBUG
-1.7.5|98|2026-04-12T13:00:00|RandomRingtone-v1.7.5-Michael_Jackson-Blood_On_The_Dance_Floor-debug.apk|DEBUG
+1.7.5|98|2026-04-12T13:00:00|RandomRingtone-v1.7.5-Michael_Jackson-Blood_On_The_Dance_Floor-debug.apk

@@ -16,9 +16,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import nl.icthorse.randomringtone.AppBusyState
 import nl.icthorse.randomringtone.data.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 
 private const val YOUTUBE_URL = "https://www.youtube.com"
@@ -215,6 +219,10 @@ fun YouTubeScreen(
                         } else if (result.success && result.file != null) {
                             lastDownloadedFile = result.file
                             detectedVideoTitle = result.title ?: detectedVideoTitle
+                            // Fetch YouTube thumbnail als album art
+                            result.videoId?.let { vid ->
+                                fetchYouTubeThumbnail(context, vid, result.file)
+                            }
                             showActionsDialog = true
                         } else {
                             snackbarHostState.showSnackbar(
@@ -372,6 +380,7 @@ fun YouTubeScreen(
                             showActionsDialog = false
                             scope.launch {
                                 val trackId = file.name.hashCode().toLong()
+                                val artPath = getYouTubeArtPath(context, file)
                                 db.savedTrackDao().insert(
                                     SavedTrack(
                                         deezerTrackId = trackId,
@@ -380,7 +389,8 @@ fun YouTubeScreen(
                                         previewUrl = "",
                                         localPath = file.absolutePath,
                                         playlistName = "_youtube",
-                                        markerType = "youtube"
+                                        markerType = "youtube",
+                                        albumArtPath = artPath
                                     )
                                 )
                                 snackbarHostState.showSnackbar("YouTube clip opgeslagen in bibliotheek")
@@ -462,4 +472,40 @@ private fun YouTubeWebView(
         },
         modifier = Modifier.fillMaxSize()
     )
+}
+
+// --- YouTube thumbnail helpers ---
+
+private val thumbClient = OkHttpClient.Builder()
+    .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+    .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+    .build()
+
+/** Fetch YouTube thumbnail en sla op als album art cache file. */
+private suspend fun fetchYouTubeThumbnail(context: android.content.Context, videoId: String, audioFile: File) {
+    withContext(Dispatchers.IO) {
+        try {
+            val url = "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
+            val request = Request.Builder().url(url).build()
+            thumbClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext
+                val bytes = response.body?.bytes() ?: return@withContext
+                if (bytes.size < 1000) return@withContext // te klein, geen geldige afbeelding
+                val artDir = File(context.cacheDir, "album_art").apply { mkdirs() }
+                val artFile = File(artDir, "${audioFile.nameWithoutExtension.hashCode()}.jpg")
+                artFile.outputStream().use { it.write(bytes) }
+                RemoteLogger.d("YouTubeScreen", "Thumbnail opgeslagen", mapOf(
+                    "videoId" to videoId, "size" to "${bytes.size / 1024}KB"
+                ))
+            }
+        } catch (_: Exception) {
+            // Thumbnail ophalen mislukt — geen probleem, gewoon geen art
+        }
+    }
+}
+
+/** Haal het pad op van de eerder opgeslagen thumbnail (als die bestaat). */
+private fun getYouTubeArtPath(context: android.content.Context, audioFile: File): String? {
+    val artFile = File(File(context.cacheDir, "album_art"), "${audioFile.nameWithoutExtension.hashCode()}.jpg")
+    return if (artFile.exists() && artFile.length() > 1000) artFile.absolutePath else null
 }

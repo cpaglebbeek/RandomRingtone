@@ -42,7 +42,8 @@ class Y2MateClient {
         val file: File? = null,
         val title: String? = null,
         val error: String? = null,
-        val fileExists: Boolean = false
+        val fileExists: Boolean = false,
+        val videoId: String? = null
     )
 
     /**
@@ -89,7 +90,7 @@ class Y2MateClient {
 
             if (destFile.exists() && !forceOverwrite) {
                 return@withContext DownloadResult(
-                    success = false, file = destFile, title = title, fileExists = true
+                    success = false, file = destFile, title = title, fileExists = true, videoId = videoId
                 )
             }
 
@@ -128,7 +129,7 @@ class Y2MateClient {
                 "size" to "${finalFile.length() / 1024}KB",
                 "title" to (finalTitle ?: "?")
             ))
-            DownloadResult(success = true, file = finalFile, title = finalTitle)
+            DownloadResult(success = true, file = finalFile, title = finalTitle, videoId = videoId)
 
         } catch (e: Exception) {
             RemoteLogger.e("Y2Mate", "Download FAILED", mapOf(

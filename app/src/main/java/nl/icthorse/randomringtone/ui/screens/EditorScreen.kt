@@ -296,7 +296,7 @@ fun EditorScreen(
                         val posMs = (playbackFraction * data.durationMs).toLong()
                         val elapsedMs = posMs - startMs
                         Text(
-                            "Duur: ${formatTime(elapsedMs.coerceAtLeast(0))} / ${formatTime(selectionMs)}",
+                            "Duur: ${formatTimePrecise(elapsedMs.coerceAtLeast(0))} / ${formatTimePrecise(selectionMs)}",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -949,6 +949,12 @@ private fun TimeInputField(
 private fun formatTime(ms: Long): String {
     val totalSec = ms / 1000; val min = totalSec / 60; val sec = totalSec % 60
     return "%d:%02d".format(min, sec)
+}
+
+private fun formatTimePrecise(ms: Long): String {
+    val totalSec = ms / 1000; val min = totalSec / 60; val sec = totalSec % 60
+    val hundredths = (ms % 1000) / 10
+    return "%d:%02d.%02d".format(min, sec, hundredths)
 }
 
 private fun formatTimeDetailed(ms: Long): String {

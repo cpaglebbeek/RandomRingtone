@@ -104,3 +104,5 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 120 | 1.9.9 | Michael_Jackson | Rock_With_You | 2026-04-12 | Nee |
 | 121 | 1.9.10 | Michael_Jackson | Wanna_Be_Startin_Somethin | 2026-04-12 | Nee |
 | 122 | 1.9.11 | Michael_Jackson | Off_The_Wall | 2026-04-12 | Nee |
+| 123 | 1.9.12 | Michael_Jackson | She_Is_Out_Of_My_Life | 2026-04-12 | Nee |
+| 124 | 1.9.13 | Michael_Jackson | Workin_Day_And_Night | 2026-04-12 | Nee |

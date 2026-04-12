@@ -61,7 +61,7 @@
 | 57 | EVERY_CALL: contact playlist overgeslagen bij meerdere actieve playlists — exception in loop stopt verwerking van resterende playlists | Geel | 0.7.34 | 0.7.35 | FIXED |
 | 58 | Release APK corrupt/niet-installeerbaar — geen signingConfig op release buildType, APK unsigned | Groen | 1.5.10 | 1.5.11 | FIXED |
 | 59 | YouTube downloads werken niet meer — Y2Mate init parameter gewijzigd van 'r' naar dynamisch (json[6]) | Groen | 1.6.4 | 1.7.2 | FIXED |
-| 60 | Backup naar iCt Horse lijkt niet te werken | — | 1.6.4 | — | OPEN |
+| 60 | Backup naar iCt Horse: meta toont 0 bestanden (hardcoded), .m4a overgeslagen, response resource leak | Groen | 1.6.4 | 1.7.3 | FIXED |
 | 61 | Fresh install na app-verwijdering: bibliotheek toont deels items, na scan staan sommige items dubbel | — | 1.6.4 | — | OPEN |
 | 62 | Tabblad kan altijd gewisseld worden, ook als er een proces op het huidige tabblad bezig is | — | 1.6.4 | — | OPEN |
 | 63 | Backup/restore toont geen voortgangsbalk met resterende ETA | — | 1.7.0 | — | OPEN |

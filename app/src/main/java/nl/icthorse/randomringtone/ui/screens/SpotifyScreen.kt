@@ -614,6 +614,23 @@ fun SpotifyScreen(
                         Button(
                             onClick = {
                                 showActionsDialog = false
+                                // Pre-register in DB met albumArt zodat editor het kan vinden
+                                scope.launch {
+                                    val trackId = file.name.hashCode().toLong()
+                                    val artPath = extractSpotifyArt(context, file)
+                                    db.savedTrackDao().insert(
+                                        SavedTrack(
+                                            deezerTrackId = trackId,
+                                            title = file.nameWithoutExtension,
+                                            artist = "Spotify",
+                                            previewUrl = "",
+                                            localPath = file.absolutePath,
+                                            playlistName = "_spotify",
+                                            markerType = "track",
+                                            albumArtPath = artPath
+                                        )
+                                    )
+                                }
                                 onOpenEditor(file.nameWithoutExtension, file)
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -628,6 +645,7 @@ fun SpotifyScreen(
                             showActionsDialog = false
                             scope.launch {
                                 val trackId = file.name.hashCode().toLong()
+                                val artPath = extractSpotifyArt(context, file)
                                 db.savedTrackDao().insert(
                                     SavedTrack(
                                         deezerTrackId = trackId,
@@ -636,7 +654,8 @@ fun SpotifyScreen(
                                         previewUrl = "",
                                         localPath = file.absolutePath,
                                         playlistName = "_spotify",
-                                        markerType = "track"
+                                        markerType = "track",
+                                        albumArtPath = artPath
                                     )
                                 )
                                 snackbarHostState.showSnackbar("Track opgeslagen in bibliotheek")
@@ -829,4 +848,19 @@ private fun CreateWebView(
         },
         modifier = Modifier.fillMaxSize()
     )
+}
+
+/** Extract album art uit Spotify MP3 (embedded via converter) en sla op in cache. */
+private fun extractSpotifyArt(context: android.content.Context, audioFile: File): String? {
+    val retriever = android.media.MediaMetadataRetriever()
+    return try {
+        retriever.setDataSource(audioFile.absolutePath)
+        val artBytes = retriever.embeddedPicture ?: return null
+        if (artBytes.size < 1000) return null
+        val artDir = File(context.cacheDir, "album_art").apply { mkdirs() }
+        val artFile = File(artDir, "${audioFile.nameWithoutExtension.hashCode()}.jpg")
+        artFile.outputStream().use { it.write(artBytes) }
+        artFile.absolutePath
+    } catch (_: Exception) { null }
+    finally { try { retriever.release() } catch (_: Exception) {} }
 }

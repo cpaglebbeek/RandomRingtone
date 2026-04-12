@@ -366,6 +366,23 @@ fun YouTubeScreen(
                         Button(
                             onClick = {
                                 showActionsDialog = false
+                                // Pre-register in DB met albumArt zodat editor het kan vinden
+                                scope.launch {
+                                    val trackId = file.name.hashCode().toLong()
+                                    val artPath = getYouTubeArtPath(context, file)
+                                    db.savedTrackDao().insert(
+                                        SavedTrack(
+                                            deezerTrackId = trackId,
+                                            title = detectedVideoTitle.ifBlank { file.nameWithoutExtension },
+                                            artist = "YouTube",
+                                            previewUrl = "",
+                                            localPath = file.absolutePath,
+                                            playlistName = "_youtube",
+                                            markerType = "youtube",
+                                            albumArtPath = artPath
+                                        )
+                                    )
+                                }
                                 onOpenEditor(detectedVideoTitle.ifBlank { file.nameWithoutExtension }, file)
                             },
                             modifier = Modifier.fillMaxWidth()

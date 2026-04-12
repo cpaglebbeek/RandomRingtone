@@ -60,7 +60,7 @@
 | 56 | Ringtone nooit ingesteld — apply verwijderd uit save-flow (crash fix), maar geen ander pad voor nieuwe playlists (isActive=true default) | Rood | 0.7.30 | 0.7.31 | FIXED |
 | 57 | EVERY_CALL: contact playlist overgeslagen bij meerdere actieve playlists — exception in loop stopt verwerking van resterende playlists | Geel | 0.7.34 | 0.7.35 | FIXED |
 | 58 | Release APK corrupt/niet-installeerbaar — geen signingConfig op release buildType, APK unsigned | Groen | 1.5.10 | 1.5.11 | FIXED |
-| 59 | YouTube downloads werken niet meer | — | 1.6.4 | — | OPEN |
+| 59 | YouTube downloads werken niet meer — Y2Mate init parameter gewijzigd van 'r' naar dynamisch (json[6]) | Groen | 1.6.4 | 1.7.2 | FIXED |
 | 60 | Backup naar iCt Horse lijkt niet te werken | — | 1.6.4 | — | OPEN |
 | 61 | Fresh install na app-verwijdering: bibliotheek toont deels items, na scan staan sommige items dubbel | — | 1.6.4 | — | OPEN |
 | 62 | Tabblad kan altijd gewisseld worden, ook als er een proces op het huidige tabblad bezig is | — | 1.6.4 | — | OPEN |

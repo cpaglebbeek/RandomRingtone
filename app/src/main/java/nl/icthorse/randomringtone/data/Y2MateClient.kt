@@ -65,13 +65,13 @@ class Y2MateClient {
 
             // Stap 1: Auth key ophalen
             onProgress("Verbinden met Y2Mate...", 0.05f)
-            val authKey = fetchAuthKey()
+            val authResult = fetchAuthKey()
                 ?: return@withContext DownloadResult(false, error = "Auth key niet gevonden")
-            RemoteLogger.d("Y2Mate", "Auth key opgehaald: ${authKey.take(8)}...")
+            RemoteLogger.d("Y2Mate", "Auth key opgehaald: ${authResult.key.take(8)}... (param=${authResult.paramName})")
 
             // Stap 2: Init → convertURL
             onProgress("Conversie starten...", 0.1f)
-            val convertUrl = fetchConvertUrl(authKey)
+            val convertUrl = fetchConvertUrl(authResult)
                 ?: return@withContext DownloadResult(false, error = "Init mislukt")
 
             // Stap 3: Convert → progressURL + downloadURL
@@ -138,12 +138,15 @@ class Y2MateClient {
         }
     }
 
+    data class AuthResult(val key: String, val paramName: Char)
+
     /**
-     * Stap 1: Haal auth key op door y2mate.sc HTML te parsen.
-     * De pagina bevat: var json = JSON.parse('[[codes],reverse,[offsets],...]');
-     * Auth = decodeer codes met offsets.
+     * Stap 1: Haal auth key + parameter naam op door y2mate.sc HTML te parsen.
+     * De pagina bevat: var json = JSON.parse('[[codes],reverse,[offsets],flag,n1,n2,paramCharCode]');
+     * Auth = decodeer codes met offsets, afkappen op 32 tekens.
+     * paramCharCode (json[6]) = ASCII code voor de query parameter naam (bijv. 115='s').
      */
-    private fun fetchAuthKey(): String? {
+    private fun fetchAuthKey(): AuthResult? {
         val request = Request.Builder()
             .url("$SITE_URL/")
             .header("User-Agent", UA)
@@ -163,23 +166,29 @@ class Y2MateClient {
             val reverse = arr[1].jsonPrimitive.int
             val offsets = arr[2].jsonArray.map { it.jsonPrimitive.int }
 
-            val auth = buildString {
+            // json[6] = ASCII code voor de query parameter naam
+            val paramCode = if (arr.size > 6) arr[6].jsonPrimitive.int else 'r'.code
+            val paramName = paramCode.toChar()
+
+            var auth = buildString {
                 for (t in codes.indices) {
                     append((codes[t] - offsets[offsets.size - (t + 1)]).toChar())
                 }
             }
+            if (reverse == 1) auth = auth.reversed()
+            if (auth.length > 32) auth = auth.substring(0, 32)
 
-            return if (reverse == 1) auth.reversed() else auth
+            return AuthResult(auth, paramName)
         }
     }
 
     /**
      * Stap 2: Init request → retourneert convertURL.
      */
-    private fun fetchConvertUrl(authKey: String): String? {
+    private fun fetchConvertUrl(authResult: AuthResult): String? {
         val timestamp = System.currentTimeMillis() / 1000
         val request = Request.Builder()
-            .url("https://eta.etacloud.org/api/v1/init?r=$authKey&t=$timestamp")
+            .url("https://eta.etacloud.org/api/v1/init?${authResult.paramName}=${authResult.key}&t=$timestamp")
             .header("User-Agent", UA)
             .header("Referer", "$SITE_URL/")
             .header("Origin", SITE_URL)

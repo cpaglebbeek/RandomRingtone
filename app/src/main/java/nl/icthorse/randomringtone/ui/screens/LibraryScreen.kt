@@ -295,9 +295,14 @@ fun LibraryScreen(
                     OutlinedButton(
                         onClick = {
                             scope.launch {
-                                val existing = db.savedTrackDao().getById(item.trackId)
-                                if (existing != null) db.savedTrackDao().delete(existing)
-                                db.playlistTrackDao().removeByTrackId(item.trackId)
+                                // Verwijder ALLE DB entries voor dit bestand (vangt dubbelen op)
+                                val fileName = item.file.name
+                                db.savedTrackDao().getAll()
+                                    .filter { it.localPath?.let { lp -> File(lp).name } == fileName }
+                                    .forEach { track ->
+                                        db.savedTrackDao().delete(track)
+                                        db.playlistTrackDao().removeByTrackId(track.deezerTrackId)
+                                    }
                                 refresh()
                                 snackbarHostState.showSnackbar("Uit bibliotheek verwijderd: ${item.title}")
                             }
@@ -312,9 +317,14 @@ fun LibraryScreen(
                     Button(
                         onClick = {
                             scope.launch {
-                                val existing = db.savedTrackDao().getById(item.trackId)
-                                if (existing != null) db.savedTrackDao().delete(existing)
-                                db.playlistTrackDao().removeByTrackId(item.trackId)
+                                // Verwijder ALLE DB entries voor dit bestand (vangt dubbelen op)
+                                val fileName = item.file.name
+                                db.savedTrackDao().getAll()
+                                    .filter { it.localPath?.let { lp -> File(lp).name } == fileName }
+                                    .forEach { track ->
+                                        db.savedTrackDao().delete(track)
+                                        db.playlistTrackDao().removeByTrackId(track.deezerTrackId)
+                                    }
                                 val deleted = item.file.delete()
                                 refresh()
                                 if (deleted) snackbarHostState.showSnackbar("Permanent verwijderd: ${item.title}")

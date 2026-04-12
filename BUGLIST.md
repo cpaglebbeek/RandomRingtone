@@ -69,3 +69,4 @@
 | 65 | Playlist bevat spooktracks: verwijderde tracks blijven als orphans in playlist_tracks, geen cascade bij delete, scan ruimt orphans niet op | Geel | 1.9.8 | 1.9.9 | FIXED |
 | 66 | Dubbele entries na scan: pad-hash vs naam-hash mismatch + /data/user/0/ vs /data/data/ symlink | Geel | 1.9.9 | 1.9.10 | FIXED |
 | 67 | Geen album art na trim: extractAlbumArt probeert alleen origineel, faalt als werkbestand na Toepassen geen embedded art heeft | Geel | 1.9.9 | 1.9.10 | FIXED |
+| 68 | Delete van schijf: verwijdert slechts één DB entry, duplicate met ander trackId blijft zichtbaar | Geel | 1.9.10 | 1.9.11 | FIXED |

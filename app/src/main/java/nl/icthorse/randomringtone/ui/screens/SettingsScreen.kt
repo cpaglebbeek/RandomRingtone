@@ -933,14 +933,14 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Old build",
+                        text = "DEBUG builds",
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
                         text = if (oldBuildEnabled)
-                            "Alle versies zichtbaar, geen auto-update"
+                            "DEBUG versies zichtbaar, geen auto-update"
                         else
-                            "Normaal update-gedrag",
+                            "Alleen vrijgegeven versies",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -952,8 +952,8 @@ fun SettingsScreen(
                         scope.launch {
                             ringtoneManager.storage.setOldBuildEnabled(enabled)
                             snackbarHostState.showSnackbar(
-                                if (enabled) "Old build modus ingeschakeld"
-                                else "Old build modus uitgeschakeld"
+                                if (enabled) "DEBUG builds zichtbaar"
+                                else "Alleen vrijgegeven builds"
                             )
                         }
                     }

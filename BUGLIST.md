@@ -64,4 +64,4 @@
 | 60 | Backup naar iCt Horse: meta toont 0 bestanden (hardcoded), .m4a overgeslagen, response resource leak | Groen | 1.6.4 | 1.7.3 | FIXED |
 | 61 | Fresh install: scan voegt dubbelen toe — auto-restore trackId vs scan hashCode mismatch, geen localPath dedup | Groen | 1.6.4 | 1.7.4 | FIXED |
 | 62 | Tabblad kan altijd gewisseld worden, ook als er een proces op het huidige tabblad bezig is | Groen | 1.6.4 | 1.7.6 | FIXED |
-| 63 | Backup/restore toont geen voortgangsbalk met resterende ETA | — | 1.7.0 | — | OPEN |
+| 63 | Backup/restore toont geen voortgangsbalk met resterende ETA | Groen | 1.7.0 | 1.7.5 | FIXED |

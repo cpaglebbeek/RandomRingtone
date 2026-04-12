@@ -297,6 +297,7 @@ Voordat er code geschreven, bestanden aangemaakt, of builds gestart worden — A
 - **Scope:** `build` slaat ALTIJD op het actieve project — nooit impliciet andere projecten meenemen.
 - **Android:** APK naamgeving `RandomRingtone-v[Version]-[Codename]-[ReleaseName]-[BuildType].apk` → kopieer naar `/Users/christian/Downloads` na succesvolle build. `JAVA_HOME=/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`
 - **Auto Git na build:** Na elke succesvolle build ALTIJD automatisch `git add` + `git commit` + `git push` uitvoeren. Geen build zonder git sync.
+- **Auto Deploy na build:** Na elke succesvolle build ALTIJD de APK + build.timestamp uploaden naar `icthorse.nl/RandomRing/Apk/` via rsync (SSH alias `icthorse`). Nieuwe versies worden standaard met marker `DEBUG` in build.timestamp gezet. Pas na expliciete vrijgave door de gebruiker wordt de marker verwijderd (of gewijzigd naar leeg/stabiel).
 
 ---
 

@@ -607,8 +607,10 @@ fun EditorScreen(
                                     }
 
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
+                                    // Album art overnemen van origineel bestand
+                                    val artPath = extractAlbumArt(context, audioFile, finalFile)
                                     val savedTrackId = saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
-                                        addToPlaylist, createNew, selectedPlaylist)
+                                        addToPlaylist, createNew, selectedPlaylist, artPath)
                                     handlePostSave(setAsMainRingtone, ringtoneManager, snackbarHostState,
                                         savedTrackId, name, trackArtist, previewUrl, finalFile, pName, addToPlaylist)
                                 } else {
@@ -619,8 +621,9 @@ fun EditorScreen(
 
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
                                     saveProgress = 1f
+                                    val artPath = extractAlbumArt(context, audioFile, finalFile)
                                     val savedTrackId = saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
-                                        addToPlaylist, createNew, selectedPlaylist)
+                                        addToPlaylist, createNew, selectedPlaylist, artPath)
                                     handlePostSave(setAsMainRingtone, ringtoneManager, snackbarHostState,
                                         savedTrackId, name, trackArtist, previewUrl, finalFile, pName, addToPlaylist)
                                 }
@@ -655,7 +658,8 @@ fun EditorScreen(
 private suspend fun saveToDB(
     db: RingtoneDatabase, deezerTrackId: Long, name: String, artist: String,
     previewUrl: String, file: File, playlistName: String,
-    addToPlaylist: Boolean, createNew: Boolean, selectedPlaylist: Playlist?
+    addToPlaylist: Boolean, createNew: Boolean, selectedPlaylist: Playlist?,
+    albumArtPath: String? = null
 ): Long {
     // Bij trim: origineel behouden, nieuw record aanmaken met unieke ID
     val existing = db.savedTrackDao().getById(deezerTrackId)
@@ -673,7 +677,8 @@ private suspend fun saveToDB(
     db.savedTrackDao().insert(SavedTrack(
         deezerTrackId = trackId, title = name, artist = artist,
         previewUrl = previewUrl, localPath = file.absolutePath, playlistName = playlistName,
-        markerType = "trimmed"  // Editor slaat altijd getrimde bestanden op
+        markerType = "trimmed",  // Editor slaat altijd getrimde bestanden op
+        albumArtPath = albumArtPath
     ))
     if (addToPlaylist) {
         val playlistId = if (createNew) db.playlistDao().insert(Playlist(name = playlistName))
@@ -682,6 +687,33 @@ private suspend fun saveToDB(
         db.playlistTrackDao().insert(PlaylistTrack(playlistId, trackId, sortOrder))
     }
     return trackId
+}
+
+/**
+ * Extract album art uit het bronbestand en sla op in cache.
+ * Probeert eerst het origineel, dan het getrimde bestand.
+ */
+private fun extractAlbumArt(context: android.content.Context, originalFile: File, trimmedFile: File): String? {
+    val retriever = android.media.MediaMetadataRetriever()
+    return try {
+        // Probeer origineel bestand (heeft waarschijnlijk embedded art)
+        retriever.setDataSource(originalFile.absolutePath)
+        val artBytes = retriever.embeddedPicture
+        if (artBytes != null) {
+            val artDir = File(context.cacheDir, "album_art").apply { mkdirs() }
+            val artFile = File(artDir, "${trimmedFile.nameWithoutExtension.hashCode()}.jpg")
+            artFile.outputStream().use { it.write(artBytes) }
+            RemoteLogger.d("EditorScreen", "Album art geëxtraheerd", mapOf(
+                "source" to originalFile.name, "size" to "${artBytes.size / 1024}KB"
+            ))
+            artFile.absolutePath
+        } else null
+    } catch (e: Exception) {
+        RemoteLogger.w("EditorScreen", "Album art extractie mislukt", mapOf("error" to (e.message ?: "")))
+        null
+    } finally {
+        try { retriever.release() } catch (_: Exception) {}
+    }
 }
 
 private suspend fun handlePostSave(

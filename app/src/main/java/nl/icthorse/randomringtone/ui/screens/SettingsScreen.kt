@@ -736,7 +736,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
-                        text = "Huidige versie: v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} (Build ${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER})",
+                        text = "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} — Build ${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER} \"${nl.icthorse.randomringtone.BuildConfig.CODENAME} / ${nl.icthorse.randomringtone.BuildConfig.RELEASE_NAME}\"",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1014,8 +1014,8 @@ fun SettingsScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 InfoRow("App", "RandomRingtone")
-                InfoRow("Versie", "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME} \"${nl.icthorse.randomringtone.BuildConfig.CODENAME}\"")
-                InfoRow("Release", "${nl.icthorse.randomringtone.BuildConfig.RELEASE_NAME} (Build ${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER})")
+                InfoRow("Versie", "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME}")
+                InfoRow("Build", "${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER} — ${nl.icthorse.randomringtone.BuildConfig.CODENAME} / ${nl.icthorse.randomringtone.BuildConfig.RELEASE_NAME}")
                 InfoRow("Muziekbron", "Spotify + YouTube + Deezer")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }

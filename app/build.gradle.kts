@@ -39,7 +39,7 @@ android {
         buildConfigField("String", "CODENAME", "\"$appCodename\"")
         buildConfigField("String", "RELEASE_NAME", "\"$appReleaseName\"")
         buildConfigField("int", "BUILD_NUMBER", "126")
-        buildConfigField("String", "BUILD_STATUS", "\"DEBUG\"")  // DEBUG of STABLE
+        buildConfigField("String", "BUILD_STATUS", "\"STABLE\"")  // DEBUG of STABLE
     }
 
     buildTypes {

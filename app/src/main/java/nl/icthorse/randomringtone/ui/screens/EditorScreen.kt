@@ -98,18 +98,23 @@ fun EditorScreen(
         loadProgress = 0f
         loadStartTime = System.currentTimeMillis()
         try {
-            waveformData = AudioDecoder.extractWaveform(workingFile) { progress ->
+            val result = AudioDecoder.extractWaveform(workingFile) { progress ->
                 loadProgress = progress
             }
-            if (isInitialLoad) {
-                waveformData?.let { data ->
-                    val defaultEndMs = minOf(20_000L, data.durationMs)
-                    endFraction = defaultEndMs.toFloat() / data.durationMs.toFloat()
+            if (result.error != null) {
+                snackbarHostState.showSnackbar("Fout bij laden audio: ${result.error}")
+                waveformData = null
+            } else {
+                waveformData = result
+                if (isInitialLoad && result.durationMs > 0) {
+                    val defaultEndMs = minOf(20_000L, result.durationMs)
+                    endFraction = defaultEndMs.toFloat() / result.durationMs.toFloat()
+                    isInitialLoad = false
                 }
-                isInitialLoad = false
             }
         } catch (e: Exception) {
             snackbarHostState.showSnackbar("Fout bij laden audio: ${e.message}")
+            waveformData = null
         }
         isLoading = false
     }

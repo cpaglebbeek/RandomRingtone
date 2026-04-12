@@ -5,36 +5,48 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import nl.icthorse.randomringtone.data.RemoteLogger
 import java.io.File
-import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * Decodeert een MP3 naar amplitude-samples voor waveform visualisatie.
+ * Decodeert een MP3/M4A naar amplitude-samples voor waveform visualisatie.
  */
 object AudioDecoder {
+
+    private const val TAG = "AudioDecoder"
 
     data class WaveformData(
         val amplitudes: List<Float>,   // 0.0 - 1.0 genormaliseerd
         val durationMs: Long,
-        val sampleRate: Int
+        val sampleRate: Int,
+        val error: String? = null
     )
 
     /**
      * Extraheer amplitude-data uit een audiobestand.
-     * @param file MP3 bestand
+     * @param file Audio bestand (MP3/M4A)
      * @param targetPoints Aantal datapunten voor de waveform (breedte in pixels)
-     * @param onProgress Callback met voortgang 0.0-1.0 (thread-safe, mag vanuit achtergrond)
+     * @param onProgress Callback met voortgang 0.0-1.0
      */
     suspend fun extractWaveform(
         file: File,
         targetPoints: Int = 500,
         onProgress: ((Float) -> Unit)? = null
-    ): WaveformData =
-        withContext(Dispatchers.Default) {
-            val extractor = MediaExtractor()
+    ): WaveformData = withContext(Dispatchers.Default) {
+
+        if (!file.exists() || !file.canRead()) {
+            RemoteLogger.e(TAG, "Bestand niet leesbaar", mapOf("file" to file.name))
+            return@withContext WaveformData(emptyList(), 0, 44100, error = "Bestand niet leesbaar")
+        }
+
+        var extractor: MediaExtractor? = null
+        var codec: MediaCodec? = null
+
+        try {
+            extractor = MediaExtractor()
             extractor.setDataSource(file.absolutePath)
 
             // Zoek audio track
@@ -51,20 +63,28 @@ object AudioDecoder {
             }
 
             if (audioTrackIndex == -1 || format == null) {
-                extractor.release()
-                return@withContext WaveformData(emptyList(), 0, 44100)
+                RemoteLogger.w(TAG, "Geen audio track gevonden", mapOf("file" to file.name))
+                return@withContext WaveformData(emptyList(), 0, 44100, error = "Geen audio track")
             }
 
             extractor.selectTrack(audioTrackIndex)
 
-            val durationUs = format.getLong(MediaFormat.KEY_DURATION)
+            val durationUs = try { format.getLong(MediaFormat.KEY_DURATION) } catch (_: Exception) { 0L }
             val durationMs = durationUs / 1000
-            val sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-            val channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            val sampleRate = try { format.getInteger(MediaFormat.KEY_SAMPLE_RATE) } catch (_: Exception) { 44100 }
+            val channels = try { format.getInteger(MediaFormat.KEY_CHANNEL_COUNT) } catch (_: Exception) { 2 }
             val mime = format.getString(MediaFormat.KEY_MIME) ?: "audio/mpeg"
 
+            RemoteLogger.d(TAG, "Waveform laden", mapOf(
+                "file" to file.name,
+                "duration" to "${durationMs}ms",
+                "sampleRate" to sampleRate.toString(),
+                "channels" to channels.toString(),
+                "mime" to mime
+            ))
+
             // Decoder opzetten
-            val codec = MediaCodec.createDecoderByType(mime)
+            codec = MediaCodec.createDecoderByType(mime)
             codec.configure(format, null, null, 0)
             codec.start()
 
@@ -89,7 +109,6 @@ object AudioDecoder {
                             )
                             inputDone = true
                         } else {
-                            // Progress rapporteren
                             if (onProgress != null && durationUs > 0) {
                                 val progress = (extractor.sampleTime.toFloat() / durationUs).coerceIn(0f, 1f)
                                 if (progress - lastProgress >= 0.02f) {
@@ -119,7 +138,6 @@ object AudioDecoder {
                         val shortBuffer = outputBuffer.asShortBuffer()
                         val sampleCount = shortBuffer.remaining()
 
-                        // Bereken RMS amplitude per blok
                         var sum = 0.0
                         var count = 0
                         for (i in 0 until sampleCount) {
@@ -140,10 +158,13 @@ object AudioDecoder {
                 }
             }
 
-            codec.stop()
-            codec.release()
-            extractor.release()
             onProgress?.invoke(1f)
+
+            RemoteLogger.d(TAG, "Waveform geladen", mapOf(
+                "file" to file.name,
+                "samples" to allAmplitudes.size.toString(),
+                "targetPoints" to targetPoints.toString()
+            ))
 
             // Downsample naar targetPoints
             val downsampled = downsample(allAmplitudes, targetPoints, maxAmplitude)
@@ -153,7 +174,19 @@ object AudioDecoder {
                 durationMs = durationMs,
                 sampleRate = sampleRate
             )
+        } catch (e: Exception) {
+            RemoteLogger.e(TAG, "Waveform crash", mapOf(
+                "file" to file.name,
+                "error" to (e.message ?: "unknown"),
+                "type" to e.javaClass.simpleName
+            ))
+            WaveformData(emptyList(), 0, 44100, error = e.message ?: "Decode fout")
+        } finally {
+            try { codec?.stop() } catch (_: Exception) {}
+            try { codec?.release() } catch (_: Exception) {}
+            try { extractor?.release() } catch (_: Exception) {}
         }
+    }
 
     /**
      * Reduceer het aantal samples naar targetPoints door per blok het maximum te nemen.
@@ -170,6 +203,8 @@ object AudioDecoder {
         }
 
         val blockSize = samples.size / targetPoints
+        if (blockSize == 0) return samples.map { it / maxAmplitude }
+
         return (0 until targetPoints).map { i ->
             val start = i * blockSize
             val end = minOf(start + blockSize, samples.size)

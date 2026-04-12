@@ -6,6 +6,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0"
 }
 
+val appCodename = "Michael_Jackson"
+val appReleaseName = "Remember_The_Time"
+
 android {
     namespace = "nl.icthorse.randomringtone"
     compileSdk = 35
@@ -17,6 +20,12 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        create("release") {
+            storeFile = file(System.getProperty("user.home") + "/.android/randomringtone-release.jks")
+            storePassword = "RandomRing2026!"
+            keyAlias = "randomringtone"
+            keyPassword = "RandomRing2026!"
+        }
     }
 
     defaultConfig {
@@ -27,8 +36,8 @@ android {
         versionName = "1.8.9"
 
         // Build metadata — automatisch bijgewerkt bij elke release
-        buildConfigField("String", "CODENAME", "\"Michael_Jackson\"")
-        buildConfigField("String", "RELEASE_NAME", "\"Remember_The_Time\"")
+        buildConfigField("String", "CODENAME", "\"$appCodename\"")
+        buildConfigField("String", "RELEASE_NAME", "\"$appReleaseName\"")
         buildConfigField("int", "BUILD_NUMBER", "110")
         buildConfigField("String", "BUILD_STATUS", "\"STABLE\"")  // DEBUG of STABLE
     }
@@ -36,7 +45,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("debug")
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -51,7 +61,8 @@ android {
         val variant = this
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "RandomRingtone-v${variant.versionName}-Michael_Jackson-HIStory-${variant.buildType.name}.apk"
+            val suffix = if (variant.buildType.name == "release") "release" else "debug"
+            output.outputFileName = "RandomRingtone-v${variant.versionName}-${appCodename}-${appReleaseName}-${suffix}.apk"
         }
     }
 

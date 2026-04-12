@@ -13,6 +13,7 @@ import kotlin.math.max
 
 /**
  * Decodeert een MP3/M4A naar amplitude-samples voor waveform visualisatie.
+ * Gebruikt on-the-fly downsampling om geheugengebruik begrensd te houden.
  */
 object AudioDecoder {
 
@@ -27,9 +28,7 @@ object AudioDecoder {
 
     /**
      * Extraheer amplitude-data uit een audiobestand.
-     * @param file Audio bestand (MP3/M4A)
-     * @param targetPoints Aantal datapunten voor de waveform (breedte in pixels)
-     * @param onProgress Callback met voortgang 0.0-1.0
+     * Geheugengebruik is O(targetPoints), niet O(totalSamples).
      */
     suspend fun extractWaveform(
         file: File,
@@ -75,12 +74,23 @@ object AudioDecoder {
             val channels = try { format.getInteger(MediaFormat.KEY_CHANNEL_COUNT) } catch (_: Exception) { 2 }
             val mime = format.getString(MediaFormat.KEY_MIME) ?: "audio/mpeg"
 
+            // Schat totaal aantal mono-samples voor on-the-fly downsampling
+            val estimatedTotalSamples = if (durationUs > 0) {
+                (durationUs / 1_000_000.0 * sampleRate).toLong()
+            } else {
+                // Schat op basis van bestandsgrootte (128kbps MP3 ≈ 16KB/s)
+                (file.length() / 16_000.0 * sampleRate).toLong()
+            }
+            val samplesPerBucket = max(1L, estimatedTotalSamples / targetPoints)
+
             RemoteLogger.d(TAG, "Waveform laden", mapOf(
                 "file" to file.name,
+                "size" to "${file.length() / 1024}KB",
                 "duration" to "${durationMs}ms",
                 "sampleRate" to sampleRate.toString(),
                 "channels" to channels.toString(),
-                "mime" to mime
+                "estimatedSamples" to estimatedTotalSamples.toString(),
+                "samplesPerBucket" to samplesPerBucket.toString()
             ))
 
             // Decoder opzetten
@@ -88,11 +98,17 @@ object AudioDecoder {
             codec.configure(format, null, null, 0)
             codec.start()
 
-            val allAmplitudes = mutableListOf<Float>()
+            // On-the-fly downsampling: vaste array van targetPoints buckets
+            val buckets = FloatArray(targetPoints)
+            var bucketIndex = 0
+            var bucketMax = 0f
+            var samplesInBucket = 0L
+            var totalSamplesProcessed = 0L
+            var globalMax = 1f
+
             val bufferInfo = MediaCodec.BufferInfo()
             var inputDone = false
             var outputDone = false
-            var maxAmplitude = 1f
             var lastProgress = 0f
 
             while (!outputDone) {
@@ -125,7 +141,7 @@ object AudioDecoder {
                     }
                 }
 
-                // Read output (PCM samples)
+                // Read output (PCM samples) — downsample on-the-fly
                 val outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 10_000)
                 if (outputBufferIndex >= 0) {
                     if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
@@ -138,18 +154,30 @@ object AudioDecoder {
                         val shortBuffer = outputBuffer.asShortBuffer()
                         val sampleCount = shortBuffer.remaining()
 
-                        var sum = 0.0
-                        var count = 0
+                        var channelSum = 0f
+                        var channelCount = 0
                         for (i in 0 until sampleCount) {
                             val sample = abs(shortBuffer.get().toFloat())
-                            sum += sample
-                            count++
-                            if (count >= channels) {
-                                val avg = (sum / count).toFloat()
-                                allAmplitudes.add(avg)
-                                maxAmplitude = max(maxAmplitude, avg)
-                                sum = 0.0
-                                count = 0
+                            channelSum += sample
+                            channelCount++
+
+                            // Mix kanalen naar mono
+                            if (channelCount >= channels) {
+                                val monoSample = channelSum / channelCount
+                                bucketMax = max(bucketMax, monoSample)
+                                samplesInBucket++
+                                totalSamplesProcessed++
+                                channelSum = 0f
+                                channelCount = 0
+
+                                // Bucket vol → opslaan en door naar volgende
+                                if (samplesInBucket >= samplesPerBucket && bucketIndex < targetPoints) {
+                                    buckets[bucketIndex] = bucketMax
+                                    globalMax = max(globalMax, bucketMax)
+                                    bucketIndex++
+                                    bucketMax = 0f
+                                    samplesInBucket = 0
+                                }
                             }
                         }
                     }
@@ -158,23 +186,35 @@ object AudioDecoder {
                 }
             }
 
+            // Laatste bucket opslaan
+            if (samplesInBucket > 0 && bucketIndex < targetPoints) {
+                buckets[bucketIndex] = bucketMax
+                globalMax = max(globalMax, bucketMax)
+                bucketIndex++
+            }
+
             onProgress?.invoke(1f)
+
+            // Normaliseer naar 0.0-1.0
+            val usedBuckets = bucketIndex
+            val amplitudes = if (usedBuckets > 0) {
+                buckets.take(usedBuckets).map { it / globalMax }
+            } else {
+                List(targetPoints) { 0f }
+            }
 
             RemoteLogger.d(TAG, "Waveform geladen", mapOf(
                 "file" to file.name,
-                "samples" to allAmplitudes.size.toString(),
-                "targetPoints" to targetPoints.toString()
+                "buckets" to usedBuckets.toString(),
+                "totalSamples" to totalSamplesProcessed.toString()
             ))
 
-            // Downsample naar targetPoints
-            val downsampled = downsample(allAmplitudes, targetPoints, maxAmplitude)
-
             WaveformData(
-                amplitudes = downsampled,
+                amplitudes = amplitudes,
                 durationMs = durationMs,
                 sampleRate = sampleRate
             )
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             RemoteLogger.e(TAG, "Waveform crash", mapOf(
                 "file" to file.name,
                 "error" to (e.message ?: "unknown"),
@@ -182,34 +222,9 @@ object AudioDecoder {
             ))
             WaveformData(emptyList(), 0, 44100, error = e.message ?: "Decode fout")
         } finally {
-            try { codec?.stop() } catch (_: Exception) {}
-            try { codec?.release() } catch (_: Exception) {}
-            try { extractor?.release() } catch (_: Exception) {}
-        }
-    }
-
-    /**
-     * Reduceer het aantal samples naar targetPoints door per blok het maximum te nemen.
-     * Normaliseer naar 0.0 - 1.0.
-     */
-    private fun downsample(
-        samples: List<Float>,
-        targetPoints: Int,
-        maxAmplitude: Float
-    ): List<Float> {
-        if (samples.isEmpty()) return List(targetPoints) { 0f }
-        if (samples.size <= targetPoints) {
-            return samples.map { it / maxAmplitude }
-        }
-
-        val blockSize = samples.size / targetPoints
-        if (blockSize == 0) return samples.map { it / maxAmplitude }
-
-        return (0 until targetPoints).map { i ->
-            val start = i * blockSize
-            val end = minOf(start + blockSize, samples.size)
-            val blockMax = samples.subList(start, end).maxOrNull() ?: 0f
-            blockMax / maxAmplitude
+            try { codec?.stop() } catch (_: Throwable) {}
+            try { codec?.release() } catch (_: Throwable) {}
+            try { extractor?.release() } catch (_: Throwable) {}
         }
     }
 }

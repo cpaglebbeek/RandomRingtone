@@ -3,6 +3,7 @@ package nl.icthorse.randomringtone.service
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.media.MediaPlayer
@@ -74,7 +75,11 @@ class VideoRingtoneService : Service() {
         val callerNumber = intent.getStringExtra(EXTRA_CALLER_NUMBER) ?: ""
 
         val notification = buildNotification(callerName)
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         showOverlay(videoPath, callerName, callerNumber)
         return START_NOT_STICKY

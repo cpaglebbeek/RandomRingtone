@@ -39,7 +39,8 @@ class CallStateReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) return
-        RemoteLogger.init(context)
+        val appContext = context.applicationContext
+        RemoteLogger.init(appContext)
 
         val stateStr = intent.getStringExtra(TelephonyManager.EXTRA_STATE) ?: return
         val currentState = when (stateStr) {
@@ -56,7 +57,7 @@ class CallStateReceiver : BroadcastReceiver() {
             val extraNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
             if (!extraNumber.isNullOrBlank()) {
                 lastCallerNumber = extraNumber
-                lastCallerName = resolveContactName(context, extraNumber)
+                lastCallerName = resolveContactName(appContext, extraNumber)
                 RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf(
                     "from" to lastState.toString(),
                     "to" to currentState.toString(),
@@ -75,7 +76,7 @@ class CallStateReceiver : BroadcastReceiver() {
         } else if (currentState == TelephonyManager.CALL_STATE_IDLE ||
                    currentState == TelephonyManager.CALL_STATE_OFFHOOK) {
             // Gesprek opgenomen of beëindigd → stop video overlay
-            VideoRingtoneService.stop(context)
+            VideoRingtoneService.stop(appContext)
             RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf(
                 "from" to lastState.toString(),
                 "to" to currentState.toString()
@@ -89,14 +90,16 @@ class CallStateReceiver : BroadcastReceiver() {
 
         // VideoRing: start video overlay bij inkomend gesprek
         if (currentState == TelephonyManager.CALL_STATE_RINGING) {
+            val appContext = context.applicationContext
+            val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val db = RingtoneDatabase.getInstance(context)
+                    val db = RingtoneDatabase.getInstance(appContext)
                     val activeVideo = db.videoRingtoneDao().getActive()
                     if (activeVideo != null && java.io.File(activeVideo.localPath).exists()) {
-                        if (android.provider.Settings.canDrawOverlays(context)) {
+                        if (android.provider.Settings.canDrawOverlays(appContext)) {
                             VideoRingtoneService.start(
-                                context,
+                                appContext,
                                 activeVideo.localPath,
                                 lastCallerName ?: "Onbekend",
                                 lastCallerNumber
@@ -111,6 +114,8 @@ class CallStateReceiver : BroadcastReceiver() {
                     RemoteLogger.e("CallState", "VideoRing start mislukt", mapOf(
                         "error" to (e.message ?: "")
                     ))
+                } finally {
+                    pendingResult.finish()
                 }
             }
         }
@@ -122,7 +127,7 @@ class CallStateReceiver : BroadcastReceiver() {
             if (wasIncoming) {
                 // Laag 2: Als RINGING geen nummer gaf, probeer CallLog
                 if (lastCallerNumber == null) {
-                    val callLogResult = queryLastIncomingCall(context)
+                    val callLogResult = queryLastIncomingCall(appContext)
                     if (callLogResult != null) {
                         lastCallerNumber = callLogResult.first
                         lastCallerName = callLogResult.second
@@ -138,7 +143,7 @@ class CallStateReceiver : BroadcastReceiver() {
                 RemoteLogger.i("CallState", "Inkomend gesprek beëindigd → EVERY_CALL ringtone wissel starten", mapOf(
                     "caller" to formatCaller(lastCallerName, lastCallerNumber)
                 ))
-                handleCallEnded(context, lastCallerNumber, lastCallerName)
+                handleCallEnded(appContext, lastCallerNumber, lastCallerName)
             } else {
                 RemoteLogger.i("CallState", "Uitgaand gesprek beëindigd → SKIP (geen swap bij uitgaand)")
             }

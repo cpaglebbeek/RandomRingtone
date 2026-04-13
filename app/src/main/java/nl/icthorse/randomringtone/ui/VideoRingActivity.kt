@@ -1,15 +1,18 @@
 package nl.icthorse.randomringtone.ui
 
 import android.app.KeyguardManager
+import android.provider.ContactsContract
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.graphics.Color
+import android.graphics.Typeface
 import android.view.Gravity
 import androidx.activity.ComponentActivity
 import nl.icthorse.randomringtone.data.RemoteLogger
@@ -58,8 +61,14 @@ class VideoRingActivity : ComponentActivity() {
         val videoPath = intent?.getStringExtra(EXTRA_VIDEO_PATH) ?: run {
             finish(); return
         }
-        val callerName = intent?.getStringExtra(EXTRA_CALLER_NAME) ?: "Onbekend"
+        var callerName = intent?.getStringExtra(EXTRA_CALLER_NAME) ?: "Onbekend"
         val callerNumber = intent?.getStringExtra(EXTRA_CALLER_NUMBER) ?: ""
+
+        // Fallback contact lookup als naam nog "Onbekend" is
+        if (callerName == "Onbekend" && callerNumber.isNotBlank()) {
+            val resolved = resolveContact(callerNumber)
+            if (resolved != null) callerName = resolved
+        }
 
         // Layout: video + caller info
         val root = FrameLayout(this).apply {
@@ -105,12 +114,40 @@ class VideoRingActivity : ComponentActivity() {
         }
         root.addView(callerText, textParams)
 
+        // "Tik om op te nemen" hint bovenaan
+        val hintText = TextView(this).apply {
+            text = "Tik om te beantwoorden"
+            setTextColor(Color.argb(180, 255, 255, 255))
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            setShadowLayer(6f, 1f, 1f, Color.BLACK)
+            gravity = Gravity.CENTER
+            setPadding(32, 48, 32, 32)
+        }
+        val hintParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        }
+        root.addView(hintText, hintParams)
+
         setContentView(root)
 
         RemoteLogger.i("VideoRing", "VideoRingActivity gestart", mapOf(
             "caller" to callerName,
             "video" to File(videoPath).name
         ))
+    }
+
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        if (event?.action == MotionEvent.ACTION_UP) {
+            RemoteLogger.i("VideoRing", "Tap-to-dismiss: Activity gesloten door gebruiker")
+            releasePlayer()
+            finish()
+            return true
+        }
+        return super.onTouchEvent(event)
     }
 
     private fun startVideo(holder: SurfaceHolder, videoPath: String) {
@@ -149,5 +186,22 @@ class VideoRingActivity : ComponentActivity() {
         releasePlayer()
         RemoteLogger.d("VideoRing", "VideoRingActivity gestopt")
         super.onDestroy()
+    }
+
+    private fun resolveContact(number: String): String? {
+        fun lookup(num: String): String? = try {
+            val uri = android.net.Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                android.net.Uri.encode(num)
+            )
+            contentResolver.query(uri, arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+        } catch (_: Exception) { null }
+
+        lookup(number)?.let { return it }
+        if (number.startsWith("+31")) lookup("0" + number.removePrefix("+31"))?.let { return it }
+        if (number.startsWith("0") && number.length >= 10) lookup("+31" + number.removePrefix("0"))?.let { return it }
+        return null
     }
 }

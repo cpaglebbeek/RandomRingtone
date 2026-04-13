@@ -137,6 +137,32 @@ object VideoRingtoneService {
     }
 
     private fun resolveContactName(context: Context, number: String): String? {
+        // Probeer PhoneLookup met origineel nummer
+        val result = phoneLookup(context, number)
+        if (result != null) return result
+
+        // Fallback: als nummer begint met +31, probeer ook met 0
+        if (number.startsWith("+31")) {
+            val local = "0" + number.removePrefix("+31")
+            val localResult = phoneLookup(context, local)
+            if (localResult != null) return localResult
+        }
+        // Fallback: als nummer begint met 0, probeer ook met +31
+        if (number.startsWith("0") && number.length >= 10) {
+            val intl = "+31" + number.removePrefix("0")
+            val intlResult = phoneLookup(context, intl)
+            if (intlResult != null) return intlResult
+        }
+
+        RemoteLogger.w("VideoRing", "Contact niet gevonden", mapOf(
+            "number" to number,
+            "READ_CONTACTS" to (android.content.pm.PackageManager.PERMISSION_GRANTED ==
+                context.checkSelfPermission(android.Manifest.permission.READ_CONTACTS)).toString()
+        ))
+        return null
+    }
+
+    private fun phoneLookup(context: Context, number: String): String? {
         return try {
             val uri = android.net.Uri.withAppendedPath(
                 ContactsContract.PhoneLookup.CONTENT_FILTER_URI,

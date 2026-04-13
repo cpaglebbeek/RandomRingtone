@@ -80,12 +80,19 @@ object VideoRingtoneService {
         nm.notify(NOTIFICATION_ID, builder.build())
         isShowing = true
 
-        // Als scherm al aan staat: start Activity direct (full-screen intent werkt
-        // alleen bij vergrendeld/uit scherm)
+        // Als scherm al aan staat: start Activity met delay (full-screen intent werkt
+        // alleen bij vergrendeld/uit scherm). Delay zodat onze Activity NA het Samsung
+        // belscherm verschijnt en er bovenop komt.
         val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         if (powerManager.isInteractive) {
-            appContext.startActivity(fullScreenIntent)
-            RemoteLogger.d("VideoRing", "Scherm aan → Activity direct gestart")
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                try {
+                    appContext.startActivity(fullScreenIntent)
+                    RemoteLogger.d("VideoRing", "Scherm aan → Activity gestart (met delay)")
+                } catch (e: Exception) {
+                    RemoteLogger.e("VideoRing", "Activity starten mislukt", mapOf("error" to (e.message ?: "")))
+                }
+            }, 800)
         }
 
         RemoteLogger.i("VideoRing", "Full-screen notification getoond", mapOf(

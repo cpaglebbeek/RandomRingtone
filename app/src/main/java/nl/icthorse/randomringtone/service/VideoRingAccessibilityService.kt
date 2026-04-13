@@ -31,7 +31,7 @@ class VideoRingAccessibilityService : AccessibilityService() {
         var instance: VideoRingAccessibilityService? = null
             private set
 
-        fun showOverlay(context: Context, videoPath: String, callerName: String?, callerNumber: String?) {
+        fun showOverlay(context: Context, videoPath: String, callerName: String?, callerNumber: String?, preExtractedThumbnail: Bitmap? = null) {
             val svc = instance
             if (svc == null) {
                 RemoteLogger.w("VideoRing", "AccessibilityService niet actief — kan overlay niet tonen")
@@ -39,7 +39,7 @@ class VideoRingAccessibilityService : AccessibilityService() {
             }
             // addView MOET op main thread
             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                svc.showVideoOverlay(videoPath, callerName, callerNumber)
+                svc.showVideoOverlay(videoPath, callerName, callerNumber, preExtractedThumbnail)
             }
         }
 
@@ -81,7 +81,7 @@ class VideoRingAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    fun showVideoOverlay(videoPath: String, callerName: String?, callerNumber: String?) {
+    fun showVideoOverlay(videoPath: String, callerName: String?, callerNumber: String?, preExtractedThumbnail: Bitmap? = null) {
         if (overlayView != null) {
             RemoteLogger.d("VideoRing", "Overlay al actief, skip")
             return
@@ -95,7 +95,16 @@ class VideoRingAccessibilityService : AccessibilityService() {
         val displayMetrics = resources.displayMetrics
         val overlayHeight = (displayMetrics.heightPixels * 0.55).toInt()
 
-        val thumbnail = extractThumbnail(videoPath)
+        // Gebruik pre-extracted thumbnail (van IO thread) of probeer lokaal
+        val thumbnail = preExtractedThumbnail ?: extractThumbnail(videoPath)
+
+        RemoteLogger.d("VideoRing", "showVideoOverlay", mapOf(
+            "name" to name,
+            "number" to (callerNumber ?: "?"),
+            "videoPath" to videoPath,
+            "thumbnailAvailable" to (thumbnail != null).toString(),
+            "preExtracted" to (preExtractedThumbnail != null).toString()
+        ))
 
         overlayView = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)

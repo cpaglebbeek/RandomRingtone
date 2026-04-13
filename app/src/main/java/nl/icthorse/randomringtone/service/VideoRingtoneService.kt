@@ -80,7 +80,9 @@ object VideoRingtoneService {
         // Hybride: als scherm aan staat → AccessibilityService overlay
         val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         if (powerManager.isInteractive && VideoRingAccessibilityService.isAvailable) {
-            VideoRingAccessibilityService.showOverlay(appContext, videoPath, name, callerNumber)
+            // Pre-extract thumbnail op IO thread (nu) en geef mee
+            val preThumb = extractThumbnail(videoPath)
+            VideoRingAccessibilityService.showOverlay(appContext, videoPath, name, callerNumber, preThumb)
         } else {
             RemoteLogger.i("VideoRing", "Full-screen intent notification", mapOf(
                 "caller" to name, "interactive" to powerManager.isInteractive.toString(),

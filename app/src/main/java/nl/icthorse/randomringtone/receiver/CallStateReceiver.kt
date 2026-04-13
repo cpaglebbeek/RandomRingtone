@@ -88,23 +88,50 @@ class CallStateReceiver : BroadcastReceiver() {
             ))
         }
 
-        // VideoRing: toon heads-up notification bij inkomend gesprek
+        // VideoRing: toon video bij inkomend gesprek
         if (currentState == TelephonyManager.CALL_STATE_RINGING) {
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    // Forceer contact lookup als naam nog onbekend
+                    if (lastCallerName == null && lastCallerNumber != null) {
+                        lastCallerName = resolveContactName(appContext, lastCallerNumber!!)
+                        if (lastCallerName == null && lastCallerNumber!!.startsWith("+31")) {
+                            lastCallerName = resolveContactName(appContext, "0" + lastCallerNumber!!.removePrefix("+31"))
+                        }
+                        if (lastCallerName == null && lastCallerNumber!!.startsWith("0") && lastCallerNumber!!.length >= 10) {
+                            lastCallerName = resolveContactName(appContext, "+31" + lastCallerNumber!!.removePrefix("0"))
+                        }
+                        RemoteLogger.i("CallState", "Contact lookup in receiver", mapOf(
+                            "number" to (lastCallerNumber ?: "?"),
+                            "name" to (lastCallerName ?: "niet gevonden"),
+                            "READ_CONTACTS" to (android.content.pm.PackageManager.PERMISSION_GRANTED ==
+                                appContext.checkSelfPermission(android.Manifest.permission.READ_CONTACTS)).toString()
+                        ))
+                    }
+
                     val db = RingtoneDatabase.getInstance(appContext)
                     val activeVideo = db.videoRingtoneDao().getActive()
                     if (activeVideo != null && java.io.File(activeVideo.localPath).exists()) {
+                        RemoteLogger.i("CallState", "VideoRing: video gevonden", mapOf(
+                            "path" to activeVideo.localPath,
+                            "title" to activeVideo.title,
+                            "caller" to (lastCallerName ?: "Onbekend")
+                        ))
                         VideoRingtoneService.show(
                             appContext,
                             activeVideo.localPath,
                             lastCallerName,
                             lastCallerNumber
                         )
+                    } else {
+                        RemoteLogger.w("CallState", "VideoRing: geen actieve video", mapOf(
+                            "activeVideo" to (activeVideo?.title ?: "null"),
+                            "exists" to (activeVideo?.let { java.io.File(it.localPath).exists() }?.toString() ?: "n/a")
+                        ))
                     }
                 } catch (e: Exception) {
-                    RemoteLogger.e("CallState", "VideoRing notification mislukt", mapOf(
+                    RemoteLogger.e("CallState", "VideoRing mislukt", mapOf(
                         "error" to (e.message ?: "")
                     ))
                 } finally {

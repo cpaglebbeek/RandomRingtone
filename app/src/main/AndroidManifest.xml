@@ -29,8 +29,9 @@
     <!-- In-app APK installatie -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
-    <!-- VideoRing: heads-up notification (geen overlay meer nodig) -->
+    <!-- VideoRing: full-screen intent notification bij inkomend gesprek -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:allowBackup="true"
@@ -49,6 +50,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- VideoRingActivity: full-screen video bij inkomend gesprek -->
+        <activity
+            android:name=".ui.VideoRingActivity"
+            android:exported="false"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
 
         <!-- NotificationListenerService voor SMS/WhatsApp custom ringtones -->
         <service

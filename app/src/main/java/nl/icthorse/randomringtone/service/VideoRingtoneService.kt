@@ -2,7 +2,9 @@ package nl.icthorse.randomringtone.service
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.os.Build
@@ -10,18 +12,16 @@ import android.provider.ContactsContract
 import androidx.core.app.NotificationCompat
 import nl.icthorse.randomringtone.R
 import nl.icthorse.randomringtone.data.RemoteLogger
+import nl.icthorse.randomringtone.ui.VideoRingActivity
 import java.io.File
 
 /**
- * VideoRing notification helper — toont een heads-up notification met video-thumbnail
- * en beller-info bij een inkomend gesprek.
- *
- * Geen foreground service, geen overlay, geen SYSTEM_ALERT_WINDOW.
- * Werkt puur via het Android notificatiesysteem (IMPORTANCE_HIGH = heads-up).
+ * VideoRing notification helper — toont een full-screen intent notification
+ * die VideoRingActivity opent boven het lockscreen bij inkomend gesprek.
  */
 object VideoRingtoneService {
 
-    private const val CHANNEL_ID = "videoring_incoming"
+    private const val CHANNEL_ID = "videoring_fullscreen"
     private const val NOTIFICATION_ID = 42
 
     @Volatile
@@ -29,12 +29,12 @@ object VideoRingtoneService {
         private set
 
     /**
-     * Toon heads-up notification met video-thumbnail en beller-info.
+     * Toon full-screen notification die VideoRingActivity lanceert.
      */
     fun show(context: Context, videoPath: String, callerName: String?, callerNumber: String?) {
         val appContext = context.applicationContext
 
-        // Resolve caller name als nog onbekend
+        // Resolve caller name
         var name = callerName ?: "Onbekend"
         if (name == "Onbekend" && !callerNumber.isNullOrBlank()) {
             name = resolveContactName(appContext, callerNumber) ?: "Onbekend"
@@ -42,47 +42,45 @@ object VideoRingtoneService {
 
         ensureChannel(appContext)
 
-        // Extract video thumbnail
+        // Full-screen intent → opent VideoRingActivity boven lockscreen
+        val fullScreenIntent = Intent(appContext, VideoRingActivity::class.java).apply {
+            putExtra(VideoRingActivity.EXTRA_VIDEO_PATH, videoPath)
+            putExtra(VideoRingActivity.EXTRA_CALLER_NAME, name)
+            putExtra(VideoRingActivity.EXTRA_CALLER_NUMBER, callerNumber ?: "")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_NO_USER_ACTION or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val fullScreenPending = PendingIntent.getActivity(
+            appContext, 0, fullScreenIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Thumbnail voor notification
         val thumbnail = extractThumbnail(videoPath)
 
         val builder = NotificationCompat.Builder(appContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentTitle(name)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setFullScreenIntent(fullScreenPending, true)
             .setAutoCancel(false)
             .setOngoing(true)
 
-        // Beller-nummer als subtekst
         if (!callerNumber.isNullOrBlank() && callerNumber != name) {
             builder.setContentText(callerNumber)
         }
 
-        // Video thumbnail als grote afbeelding
         if (thumbnail != null) {
-            builder.setStyle(
-                NotificationCompat.BigPictureStyle()
-                    .bigPicture(thumbnail)
-                    .setSummaryText(if (!callerNumber.isNullOrBlank() && callerNumber != name) callerNumber else "Inkomend gesprek")
-            )
             builder.setLargeIcon(thumbnail)
-        } else {
-            builder.setContentText(
-                buildString {
-                    if (!callerNumber.isNullOrBlank() && callerNumber != name) {
-                        append(callerNumber)
-                        append(" — ")
-                    }
-                    append("Video Ringtone")
-                }
-            )
         }
 
         val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(NOTIFICATION_ID, builder.build())
         isShowing = true
 
-        RemoteLogger.i("VideoRing", "Heads-up notification getoond", mapOf(
+        RemoteLogger.i("VideoRing", "Full-screen notification getoond", mapOf(
             "caller" to name,
             "number" to (callerNumber ?: "?"),
             "thumbnail" to (if (thumbnail != null) "ja" else "nee"),
@@ -91,29 +89,35 @@ object VideoRingtoneService {
     }
 
     /**
-     * Verwijder de notification.
+     * Verwijder notification + sluit VideoRingActivity.
      */
     fun dismiss(context: Context) {
-        if (!isShowing) return
         val nm = context.applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIFICATION_ID)
         isShowing = false
-        RemoteLogger.d("VideoRing", "Notification verwijderd")
+
+        // Sluit VideoRingActivity als die actief is
+        VideoRingActivity.activeInstance?.finish()
+
+        RemoteLogger.d("VideoRing", "Notification + Activity verwijderd")
     }
 
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            // Verwijder oude channels
+            nm.deleteNotificationChannel("videoring_channel")
+            nm.deleteNotificationChannel("videoring_incoming")
             if (nm.getNotificationChannel(CHANNEL_ID) == null) {
                 val channel = NotificationChannel(
                     CHANNEL_ID,
                     "Video Ringtone",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Toont beller-info met video bij inkomend gesprek"
+                    description = "Toont video bij inkomend gesprek"
                     setShowBadge(false)
                     enableVibration(false)
-                    setSound(null, null) // Geen eigen geluid — de ringtone speelt al
+                    setSound(null, null)
                 }
                 nm.createNotificationChannel(channel)
             }
@@ -139,14 +143,11 @@ object VideoRingtoneService {
                 android.net.Uri.encode(number)
             )
             context.contentResolver.query(
-                uri,
-                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
+                uri, arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
                 null, null, null
             )?.use { cursor ->
                 if (cursor.moveToFirst()) cursor.getString(0) else null
             }
-        } catch (_: Exception) {
-            null
-        }
+        } catch (_: Exception) { null }
     }
 }

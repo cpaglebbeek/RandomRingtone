@@ -37,11 +37,16 @@ class VideoRingAccessibilityService : AccessibilityService() {
                 RemoteLogger.w("VideoRing", "AccessibilityService niet actief — kan overlay niet tonen")
                 return
             }
-            svc.showVideoOverlay(videoPath, callerName, callerNumber)
+            // addView MOET op main thread
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                svc.showVideoOverlay(videoPath, callerName, callerNumber)
+            }
         }
 
         fun dismissOverlay() {
-            instance?.removeVideoOverlay()
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                instance?.removeVideoOverlay()
+            }
         }
 
         val isAvailable: Boolean
@@ -149,8 +154,9 @@ class VideoRingAccessibilityService : AccessibilityService() {
             ))
         } catch (e: Exception) {
             RemoteLogger.e("VideoRing", "Accessibility overlay mislukt", mapOf(
-                "error" to (e.message ?: ""),
-                "class" to e.javaClass.simpleName
+                "error" to (e.message ?: "onbekend"),
+                "class" to e.javaClass.simpleName,
+                "stacktrace" to e.stackTraceToString().take(500)
             ))
             overlayView = null
         }

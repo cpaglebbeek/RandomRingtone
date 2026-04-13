@@ -178,59 +178,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // SYSTEM_ALERT_WINDOW permissie (voor VideoRing overlay)
-        val canDrawOverlays = Settings.canDrawOverlays(context)
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (canDrawOverlays) Icons.Default.CheckCircle else Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = if (canDrawOverlays)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Weergave over apps (VideoRing)",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = if (canDrawOverlays)
-                            "Toegestaan — video-ringtone kan worden getoond"
-                        else
-                            "Vereist voor video-ringtone bij inkomend gesprek",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (!canDrawOverlays) {
-                    FilledTonalButton(
-                        onClick = {
-                            context.startActivity(
-                                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-                                    data = Uri.parse("package:${context.packageName}")
-                                }
-                            )
-                        }
-                    ) {
-                        Text("Toestaan")
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
         // NotificationListener permissie (voor SMS/WhatsApp custom ringtones)
         Card(
             modifier = Modifier.fillMaxWidth()

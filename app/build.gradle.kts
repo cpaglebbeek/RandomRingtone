@@ -32,13 +32,13 @@ android {
         applicationId = "nl.icthorse.randomringtone.videoring"
         minSdk = 26
         targetSdk = 35
-        versionCode = 133
-        versionName = "2.2.0"
+        versionCode = 134
+        versionName = "2.2.1"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"$appCodename\"")
         buildConfigField("String", "RELEASE_NAME", "\"$appReleaseName\"")
-        buildConfigField("int", "BUILD_NUMBER", "133")
+        buildConfigField("int", "BUILD_NUMBER", "134")
         buildConfigField("String", "BUILD_STATUS", "\"DEBUG\"")  // DEBUG of STABLE
     }
 

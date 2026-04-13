@@ -29,9 +29,10 @@
     <!-- In-app APK installatie -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
-    <!-- VideoRing: full-screen intent notification bij inkomend gesprek -->
+    <!-- VideoRing: full-screen intent (locked) + overlay (unlocked) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:allowBackup="true"

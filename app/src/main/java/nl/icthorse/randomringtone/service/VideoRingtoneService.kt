@@ -80,6 +80,14 @@ object VideoRingtoneService {
         nm.notify(NOTIFICATION_ID, builder.build())
         isShowing = true
 
+        // Als scherm al aan staat: start Activity direct (full-screen intent werkt
+        // alleen bij vergrendeld/uit scherm)
+        val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        if (powerManager.isInteractive) {
+            appContext.startActivity(fullScreenIntent)
+            RemoteLogger.d("VideoRing", "Scherm aan → Activity direct gestart")
+        }
+
         RemoteLogger.i("VideoRing", "Full-screen notification getoond", mapOf(
             "caller" to name,
             "number" to (callerNumber ?: "?"),

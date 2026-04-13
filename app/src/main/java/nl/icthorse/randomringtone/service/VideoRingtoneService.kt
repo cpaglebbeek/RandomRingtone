@@ -35,8 +35,14 @@ class VideoRingtoneService : Service() {
         const val EXTRA_VIDEO_PATH = "video_path"
         const val EXTRA_CALLER_NAME = "caller_name"
         const val EXTRA_CALLER_NUMBER = "caller_number"
+        const val ACTION_STOP = "nl.icthorse.randomringtone.STOP_VIDEO"
         private const val CHANNEL_ID = "videoring_channel"
         private const val NOTIFICATION_ID = 42
+        private const val MAX_OVERLAY_MS = 45_000L // Auto-stop na 45 sec
+
+        @Volatile
+        var isRunning = false
+            private set
 
         fun start(context: Context, videoPath: String, callerName: String?, callerNumber: String?) {
             val intent = Intent(context, VideoRingtoneService::class.java).apply {
@@ -52,13 +58,23 @@ class VideoRingtoneService : Service() {
         }
 
         fun stop(context: Context) {
-            context.stopService(Intent(context, VideoRingtoneService::class.java))
+            if (!isRunning) return
+            try {
+                val intent = Intent(context, VideoRingtoneService::class.java).apply {
+                    action = ACTION_STOP
+                }
+                context.startService(intent)
+            } catch (e: Exception) {
+                // Fallback: direct stopService
+                try { context.stopService(Intent(context, VideoRingtoneService::class.java)) } catch (_: Exception) {}
+            }
         }
     }
 
     private var windowManager: WindowManager? = null
     private var overlayView: FrameLayout? = null
     private var mediaPlayer: MediaPlayer? = null
+    private val stopHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -68,11 +84,41 @@ class VideoRingtoneService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Stop-actie: opruimen en stoppen
+        if (intent?.action == ACTION_STOP) {
+            RemoteLogger.d("VideoRing", "Stop-actie ontvangen")
+            cleanup()
+            return START_NOT_STICKY
+        }
+
         val videoPath = intent?.getStringExtra(EXTRA_VIDEO_PATH) ?: run {
             stopSelf(); return START_NOT_STICKY
         }
-        val callerName = intent.getStringExtra(EXTRA_CALLER_NAME) ?: "Onbekend"
+        var callerName = intent.getStringExtra(EXTRA_CALLER_NAME) ?: "Onbekend"
         val callerNumber = intent.getStringExtra(EXTRA_CALLER_NUMBER) ?: ""
+
+        // Fallback: als naam "Onbekend" is maar nummer beschikbaar, zoek in contacten
+        if (callerName == "Onbekend" && callerNumber.isNotBlank()) {
+            try {
+                val uri = android.net.Uri.withAppendedPath(
+                    ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                    android.net.Uri.encode(callerNumber)
+                )
+                contentResolver.query(uri, arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val resolved = cursor.getString(0)
+                        if (!resolved.isNullOrBlank()) {
+                            callerName = resolved
+                            RemoteLogger.i("VideoRing", "Beller alsnog geresolved in service", mapOf(
+                                "number" to callerNumber, "name" to callerName
+                            ))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                RemoteLogger.w("VideoRing", "Contact lookup in service mislukt", mapOf("error" to (e.message ?: "")))
+            }
+        }
 
         val notification = buildNotification(callerName)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -81,13 +127,29 @@ class VideoRingtoneService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
+        isRunning = true
+
+        // Auto-stop na MAX_OVERLAY_MS als vangnet
+        stopHandler.postDelayed({ cleanup() }, MAX_OVERLAY_MS)
+
         showOverlay(videoPath, callerName, callerNumber)
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
+        stopHandler.removeCallbacksAndMessages(null)
+        isRunning = false
         removeOverlay()
         super.onDestroy()
+    }
+
+    private fun cleanup() {
+        RemoteLogger.d("VideoRing", "Cleanup: overlay + service stoppen")
+        stopHandler.removeCallbacksAndMessages(null)
+        isRunning = false
+        removeOverlay()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     private fun showOverlay(videoPath: String, callerName: String, callerNumber: String) {

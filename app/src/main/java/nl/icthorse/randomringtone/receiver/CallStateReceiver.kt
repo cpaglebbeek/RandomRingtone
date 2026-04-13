@@ -94,6 +94,27 @@ class CallStateReceiver : BroadcastReceiver() {
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    // Fallback beller-identificatie als EXTRA_INCOMING_NUMBER null was
+                    var callerName = lastCallerName
+                    var callerNumber = lastCallerNumber
+                    if (callerNumber == null) {
+                        val callLogResult = queryLastIncomingCall(appContext)
+                        if (callLogResult != null) {
+                            callerNumber = callLogResult.first
+                            lastCallerNumber = callerNumber
+                            callerName = callLogResult.second
+                                ?: resolveContactName(appContext, callerNumber)
+                            lastCallerName = callerName
+                            RemoteLogger.i("CallState", "VideoRing: beller via CallLog fallback", mapOf(
+                                "number" to (callerNumber ?: "?"),
+                                "name" to (callerName ?: "niet in contacten")
+                            ))
+                        }
+                    } else if (callerName == null) {
+                        callerName = resolveContactName(appContext, callerNumber)
+                        lastCallerName = callerName
+                    }
+
                     val db = RingtoneDatabase.getInstance(appContext)
                     val activeVideo = db.videoRingtoneDao().getActive()
                     if (activeVideo != null && java.io.File(activeVideo.localPath).exists()) {
@@ -101,12 +122,12 @@ class CallStateReceiver : BroadcastReceiver() {
                             VideoRingtoneService.start(
                                 appContext,
                                 activeVideo.localPath,
-                                lastCallerName ?: "Onbekend",
-                                lastCallerNumber
+                                callerName ?: "Onbekend",
+                                callerNumber
                             )
                             RemoteLogger.i("CallState", "VideoRing gestart", mapOf(
                                 "video" to activeVideo.title,
-                                "caller" to (lastCallerName ?: "onbekend")
+                                "caller" to (callerName ?: "onbekend")
                             ))
                         }
                     }

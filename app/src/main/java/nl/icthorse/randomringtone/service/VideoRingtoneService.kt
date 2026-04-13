@@ -6,16 +6,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.Color
-import android.graphics.PixelFormat
 import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.provider.ContactsContract
-import android.provider.Settings
-import android.view.Gravity
-import android.view.WindowManager
-import android.widget.FrameLayout
-import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import nl.icthorse.randomringtone.R
 import nl.icthorse.randomringtone.data.RemoteLogger
@@ -37,9 +30,6 @@ object VideoRingtoneService {
     var isShowing = false
         private set
 
-    // Overlay state (voor unlocked scherm)
-    private var windowManager: WindowManager? = null
-    private var overlayView: FrameLayout? = null
 
     fun show(context: Context, videoPath: String, callerName: String?, callerNumber: String?) {
         val appContext = context.applicationContext
@@ -87,14 +77,14 @@ object VideoRingtoneService {
         nm.notify(NOTIFICATION_ID, builder.build())
         isShowing = true
 
-        // Hybride: als scherm aan staat → overlay i.p.v. Activity
+        // Hybride: als scherm aan staat → AccessibilityService overlay
         val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-        if (powerManager.isInteractive && Settings.canDrawOverlays(appContext)) {
-            showOverlay(appContext, videoPath, name, callerNumber ?: "")
+        if (powerManager.isInteractive && VideoRingAccessibilityService.isAvailable) {
+            VideoRingAccessibilityService.showOverlay(appContext, videoPath, name, callerNumber)
         } else {
             RemoteLogger.i("VideoRing", "Full-screen intent notification", mapOf(
                 "caller" to name, "interactive" to powerManager.isInteractive.toString(),
-                "canDrawOverlays" to Settings.canDrawOverlays(appContext).toString()
+                "accessibilityAvailable" to VideoRingAccessibilityService.isAvailable.toString()
             ))
         }
     }
@@ -104,102 +94,13 @@ object VideoRingtoneService {
         nm.cancel(NOTIFICATION_ID)
         isShowing = false
 
-        // Sluit overlay als actief
-        removeOverlay()
+        // Sluit accessibility overlay als actief
+        VideoRingAccessibilityService.dismissOverlay()
 
         // Sluit VideoRingActivity als actief (locked scherm case)
         VideoRingActivity.activeInstance?.finish()
 
         RemoteLogger.d("VideoRing", "Dismiss: notification + overlay + activity")
-    }
-
-    /**
-     * Overlay voor unlocked scherm — bovenste 55% van het scherm.
-     * Toont video-thumbnail (betrouwbaarder dan SurfaceView in overlay) + beller-info.
-     * FLAG_NOT_TOUCHABLE: alle touches gaan naar het Samsung belscherm eronder.
-     */
-    private fun showOverlay(context: Context, videoPath: String, callerName: String, callerNumber: String) {
-        windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-
-        val displayMetrics = context.resources.displayMetrics
-        val overlayHeight = (displayMetrics.heightPixels * 0.55).toInt()
-
-        // Thumbnail als achtergrond (SurfaceView werkt niet betrouwbaar in overlay)
-        val thumbnail = extractThumbnail(videoPath)
-
-        overlayView = FrameLayout(context).apply {
-            setBackgroundColor(Color.BLACK)
-
-            // Video thumbnail als ImageView (beeldvullend)
-            if (thumbnail != null) {
-                val imageView = android.widget.ImageView(context).apply {
-                    setImageBitmap(thumbnail)
-                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                }
-                addView(imageView, FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT
-                ))
-            }
-
-            // Caller info
-            val callerText = TextView(context).apply {
-                text = buildString {
-                    append(callerName)
-                    if (callerNumber.isNotBlank() && callerNumber != callerName) {
-                        append("\n$callerNumber")
-                    }
-                }
-                setTextColor(Color.WHITE)
-                textSize = 24f
-                setShadowLayer(8f, 2f, 2f, Color.BLACK)
-                gravity = Gravity.CENTER
-                setPadding(24, 16, 24, 16)
-            }
-            val textParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; bottomMargin = 24 }
-            addView(callerText, textParams)
-        }
-
-        val layoutParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            overlayHeight,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP
-        }
-
-        try {
-            // Voorkom dubbele overlay
-            if (overlayView != null) {
-                RemoteLogger.d("VideoRing", "Overlay al actief, skip")
-                return
-            }
-            windowManager?.addView(overlayView, layoutParams)
-            RemoteLogger.d("VideoRing", "Overlay addView OK", mapOf("height" to overlayHeight.toString()))
-        } catch (e: Exception) {
-            RemoteLogger.e("VideoRing", "Overlay tonen mislukt", mapOf(
-                "error" to (e.message ?: ""),
-                "class" to e.javaClass.simpleName,
-                "canDraw" to Settings.canDrawOverlays(context).toString()
-            ))
-        }
-    }
-
-    private fun removeOverlay() {
-        try {
-            overlayView?.let { windowManager?.removeView(it) }
-            overlayView = null
-            windowManager = null
-        } catch (_: Exception) {}
     }
 
     private fun ensureChannel(context: Context) {

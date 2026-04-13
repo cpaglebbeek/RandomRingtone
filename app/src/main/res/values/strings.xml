@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">RandomRingtone VR</string>
+    <string name="videoring_accessibility_description">Toont video-ringtone bij inkomend gesprek bovenop het belscherm. Gebruikt geen persoonlijke gegevens.</string>
 </resources>

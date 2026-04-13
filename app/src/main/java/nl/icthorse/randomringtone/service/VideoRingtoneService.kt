@@ -9,13 +9,10 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.media.MediaMetadataRetriever
-import android.media.MediaPlayer
 import android.os.Build
 import android.provider.ContactsContract
 import android.provider.Settings
 import android.view.Gravity
-import android.view.SurfaceHolder
-import android.view.SurfaceView
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -43,7 +40,6 @@ object VideoRingtoneService {
     // Overlay state (voor unlocked scherm)
     private var windowManager: WindowManager? = null
     private var overlayView: FrameLayout? = null
-    private var mediaPlayer: MediaPlayer? = null
 
     fun show(context: Context, videoPath: String, callerName: String?, callerNumber: String?) {
         val appContext = context.applicationContext
@@ -95,9 +91,6 @@ object VideoRingtoneService {
         val powerManager = appContext.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         if (powerManager.isInteractive && Settings.canDrawOverlays(appContext)) {
             showOverlay(appContext, videoPath, name, callerNumber ?: "")
-            RemoteLogger.i("VideoRing", "Scherm aan → overlay getoond", mapOf(
-                "caller" to name, "video" to File(videoPath).name
-            ))
         } else {
             RemoteLogger.i("VideoRing", "Full-screen intent notification", mapOf(
                 "caller" to name, "interactive" to powerManager.isInteractive.toString(),
@@ -121,7 +114,8 @@ object VideoRingtoneService {
     }
 
     /**
-     * Kleine overlay voor unlocked scherm — bovenste 60% van het scherm.
+     * Overlay voor unlocked scherm — bovenste 55% van het scherm.
+     * Toont video-thumbnail (betrouwbaarder dan SurfaceView in overlay) + beller-info.
      * FLAG_NOT_TOUCHABLE: alle touches gaan naar het Samsung belscherm eronder.
      */
     private fun showOverlay(context: Context, videoPath: String, callerName: String, callerNumber: String) {
@@ -130,26 +124,23 @@ object VideoRingtoneService {
         val displayMetrics = context.resources.displayMetrics
         val overlayHeight = (displayMetrics.heightPixels * 0.55).toInt()
 
+        // Thumbnail als achtergrond (SurfaceView werkt niet betrouwbaar in overlay)
+        val thumbnail = extractThumbnail(videoPath)
+
         overlayView = FrameLayout(context).apply {
             setBackgroundColor(Color.BLACK)
 
-            // Video surface
-            val surfaceView = SurfaceView(context)
-            addView(surfaceView, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            ))
-
-            surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
-                override fun surfaceCreated(holder: SurfaceHolder) {
-                    playVideo(holder, videoPath)
+            // Video thumbnail als ImageView (beeldvullend)
+            if (thumbnail != null) {
+                val imageView = android.widget.ImageView(context).apply {
+                    setImageBitmap(thumbnail)
+                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
                 }
-                override fun surfaceChanged(holder: SurfaceHolder, format: Int, w: Int, h: Int) {}
-                override fun surfaceDestroyed(holder: SurfaceHolder) {
-                    mediaPlayer?.release()
-                    mediaPlayer = null
-                }
-            })
+                addView(imageView, FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                ))
+            }
 
             // Caller info
             val callerText = TextView(context).apply {
@@ -187,35 +178,27 @@ object VideoRingtoneService {
         }
 
         try {
-            windowManager?.addView(overlayView, layoutParams)
-        } catch (e: Exception) {
-            RemoteLogger.e("VideoRing", "Overlay tonen mislukt", mapOf("error" to (e.message ?: "")))
-        }
-    }
-
-    private fun playVideo(holder: SurfaceHolder, videoPath: String) {
-        try {
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(videoPath)
-                setSurface(holder.surface)
-                setVolume(0f, 0f)
-                isLooping = true
-                setOnPreparedListener { mp ->
-                    mp.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
-                    mp.start()
-                }
-                setOnErrorListener { _, _, _ -> false }
-                prepareAsync()
+            // Voorkom dubbele overlay
+            if (overlayView != null) {
+                RemoteLogger.d("VideoRing", "Overlay al actief, skip")
+                return
             }
-        } catch (_: Exception) {}
+            windowManager?.addView(overlayView, layoutParams)
+            RemoteLogger.d("VideoRing", "Overlay addView OK", mapOf("height" to overlayHeight.toString()))
+        } catch (e: Exception) {
+            RemoteLogger.e("VideoRing", "Overlay tonen mislukt", mapOf(
+                "error" to (e.message ?: ""),
+                "class" to e.javaClass.simpleName,
+                "canDraw" to Settings.canDrawOverlays(context).toString()
+            ))
+        }
     }
 
     private fun removeOverlay() {
         try {
-            mediaPlayer?.apply { if (isPlaying) stop(); release() }
-            mediaPlayer = null
             overlayView?.let { windowManager?.removeView(it) }
             overlayView = null
+            windowManager = null
         } catch (_: Exception) {}
     }
 

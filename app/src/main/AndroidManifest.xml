@@ -29,10 +29,8 @@
     <!-- In-app APK installatie -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
-    <!-- VideoRing: overlay boven lockscreen -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- VideoRing: heads-up notification (geen overlay meer nodig) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
         android:allowBackup="true"
@@ -82,11 +80,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- VideoRingtoneService: video overlay bij inkomend gesprek -->
-        <service
-            android:name=".service.VideoRingtoneService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+        <!-- VideoRingtoneService is nu een object (geen Service meer) — geen manifest entry nodig -->
 
     </application>
 

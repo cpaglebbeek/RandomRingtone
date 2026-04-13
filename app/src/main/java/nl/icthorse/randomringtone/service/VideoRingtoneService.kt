@@ -1,289 +1,152 @@
 package nl.icthorse.randomringtone.service
 
-import android.app.*
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
-import android.content.Intent
-import android.content.pm.ServiceInfo
-import android.graphics.Color
-import android.graphics.PixelFormat
-import android.media.MediaPlayer
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.os.Build
-import android.os.IBinder
 import android.provider.ContactsContract
-import android.view.Gravity
-import android.view.SurfaceHolder
-import android.view.SurfaceView
-import android.view.WindowManager
-import android.widget.FrameLayout
-import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import nl.icthorse.randomringtone.R
 import nl.icthorse.randomringtone.data.RemoteLogger
 import java.io.File
 
 /**
- * Foreground Service die een video-ringtone toont als overlay bij inkomend gesprek.
+ * VideoRing notification helper — toont een heads-up notification met video-thumbnail
+ * en beller-info bij een inkomend gesprek.
  *
- * - Always on top (SYSTEM_ALERT_WINDOW)
- * - Beeldvullend, muted (geen audio conflict)
- * - Beller-info als tekst-overlay
- * - Stopt bij opnemen/afwijzen
+ * Geen foreground service, geen overlay, geen SYSTEM_ALERT_WINDOW.
+ * Werkt puur via het Android notificatiesysteem (IMPORTANCE_HIGH = heads-up).
  */
-class VideoRingtoneService : Service() {
+object VideoRingtoneService {
 
-    companion object {
-        const val EXTRA_VIDEO_PATH = "video_path"
-        const val EXTRA_CALLER_NAME = "caller_name"
-        const val EXTRA_CALLER_NUMBER = "caller_number"
-        const val ACTION_STOP = "nl.icthorse.randomringtone.STOP_VIDEO"
-        private const val CHANNEL_ID = "videoring_channel"
-        private const val NOTIFICATION_ID = 42
-        private const val MAX_OVERLAY_MS = 45_000L // Auto-stop na 45 sec
+    private const val CHANNEL_ID = "videoring_incoming"
+    private const val NOTIFICATION_ID = 42
 
-        @Volatile
-        var isRunning = false
-            private set
+    @Volatile
+    var isShowing = false
+        private set
 
-        fun start(context: Context, videoPath: String, callerName: String?, callerNumber: String?) {
-            val intent = Intent(context, VideoRingtoneService::class.java).apply {
-                putExtra(EXTRA_VIDEO_PATH, videoPath)
-                putExtra(EXTRA_CALLER_NAME, callerName ?: "Onbekend")
-                putExtra(EXTRA_CALLER_NUMBER, callerNumber ?: "")
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+    /**
+     * Toon heads-up notification met video-thumbnail en beller-info.
+     */
+    fun show(context: Context, videoPath: String, callerName: String?, callerNumber: String?) {
+        val appContext = context.applicationContext
+
+        // Resolve caller name als nog onbekend
+        var name = callerName ?: "Onbekend"
+        if (name == "Onbekend" && !callerNumber.isNullOrBlank()) {
+            name = resolveContactName(appContext, callerNumber) ?: "Onbekend"
         }
 
-        fun stop(context: Context) {
-            if (!isRunning) return
-            try {
-                val intent = Intent(context, VideoRingtoneService::class.java).apply {
-                    action = ACTION_STOP
-                }
-                context.startService(intent)
-            } catch (e: Exception) {
-                // Fallback: direct stopService
-                try { context.stopService(Intent(context, VideoRingtoneService::class.java)) } catch (_: Exception) {}
-            }
-        }
-    }
+        ensureChannel(appContext)
 
-    private var windowManager: WindowManager? = null
-    private var overlayView: FrameLayout? = null
-    private var mediaPlayer: MediaPlayer? = null
-    private val stopHandler = android.os.Handler(android.os.Looper.getMainLooper())
+        // Extract video thumbnail
+        val thumbnail = extractThumbnail(videoPath)
 
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Stop-actie: opruimen en stoppen
-        if (intent?.action == ACTION_STOP) {
-            RemoteLogger.d("VideoRing", "Stop-actie ontvangen")
-            cleanup()
-            return START_NOT_STICKY
-        }
-
-        val videoPath = intent?.getStringExtra(EXTRA_VIDEO_PATH) ?: run {
-            stopSelf(); return START_NOT_STICKY
-        }
-        var callerName = intent.getStringExtra(EXTRA_CALLER_NAME) ?: "Onbekend"
-        val callerNumber = intent.getStringExtra(EXTRA_CALLER_NUMBER) ?: ""
-
-        // Fallback: als naam "Onbekend" is maar nummer beschikbaar, zoek in contacten
-        if (callerName == "Onbekend" && callerNumber.isNotBlank()) {
-            try {
-                val uri = android.net.Uri.withAppendedPath(
-                    ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-                    android.net.Uri.encode(callerNumber)
-                )
-                contentResolver.query(uri, arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME), null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val resolved = cursor.getString(0)
-                        if (!resolved.isNullOrBlank()) {
-                            callerName = resolved
-                            RemoteLogger.i("VideoRing", "Beller alsnog geresolved in service", mapOf(
-                                "number" to callerNumber, "name" to callerName
-                            ))
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                RemoteLogger.w("VideoRing", "Contact lookup in service mislukt", mapOf("error" to (e.message ?: "")))
-            }
-        }
-
-        val notification = buildNotification(callerName)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
-
-        isRunning = true
-
-        // Auto-stop na MAX_OVERLAY_MS als vangnet
-        stopHandler.postDelayed({ cleanup() }, MAX_OVERLAY_MS)
-
-        showOverlay(videoPath, callerName, callerNumber)
-        return START_NOT_STICKY
-    }
-
-    override fun onDestroy() {
-        stopHandler.removeCallbacksAndMessages(null)
-        isRunning = false
-        removeOverlay()
-        super.onDestroy()
-    }
-
-    private fun cleanup() {
-        RemoteLogger.d("VideoRing", "Cleanup: overlay + service stoppen")
-        stopHandler.removeCallbacksAndMessages(null)
-        isRunning = false
-        removeOverlay()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-
-    private fun showOverlay(videoPath: String, callerName: String, callerNumber: String) {
-        if (!android.provider.Settings.canDrawOverlays(this)) {
-            RemoteLogger.w("VideoRing", "Geen overlay permissie")
-            stopSelf()
-            return
-        }
-
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-
-        // Overlay layout: video + tekst
-        overlayView = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
-
-            // Video surface
-            val surfaceView = SurfaceView(this@VideoRingtoneService)
-            addView(surfaceView, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            ))
-
-            surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
-                override fun surfaceCreated(holder: SurfaceHolder) {
-                    startVideoPlayback(holder, videoPath)
-                }
-                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-                override fun surfaceDestroyed(holder: SurfaceHolder) {
-                    mediaPlayer?.release()
-                    mediaPlayer = null
-                }
-            })
-
-            // Caller info overlay
-            val callerText = TextView(this@VideoRingtoneService).apply {
-                text = buildString {
-                    append(callerName)
-                    if (callerNumber.isNotBlank() && callerNumber != callerName) {
-                        append("\n$callerNumber")
-                    }
-                }
-                setTextColor(Color.WHITE)
-                textSize = 28f
-                setShadowLayer(8f, 2f, 2f, Color.BLACK)
-                gravity = Gravity.CENTER
-                setPadding(32, 32, 32, 32)
-            }
-            val textParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; bottomMargin = 120 }
-            addView(callerText, textParams)
-        }
-
-        val layoutParams = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.CENTER
-        }
-
-        try {
-            windowManager?.addView(overlayView, layoutParams)
-            RemoteLogger.i("VideoRing", "Overlay getoond", mapOf(
-                "caller" to callerName, "video" to File(videoPath).name
-            ))
-        } catch (e: Exception) {
-            RemoteLogger.e("VideoRing", "Overlay tonen mislukt", mapOf("error" to (e.message ?: "")))
-            stopSelf()
-        }
-    }
-
-    private fun startVideoPlayback(holder: SurfaceHolder, videoPath: String) {
-        try {
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(videoPath)
-                setSurface(holder.surface)
-                setVolume(0f, 0f) // Muted — geen audio conflict
-                isLooping = true
-                setOnPreparedListener { mp ->
-                    // Schaal video beeldvullend
-                    mp.setVideoScalingMode(MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
-                    mp.start()
-                    RemoteLogger.d("VideoRing", "Video gestart", mapOf("path" to File(videoPath).name))
-                }
-                setOnErrorListener { _, what, extra ->
-                    RemoteLogger.e("VideoRing", "MediaPlayer error", mapOf(
-                        "what" to what.toString(), "extra" to extra.toString()
-                    ))
-                    false
-                }
-                prepareAsync()
-            }
-        } catch (e: Exception) {
-            RemoteLogger.e("VideoRing", "Video starten mislukt", mapOf("error" to (e.message ?: "")))
-        }
-    }
-
-    private fun removeOverlay() {
-        try {
-            mediaPlayer?.apply { if (isPlaying) stop(); release() }
-            mediaPlayer = null
-            overlayView?.let { windowManager?.removeView(it) }
-            overlayView = null
-            RemoteLogger.d("VideoRing", "Overlay verwijderd")
-        } catch (_: Exception) {}
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Video Ringtone",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply { description = "Toont video bij inkomend gesprek" }
-            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
-                .createNotificationChannel(channel)
-        }
-    }
-
-    private fun buildNotification(callerName: String): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Video Ringtone")
-            .setContentText("Inkomend gesprek: $callerName")
+        val builder = NotificationCompat.Builder(appContext, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher)
+            .setContentTitle(name)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setAutoCancel(false)
             .setOngoing(true)
-            .build()
+
+        // Beller-nummer als subtekst
+        if (!callerNumber.isNullOrBlank() && callerNumber != name) {
+            builder.setContentText(callerNumber)
+        }
+
+        // Video thumbnail als grote afbeelding
+        if (thumbnail != null) {
+            builder.setStyle(
+                NotificationCompat.BigPictureStyle()
+                    .bigPicture(thumbnail)
+                    .setSummaryText(if (!callerNumber.isNullOrBlank() && callerNumber != name) callerNumber else "Inkomend gesprek")
+            )
+            builder.setLargeIcon(thumbnail)
+        } else {
+            builder.setContentText(
+                buildString {
+                    if (!callerNumber.isNullOrBlank() && callerNumber != name) {
+                        append(callerNumber)
+                        append(" — ")
+                    }
+                    append("Video Ringtone")
+                }
+            )
+        }
+
+        val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(NOTIFICATION_ID, builder.build())
+        isShowing = true
+
+        RemoteLogger.i("VideoRing", "Heads-up notification getoond", mapOf(
+            "caller" to name,
+            "number" to (callerNumber ?: "?"),
+            "thumbnail" to (if (thumbnail != null) "ja" else "nee"),
+            "video" to File(videoPath).name
+        ))
+    }
+
+    /**
+     * Verwijder de notification.
+     */
+    fun dismiss(context: Context) {
+        if (!isShowing) return
+        val nm = context.applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(NOTIFICATION_ID)
+        isShowing = false
+        RemoteLogger.d("VideoRing", "Notification verwijderd")
+    }
+
+    private fun ensureChannel(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (nm.getNotificationChannel(CHANNEL_ID) == null) {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    "Video Ringtone",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Toont beller-info met video bij inkomend gesprek"
+                    setShowBadge(false)
+                    enableVibration(false)
+                    setSound(null, null) // Geen eigen geluid — de ringtone speelt al
+                }
+                nm.createNotificationChannel(channel)
+            }
+        }
+    }
+
+    private fun extractThumbnail(videoPath: String): Bitmap? {
+        return try {
+            MediaMetadataRetriever().use { retriever ->
+                retriever.setDataSource(videoPath)
+                retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            }
+        } catch (e: Exception) {
+            RemoteLogger.w("VideoRing", "Thumbnail extractie mislukt", mapOf("error" to (e.message ?: "")))
+            null
+        }
+    }
+
+    private fun resolveContactName(context: Context, number: String): String? {
+        return try {
+            val uri = android.net.Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                android.net.Uri.encode(number)
+            )
+            context.contentResolver.query(
+                uri,
+                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
+                null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 }

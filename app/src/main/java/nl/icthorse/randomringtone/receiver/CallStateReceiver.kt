@@ -75,8 +75,8 @@ class CallStateReceiver : BroadcastReceiver() {
             }
         } else if (currentState == TelephonyManager.CALL_STATE_IDLE ||
                    currentState == TelephonyManager.CALL_STATE_OFFHOOK) {
-            // Gesprek opgenomen of beëindigd → stop video overlay
-            VideoRingtoneService.stop(appContext)
+            // Gesprek opgenomen of beëindigd → verwijder video notification
+            VideoRingtoneService.dismiss(appContext)
             RemoteLogger.trigger("CallState", "Phone state: $stateStr", mapOf(
                 "from" to lastState.toString(),
                 "to" to currentState.toString()
@@ -88,51 +88,23 @@ class CallStateReceiver : BroadcastReceiver() {
             ))
         }
 
-        // VideoRing: start video overlay bij inkomend gesprek
+        // VideoRing: toon heads-up notification bij inkomend gesprek
         if (currentState == TelephonyManager.CALL_STATE_RINGING) {
-            val appContext = context.applicationContext
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    // Fallback beller-identificatie als EXTRA_INCOMING_NUMBER null was
-                    var callerName = lastCallerName
-                    var callerNumber = lastCallerNumber
-                    if (callerNumber == null) {
-                        val callLogResult = queryLastIncomingCall(appContext)
-                        if (callLogResult != null) {
-                            callerNumber = callLogResult.first
-                            lastCallerNumber = callerNumber
-                            callerName = callLogResult.second
-                                ?: resolveContactName(appContext, callerNumber)
-                            lastCallerName = callerName
-                            RemoteLogger.i("CallState", "VideoRing: beller via CallLog fallback", mapOf(
-                                "number" to (callerNumber ?: "?"),
-                                "name" to (callerName ?: "niet in contacten")
-                            ))
-                        }
-                    } else if (callerName == null) {
-                        callerName = resolveContactName(appContext, callerNumber)
-                        lastCallerName = callerName
-                    }
-
                     val db = RingtoneDatabase.getInstance(appContext)
                     val activeVideo = db.videoRingtoneDao().getActive()
                     if (activeVideo != null && java.io.File(activeVideo.localPath).exists()) {
-                        if (android.provider.Settings.canDrawOverlays(appContext)) {
-                            VideoRingtoneService.start(
-                                appContext,
-                                activeVideo.localPath,
-                                callerName ?: "Onbekend",
-                                callerNumber
-                            )
-                            RemoteLogger.i("CallState", "VideoRing gestart", mapOf(
-                                "video" to activeVideo.title,
-                                "caller" to (callerName ?: "onbekend")
-                            ))
-                        }
+                        VideoRingtoneService.show(
+                            appContext,
+                            activeVideo.localPath,
+                            lastCallerName,
+                            lastCallerNumber
+                        )
                     }
                 } catch (e: Exception) {
-                    RemoteLogger.e("CallState", "VideoRing start mislukt", mapOf(
+                    RemoteLogger.e("CallState", "VideoRing notification mislukt", mapOf(
                         "error" to (e.message ?: "")
                     ))
                 } finally {

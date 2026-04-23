@@ -201,15 +201,23 @@ Toont per kanaal de actieve instelling en eventuele conflicten:
 
 ## 5. Benodigde refactoring (prioriteit)
 
-| # | Actie | Impact | Prioriteit |
-|---|-------|--------|-----------|
-| R1 | `ConflictResolver` bouwen | Centraal conflictbeheer | HOOG |
-| R2 | Overview tab bouwen | User ziet wat er actief is | HOOG |
-| R3 | NotificationService migreren naar PlaylistDao | Playlists werken voor SMS/WA | HOOG |
-| R4 | RingtoneWorker migreren naar PlaylistDao | Playlists werken voor schema | HOOG |
-| R5 | EVERY_CALL implementeren | PhoneStateListener + lastPlayedTrackId | HOOG |
-| R6 | Enforce 1-actief-per-kanaal+scope | Voorkom dubbele playlists | HOOG |
-| R7 | Legacy AssignmentScreen verwijderen | Verwijder verwarring | MEDIUM |
-| R8 | TrackResolver extracten | Dedup T4/T5 code | MEDIUM |
-| R9 | OkHttpClient singleton | Performance | LOW |
-| R10 | Pre-download bij playlist activering | Offline support | LOW |
+| # | Actie | Impact | Prioriteit | Status |
+|---|-------|--------|-----------|--------|
+| R1 | `ConflictResolver` bouwen | Centraal conflictbeheer | HOOG | DONE (v0.5.0) |
+| R2 | Overview tab bouwen | User ziet wat er actief is | HOOG | DONE (v0.5.0) |
+| R3 | NotificationService migreren naar PlaylistDao | Playlists werken voor SMS/WA | HOOG | DONE (v0.5.0) |
+| R4 | RingtoneWorker migreren naar PlaylistDao | Playlists werken voor schema | HOOG | DONE (v0.5.0) |
+| R5 | EVERY_CALL implementeren | PhoneStateListener + lastPlayedTrackId | HOOG | DONE (v0.5.0) |
+| R6 | Enforce 1-actief-per-kanaal+scope | Voorkom dubbele playlists | HOOG | DONE (v0.5.0) |
+| R7 | Legacy AssignmentScreen verwijderen | Verwijder verwarring | MEDIUM | DONE (v0.5.0) |
+| R8 | TrackResolver extracten | Dedup T4/T5 code | MEDIUM | DONE (v0.5.0) |
+| R9 | OkHttpClient singleton | Performance | LOW | OPEN |
+| R10 | Pre-download bij playlist activering | Offline support | LOW | OPEN |
+
+---
+
+## 6. Status Update (2026-04-23)
+
+Alle HOOG en MEDIUM prioriteit refactoring-acties (R1-R8) zijn geimplementeerd in v0.5.0 "Kurt_Cobain".
+De conflictresolutie-hierarchie is operationeel en afgedwongen door ConflictResolver + TrackResolver.
+R9 (OkHttpClient singleton) en R10 (pre-download) staan nog open als low-priority optimalisaties.

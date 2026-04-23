@@ -72,3 +72,13 @@
 | 68 | Delete van schijf: verwijdert slechts één DB entry, duplicate met ander trackId blijft zichtbaar | Geel | 1.9.10 | 1.9.11 | FIXED |
 | 69 | Album art niet bewaard bij Openen in editor voor Spotify/YouTube: geen DB pre-registratie, editor fallback vindt niets | Geel | 1.9.13 | 1.9.14 | FIXED |
 | 70 | Trimmed bestand vervangt originele Spotify/YouTube entry: saveToDB() hergebruikte soms deezerTrackId waardoor origineel overschreven werd | Geel | 1.9.14 | 1.9.15 | FIXED |
+| | | | | | |
+| **VideoRing branch** | | | | | |
+| 71 | MissingForegroundServiceTypeException: startForeground() zonder FOREGROUND_SERVICE_TYPE_PHONE_CALL op API 34+ | Geel | 2.1.0 | 2.1.1 | FIXED |
+| 72 | ForegroundServiceStartNotAllowedException: coroutine in BroadcastReceiver overleefde onReceive(), goAsync() nodig | Geel | 2.1.0 | 2.1.1 | FIXED |
+| 73 | BroadcastReceiver context lifecycle: applicationContext i.p.v. receiver context | Groen | 2.1.0 | 2.1.1 | FIXED |
+| 74 | SecurityException: FGS type phoneCall → mediaPlayback (Samsung blokkeerde phoneCall FGS) | Geel | 2.1.1 | 2.1.2 | FIXED |
+| 75 | Overlay blokkeert touch events: gebruiker kan gesprek niet aannemen | Rood | 2.1.2 | 2.1.3 | FIXED |
+| 76 | Caller name "Unknown": contactnaam niet resolved, +31/06 fallback ontbrak | Groen | 2.1.2 | 2.1.4 | FIXED |
+| 77 | Overlay niet opgeruimd na gesprek: window leak bij snelle call state transitions | Groen | 2.1.3 | 2.1.4 | FIXED |
+| 78 | AccessibilityService addView op worker thread: IllegalStateException, moet op main thread | Geel | 2.5.0 | 2.5.1 | FIXED |

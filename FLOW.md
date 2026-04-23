@@ -1,6 +1,16 @@
-# RandomRingtone v1.6.4 — Volledige Flow Analyse
+# RandomRingtone — Volledige Flow Analyse
 
-Gegenereerd: 2026-04-05 | Branch: main | Build 92 "Michael_Jackson" / "ABC" | Stable
+Oorspronkelijk gegenereerd: 2026-04-05 voor v1.6.4 (Build 92)
+Laatst bijgewerkt: 2026-04-23
+
+**Huidige versies:**
+- **main:** v1.9.15 "Michael_Jackson" / "Got_To_Be_There" (Build 126) — STABLE
+- **VideoRing:** v2.5.2 "Michael_Jackson" / "Smooth_Criminal" (Build 143) — DEBUG
+
+> **Let op:** Dit document beschrijft de flow t/m v1.6.4. Voor componenten toegevoegd in v1.7.0-v1.9.15
+> (RemoteLogger, UpdateManager, M4aMetadata, multi-slot backup, debug toggle) en v2.0.0-v2.5.2
+> (VideoRing tab, VideoRingtoneService, VideoRingAccessibilityService, VideoTrimmer, Yt1sClient),
+> zie ARCHITECTURE.md voor de architectuurbeschrijving en RELEASES.md voor de volledige buildhistorie.
 
 ---
 

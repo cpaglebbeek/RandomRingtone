@@ -115,11 +115,25 @@
 
 ### T7. UI Framework
 - Jetpack Compose + Material 3 + Dynamic Color (Samsung OneUI compatible)
-- 5 tabs: Zoeken / Bibliotheek / Playlists / Overzicht / Instellingen
+- 7 tabs: Deezer / Spotify / Bibliotheek / Playlists / Overzicht / Backup / Instellingen
 - Navigation Compose met state preservation
 - Snackbar feedback bij acties
 - **Target:** Samsung, Android 16 (API 36), OneUI 8
 - **compileSdk:** 35, **minSdk:** 26
+
+### T12. Update Manager (`UpdateManager.kt`)
+- Haalt beschikbare versies op via `icthorse.nl/RandomRing/Apk/build_info.php`
+- Parsed `build.timestamp` formaat (version|build|datum|apk|marker|codename|releaseName)
+- Filtert DEBUG/BUG/UPGRADE builds voor normale gebruikers
+- Download APK naar `cacheDir/updates/`, installatie via FileProvider + ACTION_VIEW
+- **Gebruikt door:** SettingsScreen (update check + download + install)
+
+### T13. M4A Metadata (`M4aMetadata.kt`)
+- Schrijft en leest iTunes-style atoms in M4A/MP4/AAC bestanden
+- Structuur: moov → udta → meta → ilst
+- Ondersteunt: ©nam (titel), ©ART (artiest), ©cmt (comment/marker), covr (albumcover JPEG)
+- Pure byte-level I/O, geen externe libraries
+- **Gebruikt door:** AudioTrimmer (metadata behouden na trim van M4A bestanden)
 
 ---
 
@@ -215,38 +229,65 @@ F5 Permissies ──────→ Android Settings intents (geen eigen technis
 
 ```
 RandomRingtone/
-├── CLAUDE.md                        # Dit bestand
-├── version.json                     # Versie metadata
+├── CLAUDE.md                        # Dit bestand — features, tech, protocollen
+├── README.md                        # Project overview + build instructies
+├── CONVENTIONS.md                   # Naamgeving, patronen, logging, error handling
+├── DEPLOY.md                        # Build → upload → release flow
+├── DEPENDENCY_MAP.md                # Component afhankelijkheden
+├── DESIGN_TOKENS.md                 # Thema, kleuren, UI patronen, kleurcodering
+├── RELEASES.md                      # Alle builds (126+)
+├── BUGLIST.md                       # Bugs met kleurcodering
+├── CONFLICTS.md                     # Conflictdetectie + resoluties
+├── FLOW.md                          # Volledige flow analyse (1373 regels)
+├── MARKETING.md                     # Facebook post + kernboodschap
+├── version.json                     # Versie metadata (source of truth)
 ├── app/
 │   └── src/main/
 │       ├── java/nl/icthorse/randomringtone/
-│       │   ├── MainActivity.kt              # Entry point + 5-tab navigation
+│       │   ├── MainActivity.kt              # Entry point + 7-tab navigation
 │       │   ├── ui/
 │       │   │   ├── screens/
-│       │   │   │   ├── PlaylistScreen.kt    # F1: Deezer zoeken + instellen/opslaan
+│       │   │   │   ├── SpotifyScreen.kt     # Spotify Web browser + converter download
+│       │   │   │   ├── YouTubeScreen.kt     # YouTube Web browser + Y2Mate download
+│       │   │   │   ├── EditorScreen.kt      # Waveform editor, trim, fade, preview
 │       │   │   │   ├── LibraryScreen.kt     # F2: Opgeslagen tracks per playlist
 │       │   │   │   ├── PlaylistManagerScreen.kt # F3+F4: Playlists + triggers + schema
-│       │   │   │   ├── OverviewScreen.kt    # F6: Actieve instellingen + conflicten
-│       │   │   │   └── SettingsScreen.kt    # F5: Permissies + opslag + Spotify converter
+│       │   │   │   ├── OverviewScreen.kt    # Actieve instellingen + conflicten
+│       │   │   │   ├── BackupScreen.kt      # Backup/restore naar SAF/iCt Horse
+│       │   │   │   └── SettingsScreen.kt    # Permissies + opslag + updates + logging
 │       │   │   └── theme/
 │       │   │       └── Theme.kt             # T7: Material 3 + Dynamic Color
 │       │   ├── data/
 │       │   │   ├── DeezerApi.kt             # T1: Deezer API client
 │       │   │   ├── RingtoneDb.kt            # T3: Room database + entities + DAO's
-│       │   │   ├── RingtoneManager.kt       # T2: MP3 download + ringtone engine
+│       │   │   ├── AppRingtoneManager.kt    # T2: MP3 download + ringtone engine
 │       │   │   ├── ContactsRepository.kt    # T6: Contacten lezen + ringtone set
 │       │   │   ├── TrackResolver.kt         # T8: Gedeelde track→file resolver
 │       │   │   ├── ConflictResolver.kt      # T9: Conflictdetectie + hiërarchie
-│       │   │   └── StorageManager.kt        # T10: DataStore opslag + Spotify converter
+│       │   │   ├── StorageManager.kt        # T10: DataStore opslag + converters
+│       │   │   ├── SpotMateDirectClient.kt  # SpotMate online API (Spotify→MP3)
+│       │   │   ├── Y2MateClient.kt          # Y2Mate API (YouTube→MP3)
+│       │   │   ├── IctHorseBackupClient.kt  # iCt Horse backup server API
+│       │   │   ├── BackupManager.kt         # SAF + lokale auto-backup
+│       │   │   ├── LicenseManager.kt        # Device hash → licentie check
+│       │   │   ├── UpdateManager.kt         # T12: In-app APK updates
+│       │   │   ├── RemoteLogger.kt          # Remote + lokale debug logging
+│       │   │   ├── Mp3Marker.kt             # ID3v1 comment marker inject/read
+│       │   │   ├── Mp3TagReader.kt          # ID3 tag extractie (titel, artiest, art)
+│       │   │   └── M4aMetadata.kt           # T13: iTunes-style M4A metadata
+│       │   ├── audio/
+│       │   │   ├── AudioDecoder.kt          # MP3→PCM waveform (MediaCodec)
+│       │   │   ├── AudioTrimmer.kt          # Lossless MP3 trim + fade
+│       │   │   └── AudioPlayer.kt           # Preview playback
 │       │   ├── service/
-│       │   │   └── NotificationService.kt   # T5: SMS/WhatsApp interceptie (PlaylistDao)
+│       │   │   └── NotificationService.kt   # T5: SMS/WhatsApp interceptie
 │       │   ├── worker/
-│       │   │   └── RingtoneWorker.kt        # T4: Periodieke ringtone swap (PlaylistDao)
-│       │   ├── receiver/
-│       │   │   └── CallStateReceiver.kt     # T11: EVERY_CALL BroadcastReceiver
-│       │   └── auth/                        # (toekomst: Spotify OAuth PKCE)
+│       │   │   └── RingtoneWorker.kt        # T4: Periodieke ringtone swap
+│       │   └── receiver/
+│       │       └── CallStateReceiver.kt     # T11: EVERY_CALL BroadcastReceiver
 │       ├── res/
 │       │   ├── drawable/ic_launcher.xml     # App icon (muzieknoot vector)
+│       │   ├── xml/file_paths.xml           # FileProvider config (APK updates)
 │       │   └── values/
 │       │       ├── strings.xml
 │       │       └── themes.xml

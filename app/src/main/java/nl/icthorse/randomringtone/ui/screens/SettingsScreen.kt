@@ -402,10 +402,19 @@ fun SettingsScreen(
         ) { uri ->
             if (uri != null) {
                 val path = safUriToFilePath(uri)
-                if (path != null && path != downloadPath) {
-                    pendingDownloadPath = path
-                } else if (path == null) {
+                if (path == null) {
                     scope.launch { snackbarHostState.showSnackbar("Kies een lokale map (geen cloud)") }
+                } else if (path != downloadPath) {
+                    scope.launch {
+                        if (ringtoneManager.storage.testWritable(path)) {
+                            pendingDownloadPath = path
+                        } else {
+                            snackbarHostState.showSnackbar(
+                                "Geen schrijfrechten op die map — kies een andere locatie",
+                                duration = SnackbarDuration.Long
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -415,10 +424,19 @@ fun SettingsScreen(
         ) { uri ->
             if (uri != null) {
                 val path = safUriToFilePath(uri)
-                if (path != null && path != ringtonePath) {
-                    pendingRingtonePath = path
-                } else if (path == null) {
+                if (path == null) {
                     scope.launch { snackbarHostState.showSnackbar("Kies een lokale map (geen cloud)") }
+                } else if (path != ringtonePath) {
+                    scope.launch {
+                        if (ringtoneManager.storage.testWritable(path)) {
+                            pendingRingtonePath = path
+                        } else {
+                            snackbarHostState.showSnackbar(
+                                "Geen schrijfrechten op die map — kies een andere locatie",
+                                duration = SnackbarDuration.Long
+                            )
+                        }
+                    }
                 }
             }
         }

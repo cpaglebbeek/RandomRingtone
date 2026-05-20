@@ -141,16 +141,12 @@ fun LibraryScreen(
             }
 
             // Stap 3: Lees alle tracks uit DB — geen disk I/O meer
+            // Filter op markerType (source of truth, gecached in stap 1) — werkt ook bij
+            // custom-locaties en custom-naam (Fix D, BUG-71/72 deep-dive 2026-05-20).
+            val appMarkers = setOf("track", "trimmed", "youtube")
             val allItems = db.savedTrackDao().getAll()
                 .filter { track ->
-                    val path = track.localPath
-                    if (path == null || path.isBlank()) return@filter false
-                    val name = File(path).name.lowercase()
-                    path.contains("RandomRingtone", ignoreCase = true) ||
-                        name.startsWith("spotify_mp3_") ||
-                        name.startsWith("youtube_mp3_") ||
-                        name.startsWith("ringtone_") ||
-                        name.startsWith("download_")
+                    !track.localPath.isNullOrBlank() && track.markerType in appMarkers
                 }
                 .distinctBy { it.localPath }
                 .map { track ->

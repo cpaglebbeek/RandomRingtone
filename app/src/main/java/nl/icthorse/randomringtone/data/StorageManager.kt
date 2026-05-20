@@ -95,6 +95,26 @@ class StorageManager(private val context: Context) {
     // --- Paden instellen ---
 
     /**
+     * Test of een pad daadwerkelijk schrijfbaar is door een testbestand aan te maken
+     * en weer te verwijderen. Vangt scoped-storage / MANAGE_EXTERNAL_STORAGE-issues op
+     * Android 11+ waar mkdirs() stil faalt.
+     */
+    suspend fun testWritable(path: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val dir = File(path)
+            if (!dir.exists() && !dir.mkdirs()) return@withContext false
+            if (!dir.isDirectory) return@withContext false
+            val testFile = File(dir, ".rrt_writetest")
+            testFile.writeText("ok")
+            val ok = testFile.exists() && testFile.length() > 0
+            testFile.delete()
+            ok
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
      * Stel een custom download-pad in.
      */
     suspend fun setDownloadDir(path: String) {

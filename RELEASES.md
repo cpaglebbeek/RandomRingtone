@@ -111,3 +111,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 127 | 1.9.16 | Michael_Jackson | Billie_Jean | 2026-05-20 | Nee |
 | 128 | 1.9.17 | Michael_Jackson | Beat_It | 2026-05-20 | Nee |
 | 129 | 1.9.18 | Michael_Jackson | Man_In_The_Mirror | 2026-05-20 | Nee |
+| 130 | 1.9.19 | Michael_Jackson | Bad | 2026-05-20 | Nee |

@@ -77,3 +77,5 @@
 | 73 | Directory-move (Settings → locatie wijzigen → MOVE) updatet saved_tracks.localPath niet → orphan cleanup wist DB-records → playlist_tracks verliezen tracks | Rood | 1.9.17 | 1.9.18 | FIXED |
 | 74 | Restore: alle localPaths gezet naar ringtoneDir, ook downloads → DB-disk mismatch, orphan cleanup wist downloads na restore | Rood | 1.9.17 | 1.9.18 | FIXED |
 | 75 | Auto-restore (fresh install): localPath letterlijk overgenomen uit backup → wijst naar verdwenen app-internal paden → DB leeg na orphan cleanup | Rood | 1.9.17 | 1.9.18 | FIXED |
+| 76 | Library-filter te restrictief — verbergt tracks met custom-naam in custom-locatie (path zonder "RandomRingtone" + niet-prefix-naam) | Geel | 1.9.17 | 1.9.19 | FIXED |
+| 77 | Custom path zonder schrijfrechten (Android 11+ scoped storage): mkdirs() faalt stil, downloads landen daarna nergens — geen feedback aan gebruiker | Geel | 1.9.17 | 1.9.19 | FIXED |

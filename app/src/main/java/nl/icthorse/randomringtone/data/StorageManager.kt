@@ -358,7 +358,9 @@ class StorageManager(private val context: Context) {
         val systemDownloadInfo: DirInfo,
         val mediaStoreCount: Int = 0,
         val usedMediaStore: Boolean = false,
-        val markerScanCount: Int = 0
+        val markerScanCount: Int = 0,
+        val markerScanFilesChecked: Int = 0,    // hoeveel files daadwerkelijk geopend voor markercheck
+        val markerScanBudgetHit: Boolean = false // true als budget-limit bereikt
     ) {
         val ringtoneDir get() = ringtoneInfo.path
         val downloadDir get() = downloadInfo.path
@@ -412,19 +414,27 @@ class StorageManager(private val context: Context) {
             }
         }
 
-        // === MARKER SCAN ===
-        // Scan ALLE media op het apparaat, filter op RandomRingtone marker.
-        // Dit vindt ook bestanden die verplaatst/hernoemd zijn maar de marker behouden.
-        val markerScanCount = scanAllMediaByMarker(results, seen)
-
-        // === MEDIASTORE FALLBACK ===
-        // Als listFiles() én marker scan niets vinden, gebruik MediaStore op naam/pad
+        // === MEDIASTORE OP PAD/NAAM ===
+        // Light scan: query met selection op pad/naam-pattern. Vindt bestanden die
+        // listFiles() mist (scoped storage Android 11+).
         var mediaStoreCount = 0
         var usedMediaStore = false
-
         if (results.isEmpty()) {
             usedMediaStore = true
             mediaStoreCount = scanViaMediaStore(results, seen)
+        }
+
+        // === MARKER SCAN (heavy fallback) ===
+        // Alleen ALS bovenstaande nog steeds niets oplevert. Scant device-wide audio
+        // op marker — duur. Budget 2000 files om UI niet te blokkeren.
+        var markerScanCount = 0
+        var markerScanFilesChecked = 0
+        var markerScanBudgetHit = false
+        if (results.isEmpty()) {
+            val markerResult = scanAllMediaByMarker(results, seen)
+            markerScanCount = markerResult.added
+            markerScanFilesChecked = markerResult.filesChecked
+            markerScanBudgetHit = markerResult.budgetHit
         }
 
         // === TRIMMED STATUS ===
@@ -445,9 +455,13 @@ class StorageManager(private val context: Context) {
             systemDownloadInfo = sysInfo,
             mediaStoreCount = mediaStoreCount,
             usedMediaStore = usedMediaStore,
-            markerScanCount = markerScanCount
+            markerScanCount = markerScanCount,
+            markerScanFilesChecked = markerScanFilesChecked,
+            markerScanBudgetHit = markerScanBudgetHit
         )
     }
+
+    private data class MarkerScanResult(val added: Int, val filesChecked: Int, val budgetHit: Boolean)
 
     /**
      * Fallback scan via MediaStore — vindt audiobestanden die File.listFiles() mist
@@ -521,12 +535,16 @@ class StorageManager(private val context: Context) {
     }
 
     /**
-     * Scan ALLE audio op het apparaat via MediaStore, filter op RandomRingtone marker.
-     * Hierdoor worden alleen tracks die door de app zijn gedownload geïmporteerd,
-     * ongeacht hun locatie of bestandsnaam.
+     * Scan audio op het apparaat via MediaStore, filter op RandomRingtone marker.
+     * Heavy fallback — alleen aanroepen als snellere methodes niets opleveren.
+     * Budget-gelimiteerd op MAX_MARKER_SCAN_FILES (2000) om UI-blok te voorkomen.
      */
-    private fun scanAllMediaByMarker(results: MutableList<ScannedFile>, seen: MutableSet<Long>): Int {
-        var count = 0
+    private fun scanAllMediaByMarker(results: MutableList<ScannedFile>, seen: MutableSet<Long>): MarkerScanResult {
+        val MAX_MARKER_SCAN_FILES = 2000
+        var added = 0
+        var filesChecked = 0
+        var budgetHit = false
+
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
         } else {
@@ -541,9 +559,13 @@ class StorageManager(private val context: Context) {
             MediaStore.Audio.Media.ARTIST
         )
 
+        // MIME-filter: alleen MP3 + M4A/AAC (de twee formaten die de app ondersteunt)
+        val selection = "${MediaStore.Audio.Media.MIME_TYPE} IN (?, ?, ?, ?)"
+        val selectionArgs = arrayOf("audio/mpeg", "audio/mp4", "audio/m4a", "audio/aac")
+
         try {
             context.contentResolver.query(
-                collection, projection, null, null,
+                collection, projection, selection, selectionArgs,
                 "${MediaStore.Audio.Media.DATE_MODIFIED} DESC"
             )?.use { cursor ->
                 val dataCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
@@ -552,12 +574,16 @@ class StorageManager(private val context: Context) {
                 val artistCol = cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST)
 
                 while (cursor.moveToNext()) {
+                    if (filesChecked >= MAX_MARKER_SCAN_FILES) {
+                        budgetHit = true
+                        break
+                    }
                     val filePath = if (dataCol >= 0) cursor.getString(dataCol) else null
                     if (filePath == null) continue
                     val file = File(filePath)
                     if (!file.exists()) continue
 
-                    // Filter: alleen bestanden met RandomRingtone marker
+                    filesChecked++
                     if (!Mp3Marker.hasMarker(file)) continue
 
                     val parsed = parseFileName(file)
@@ -582,12 +608,12 @@ class StorageManager(private val context: Context) {
                         playlistName = parsed?.playlistName,
                         source = "marker"
                     ))
-                    count++
+                    added++
                 }
             }
         } catch (_: Exception) { /* MediaStore query mislukt — negeer */ }
 
-        return count
+        return MarkerScanResult(added = added, filesChecked = filesChecked, budgetHit = budgetHit)
     }
 
     private fun parseFileName(file: File): ScannedFile? {

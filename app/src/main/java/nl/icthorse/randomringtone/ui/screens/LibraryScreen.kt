@@ -208,6 +208,12 @@ fun LibraryScreen(
                                 appendLine("  → Niets gevonden. READ_MEDIA_AUDIO: $perm")
                             }
                         }
+                        if (result.markerScanFilesChecked > 0) {
+                            appendLine("\nMARKER SCAN (fallback):")
+                            appendLine("  → ${result.markerScanCount} via marker, ${result.markerScanFilesChecked} bestanden gecheckt")
+                            if (result.markerScanBudgetHit)
+                                appendLine("  → Budget bereikt (max 2000) — niet alle audio gescand")
+                        }
                     }
                 } else {
                     // Bouw dedup-set op basis van bestandsnaam (voorkomt dubbelen door pad-variaties)

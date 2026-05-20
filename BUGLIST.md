@@ -79,3 +79,4 @@
 | 75 | Auto-restore (fresh install): localPath letterlijk overgenomen uit backup → wijst naar verdwenen app-internal paden → DB leeg na orphan cleanup | Rood | 1.9.17 | 1.9.18 | FIXED |
 | 76 | Library-filter te restrictief — verbergt tracks met custom-naam in custom-locatie (path zonder "RandomRingtone" + niet-prefix-naam) | Geel | 1.9.17 | 1.9.19 | FIXED |
 | 77 | Custom path zonder schrijfrechten (Android 11+ scoped storage): mkdirs() faalt stil, downloads landen daarna nergens — geen feedback aan gebruiker | Geel | 1.9.17 | 1.9.19 | FIXED |
+| 78 | Scan blokkeerde lang bij grote audio-collecties — markerscan opende elk audiobestand zonder MIME-filter en zonder budget | Geel | 1.9.19 | 1.9.20 | FIXED |

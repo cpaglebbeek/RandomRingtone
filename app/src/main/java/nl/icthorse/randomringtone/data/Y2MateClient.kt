@@ -8,21 +8,24 @@ import okhttp3.*
 import java.io.File
 
 /**
- * API client voor Y2Mate (y2mate.sc → etacloud.org).
+ * API client voor Y2Mate (v4.y2mate.nu → etacloud.org).
  *
- * Flow:
- * 1. GET y2mate.sc → parse auth key uit inline JSON
- * 2. GET /api/v1/init → convertURL
- * 3. GET convertURL?v={videoId}&f=mp3 → progressURL + downloadURL (met redirect)
- * 4. GET progressURL → poll tot progress == 3
- * 5. GET downloadURL → MP3 bestand
+ * Flow (protocol v2, sinds domain-migration y2mate.sc → v4.y2mate.nu):
+ * 1. GET https://eta.etacloud.org/api/v1/auth?_=<ms>           → {geo, key, err}
+ * 2. GET https://eta.etacloud.org/api/v1/init?_=<ms>           → {convertURL, error}
+ *    met Authorization: Bearer <key>
+ * 3. GET <convertURL>&v={videoId}&f=mp3&_=<ms>                 → {progressURL, downloadURL, title, redirect}
+ * 4. GET <progressURL>&_=<ms>                                  → poll tot progress == 3
+ * 5. GET <downloadURL>&v={videoId}&f=mp3&r=y2mate.nu           → MP3 bestand
  *
  * Geen CAPTCHA/Turnstile vereist.
  */
 class Y2MateClient {
 
     companion object {
-        private const val SITE_URL = "https://y2mate.sc"
+        private const val SITE_URL = "https://v4.y2mate.nu"
+        private const val AUTH_URL = "https://eta.etacloud.org/api/v1/auth"
+        private const val INIT_URL = "https://eta.etacloud.org/api/v1/init"
         private const val MAX_POLL_ATTEMPTS = 60
         private const val POLL_INTERVAL_MS = 3000L
         private const val UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
@@ -64,15 +67,15 @@ class Y2MateClient {
         try {
             RemoteLogger.input("Y2Mate", "downloadTrack gestart", mapOf("videoId" to videoId))
 
-            // Stap 1: Auth key ophalen
+            // Stap 1: Auth key ophalen (nieuw protocol v2)
             onProgress("Verbinden met Y2Mate...", 0.05f)
-            val authResult = fetchAuthKey()
+            val authKey = fetchAuthKey()
                 ?: return@withContext DownloadResult(false, error = "Auth key niet gevonden")
-            RemoteLogger.d("Y2Mate", "Auth key opgehaald: ${authResult.key.take(8)}... (param=${authResult.paramName})")
+            RemoteLogger.d("Y2Mate", "Auth key opgehaald: ${authKey.take(8)}...")
 
-            // Stap 2: Init → convertURL
+            // Stap 2: Init → convertURL (met Bearer-token)
             onProgress("Conversie starten...", 0.1f)
-            val convertUrl = fetchConvertUrl(authResult)
+            val convertUrl = fetchConvertUrl(authKey)
                 ?: return@withContext DownloadResult(false, error = "Init mislukt")
 
             // Stap 3: Convert → progressURL + downloadURL
@@ -139,57 +142,14 @@ class Y2MateClient {
         }
     }
 
-    data class AuthResult(val key: String, val paramName: Char)
-
     /**
-     * Stap 1: Haal auth key + parameter naam op door y2mate.sc HTML te parsen.
-     * De pagina bevat: var json = JSON.parse('[[codes],reverse,[offsets],flag,n1,n2,paramCharCode]');
-     * Auth = decodeer codes met offsets, afkappen op 32 tekens.
-     * paramCharCode (json[6]) = ASCII code voor de query parameter naam (bijv. 115='s').
+     * Stap 1: Haal auth key op via /api/v1/auth (protocol v2).
+     * Response: {"geo":"0","key":"<16chars>","err":0}
      */
-    private fun fetchAuthKey(): AuthResult? {
+    private fun fetchAuthKey(): String? {
+        val ts = System.currentTimeMillis()
         val request = Request.Builder()
-            .url("$SITE_URL/")
-            .header("User-Agent", UA)
-            .get()
-            .build()
-
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return null
-            val html = response.body?.string() ?: return null
-
-            // Parse: var json = JSON.parse('...');
-            val jsonMatch = Regex("""JSON\.parse\('(\[\[.+?\])'\)""").find(html) ?: return null
-            val jsonStr = jsonMatch.groupValues[1]
-            val arr = json.parseToJsonElement(jsonStr).jsonArray
-
-            val codes = arr[0].jsonArray.map { it.jsonPrimitive.int }
-            val reverse = arr[1].jsonPrimitive.int
-            val offsets = arr[2].jsonArray.map { it.jsonPrimitive.int }
-
-            // json[6] = ASCII code voor de query parameter naam
-            val paramCode = if (arr.size > 6) arr[6].jsonPrimitive.int else 'r'.code
-            val paramName = paramCode.toChar()
-
-            var auth = buildString {
-                for (t in codes.indices) {
-                    append((codes[t] - offsets[offsets.size - (t + 1)]).toChar())
-                }
-            }
-            if (reverse == 1) auth = auth.reversed()
-            if (auth.length > 32) auth = auth.substring(0, 32)
-
-            return AuthResult(auth, paramName)
-        }
-    }
-
-    /**
-     * Stap 2: Init request → retourneert convertURL.
-     */
-    private fun fetchConvertUrl(authResult: AuthResult): String? {
-        val timestamp = System.currentTimeMillis() / 1000
-        val request = Request.Builder()
-            .url("https://eta.etacloud.org/api/v1/init?${authResult.paramName}=${authResult.key}&t=$timestamp")
+            .url("$AUTH_URL?_=$ts")
             .header("User-Agent", UA)
             .header("Referer", "$SITE_URL/")
             .header("Origin", SITE_URL)
@@ -200,7 +160,34 @@ class Y2MateClient {
             if (!response.isSuccessful) return null
             val body = response.body?.string() ?: return null
             val obj = json.parseToJsonElement(body).jsonObject
-            if (obj["error"]?.jsonPrimitive?.contentOrNull != "0") return null
+            val err = obj["err"]?.jsonPrimitive?.intOrNull ?: 0
+            if (err > 0) return null
+            return obj["key"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+        }
+    }
+
+    /**
+     * Stap 2: Init request met Authorization: Bearer <key>.
+     * Response: {"convertURL":"https://.../api/v1/convert?sig=...","error":"0"}
+     */
+    private fun fetchConvertUrl(authKey: String): String? {
+        val ts = System.currentTimeMillis()
+        val request = Request.Builder()
+            .url("$INIT_URL?_=$ts")
+            .header("User-Agent", UA)
+            .header("Authorization", "Bearer $authKey")
+            .header("Referer", "$SITE_URL/")
+            .header("Origin", SITE_URL)
+            .get()
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
+            val obj = json.parseToJsonElement(body).jsonObject
+            // error is een string "0" in dit protocol
+            val errorStr = obj["error"]?.jsonPrimitive?.contentOrNull
+            if (errorStr != null && errorStr != "0") return null
             return obj["convertURL"]?.jsonPrimitive?.contentOrNull
         }
     }
@@ -215,8 +202,8 @@ class Y2MateClient {
      * Stap 3: Convert request. Kan een redirect bevatten (redirect:1).
      */
     private fun convert(convertUrl: String, videoId: String, format: String): ConvertResult? {
-        val timestamp = System.currentTimeMillis() / 1000
-        var url = "${convertUrl}&v=$videoId&f=$format&t=$timestamp"
+        val timestamp = System.currentTimeMillis()
+        var url = "${convertUrl}&v=$videoId&f=$format&_=$timestamp"
 
         // Max 3 redirect levels
         for (i in 0..2) {
@@ -283,10 +270,10 @@ class Y2MateClient {
             delay(POLL_INTERVAL_MS)
 
             val uiProgress = 0.3f + (attempt.toFloat() / MAX_POLL_ATTEMPTS) * 0.5f
-            val timestamp = System.currentTimeMillis() / 1000
+            val timestamp = System.currentTimeMillis()
 
             val request = Request.Builder()
-                .url("$progressUrl&t=$timestamp")
+                .url("$progressUrl&_=$timestamp")
                 .header("User-Agent", UA)
                 .header("Referer", "$SITE_URL/")
                 .header("Origin", SITE_URL)
@@ -324,8 +311,8 @@ class Y2MateClient {
      * Retourneert de filename uit Content-Disposition header (zonder extensie), of null.
      */
     private fun downloadFile(downloadUrl: String, videoId: String, destFile: File): String? {
-        val url = if (downloadUrl.contains("&s=")) downloadUrl
-            else "$downloadUrl&s=3&v=$videoId&f=mp3"
+        val url = if (downloadUrl.contains("&r=")) downloadUrl
+            else "$downloadUrl&v=$videoId&f=mp3&r=y2mate.nu"
 
         val request = Request.Builder()
             .url(url)

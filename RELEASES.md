@@ -108,3 +108,5 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 124 | 1.9.13 | Michael_Jackson | Workin_Day_And_Night | 2026-04-12 | Nee |
 | 125 | 1.9.14 | Michael_Jackson | Ben | 2026-04-12 | Ja |
 | 126 | 1.9.15 | Michael_Jackson | Got_To_Be_There | 2026-04-12 | Ja |
+| 127 | 1.9.16 | Michael_Jackson | Billie_Jean | 2026-05-20 | Nee |
+| 128 | 1.9.17 | Michael_Jackson | Beat_It | 2026-05-20 | Nee |

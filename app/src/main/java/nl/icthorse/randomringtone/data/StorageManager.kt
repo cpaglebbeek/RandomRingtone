@@ -40,6 +40,7 @@ class StorageManager(private val context: Context) {
         private val KEY_LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
         private val KEY_INSTALL_APK_ALLOWED = booleanPreferencesKey("install_apk_allowed")
         private val KEY_DEBUG_BUILD = booleanPreferencesKey("debug_build")
+        private val KEY_TRACK_ID_MIGRATION_V8_DONE = booleanPreferencesKey("track_id_migration_v8_done")
 
         // Standaard subfolders
         private const val DEFAULT_DOWNLOAD_SUBFOLDER = "downloads"
@@ -240,6 +241,20 @@ class StorageManager(private val context: Context) {
     suspend fun setDebugBuildEnabled(enabled: Boolean) {
         context.settingsStore.edit { prefs ->
             prefs[KEY_DEBUG_BUILD] = enabled
+        }
+    }
+
+    // --- TrackId Migration v8 flag ---
+
+    suspend fun isTrackIdMigrationV8Done(): Boolean {
+        return context.settingsStore.data.map { prefs ->
+            prefs[KEY_TRACK_ID_MIGRATION_V8_DONE] ?: false
+        }.first()
+    }
+
+    suspend fun setTrackIdMigrationV8Done(done: Boolean) {
+        context.settingsStore.edit { prefs ->
+            prefs[KEY_TRACK_ID_MIGRATION_V8_DONE] = done
         }
     }
 

@@ -89,6 +89,16 @@ fun RandomRingtoneApp() {
         } else {
             RemoteLogger.d("Startup", "Auto-restore overgeslagen (DB niet leeg of geen backup)")
         }
+
+        // TrackId-migratie v8 (R11) — eenmalig na auto-restore
+        val migrationResult = nl.icthorse.randomringtone.data.TrackIdMigration
+            .migrateV8IfNeeded(context, db, ringtoneManager.storage)
+        if (migrationResult.ran) {
+            RemoteLogger.output("Startup", "TrackId-migratie v8: ${migrationResult.message}")
+            if (migrationResult.remapped > 0 || migrationResult.merged > 0) {
+                snackbarHostState.showSnackbar(migrationResult.message)
+            }
+        }
     }
 
     // Auto-backup bij elke tab-wissel (debounced, lightweight)

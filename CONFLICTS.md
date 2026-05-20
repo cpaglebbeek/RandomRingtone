@@ -213,4 +213,4 @@ Toont per kanaal de actieve instelling en eventuele conflicten:
 | R8 | TrackResolver extracten | Dedup T4/T5 code | MEDIUM |
 | R9 | OkHttpClient singleton | Performance | LOW |
 | R10 | Pre-download bij playlist activering | Offline support | LOW |
-| R11 | TrackId-strategie consolideren (Deezer-id vs name-hash vs absolutePath-hash) — vereist DB-migratie + playlist_tracks remap | Data-integriteit / dedup | MEDIUM (geagendeerd 2026-05-20, na P0+P1+P2) |
+| R11 | TrackId-strategie consolideren | Data-integriteit / dedup | DONE 1.10.0 (TrackIdResolver + auto-migratie v8 met pre-backup, forward-fixes YouTube/Spotify) |

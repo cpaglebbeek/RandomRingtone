@@ -368,7 +368,7 @@ fun YouTubeScreen(
                                 showActionsDialog = false
                                 // Pre-register in DB met albumArt zodat editor het kan vinden
                                 scope.launch {
-                                    val trackId = file.name.hashCode().toLong()
+                                    val trackId = TrackIdResolver.canonicalTrackIdForName(file.name)
                                     val artPath = getYouTubeArtPath(context, file)
                                     db.savedTrackDao().insert(
                                         SavedTrack(

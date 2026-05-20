@@ -616,7 +616,7 @@ fun SpotifyScreen(
                                 showActionsDialog = false
                                 // Pre-register in DB met albumArt zodat editor het kan vinden
                                 scope.launch {
-                                    val trackId = file.name.hashCode().toLong()
+                                    val trackId = TrackIdResolver.canonicalTrackIdForName(file.name)
                                     val artPath = extractSpotifyArt(context, file)
                                     db.savedTrackDao().insert(
                                         SavedTrack(
@@ -644,7 +644,7 @@ fun SpotifyScreen(
                         onClick = {
                             showActionsDialog = false
                             scope.launch {
-                                val trackId = file.name.hashCode().toLong()
+                                val trackId = TrackIdResolver.canonicalTrackIdForName(file.name)
                                 val artPath = extractSpotifyArt(context, file)
                                 db.savedTrackDao().insert(
                                     SavedTrack(

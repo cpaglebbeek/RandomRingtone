@@ -135,6 +135,14 @@
 - Pure byte-level I/O, geen externe libraries
 - **Gebruikt door:** AudioTrimmer (metadata behouden na trim van M4A bestanden)
 
+### T14. MP3 Album Art (`Mp3AlbumArt.kt`)
+- Schrijft ID3v2.3 tag aan het begin van MP3-bestanden met APIC (cover front, image/jpeg)
+- Optioneel TIT2 (titel) en TPE1 (artiest) in UTF-16 met BOM
+- Skip-condities: bestand niet schrijfbaar, extensie != mp3, JPEG < 1 KB, bestand begint al met "ID3"
+- Verify-strategie: schrijf naar `<file>.art.tmp`, lees met MediaMetadataRetriever, replace alleen bij geslaagde embeddedPicture-readback
+- Pure byte-level I/O, geen externe libraries — analoog aan T13 voor MP3
+- **Gebruikt door:** EditorScreen (trimmed MP3), YouTubeScreen (na thumbnail-fetch), SpotMateDirectClient (na MP3-download), RingtoneManager.downloadPreview (Deezer best-effort)
+
 ---
 
 ## Afhankelijkheden

@@ -629,10 +629,13 @@ fun EditorScreen(
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
                                     // Album art: probeer origineel → trimmed → DB fallback
                                     val artPath = extractAlbumArt(context, audioFile, finalFile, db, deezerTrackId)
-                                    // M4A metadata embedden (titel, artiest, cover, marker)
+                                    val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
                                     if (ext == "m4a") {
-                                        val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
+                                        // M4A metadata embedden (titel, artiest, cover, marker)
                                         M4aMetadata.write(finalFile, name, trackArtist, artBytes, "RandomRingtone trimmed")
+                                    } else if (ext == "mp3" && artBytes != null) {
+                                        // ID3v2.3 APIC embedden — trimmer levert kale MP3 zonder ID3v2
+                                        Mp3AlbumArt.write(finalFile, artBytes, name, trackArtist)
                                     }
                                     val savedTrackId = saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
                                         addToPlaylist, createNew, selectedPlaylist, artPath)
@@ -647,9 +650,11 @@ fun EditorScreen(
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
                                     saveProgress = 1f
                                     val artPath = extractAlbumArt(context, audioFile, finalFile, db, deezerTrackId)
+                                    val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
                                     if (ext == "m4a") {
-                                        val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
                                         M4aMetadata.write(finalFile, name, trackArtist, artBytes, "RandomRingtone trimmed")
+                                    } else if (ext == "mp3" && artBytes != null) {
+                                        Mp3AlbumArt.write(finalFile, artBytes, name, trackArtist)
                                     }
                                     val savedTrackId = saveToDB(db, deezerTrackId, name, trackArtist, previewUrl, finalFile, pName,
                                         addToPlaylist, createNew, selectedPlaylist, artPath)

@@ -72,3 +72,4 @@
 | 68 | Delete van schijf: verwijdert slechts één DB entry, duplicate met ander trackId blijft zichtbaar | Geel | 1.9.10 | 1.9.11 | FIXED |
 | 69 | Album art niet bewaard bij Openen in editor voor Spotify/YouTube: geen DB pre-registratie, editor fallback vindt niets | Geel | 1.9.13 | 1.9.14 | FIXED |
 | 70 | Trimmed bestand vervangt originele Spotify/YouTube entry: saveToDB() hergebruikte soms deezerTrackId waardoor origineel overschreven werd | Geel | 1.9.14 | 1.9.15 | FIXED |
+| 71 | Album art bij MP3 alleen als cache + DB-pad — overleeft cache-wipe / share / backup niet; geen embedded picture | Geel | 1.9.15 | 1.9.16 | FIXED |

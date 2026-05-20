@@ -498,7 +498,7 @@ private val thumbClient = OkHttpClient.Builder()
     .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
     .build()
 
-/** Fetch YouTube thumbnail en sla op als album art cache file. */
+/** Fetch YouTube thumbnail, sla op als album art cache file en embed in MP3 (APIC). */
 private suspend fun fetchYouTubeThumbnail(context: android.content.Context, videoId: String, audioFile: File) {
     withContext(Dispatchers.IO) {
         try {
@@ -511,8 +511,11 @@ private suspend fun fetchYouTubeThumbnail(context: android.content.Context, vide
                 val artDir = File(context.cacheDir, "album_art").apply { mkdirs() }
                 val artFile = File(artDir, "${audioFile.nameWithoutExtension.hashCode()}.jpg")
                 artFile.outputStream().use { it.write(bytes) }
+                val embedded = Mp3AlbumArt.write(audioFile, bytes)
                 RemoteLogger.d("YouTubeScreen", "Thumbnail opgeslagen", mapOf(
-                    "videoId" to videoId, "size" to "${bytes.size / 1024}KB"
+                    "videoId" to videoId,
+                    "size" to "${bytes.size / 1024}KB",
+                    "embedded" to embedded.toString()
                 ))
             }
         } catch (_: Exception) {

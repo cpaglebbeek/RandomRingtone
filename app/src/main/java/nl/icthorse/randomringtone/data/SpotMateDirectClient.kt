@@ -112,6 +112,17 @@ class SpotMateDirectClient {
             onProgress("MP3 downloaden...", 0.8f)
             downloadFile(downloadUrl, destFile)
 
+            // Stap 6: Album art embedden (best-effort, skip indien MP3 al ID3v2 heeft)
+            trackInfo.albumArt?.takeIf { it.isNotBlank() }?.let { artUrl ->
+                fetchUrlBytes(artUrl)?.let { artBytes ->
+                    val embedded = Mp3AlbumArt.write(destFile, artBytes, trackInfo.name, trackInfo.artist)
+                    RemoteLogger.d("SpotMate", "Album art embed", mapOf(
+                        "embedded" to embedded.toString(),
+                        "size" to "${artBytes.size / 1024}KB"
+                    ))
+                }
+            }
+
             onProgress("Klaar!", 1.0f)
             RemoteLogger.output("SpotMate", "Download KLAAR", mapOf("file" to destFile.name, "size" to "${destFile.length()/1024}KB", "track" to (trackInfo?.name ?: "?")))
             DownloadResult(success = true, file = destFile, trackInfo = trackInfo)
@@ -254,6 +265,26 @@ class SpotMateDirectClient {
             }
         }
         return null // Timeout
+    }
+
+    /**
+     * Haal een URL op als bytes (gebruikt voor album-cover JPEG).
+     * Geen exception bij netwerkfout — caller behandelt null.
+     */
+    private fun fetchUrlBytes(url: String): ByteArray? {
+        return try {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", UA)
+                .get()
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return null
+                response.body?.bytes()
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**

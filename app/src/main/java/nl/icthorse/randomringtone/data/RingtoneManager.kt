@@ -59,6 +59,28 @@ class AppRingtoneManager(private val context: Context) {
             }
         }
         RemoteLogger.output("RingtoneManager", "Preview gedownload", mapOf("file" to file.name, "size" to "${file.length()/1024}KB"))
+
+        // Album art embedden (best-effort, skip indien preview al ID3v2 heeft)
+        val coverUrl = track.album.coverMedium.takeIf { it.isNotBlank() } ?: track.album.cover
+        if (coverUrl.isNotBlank()) {
+            try {
+                val coverReq = Request.Builder().url(coverUrl).build()
+                client.newCall(coverReq).execute().use { resp ->
+                    if (resp.isSuccessful) {
+                        val artBytes = resp.body?.bytes()
+                        if (artBytes != null && artBytes.size > 1000) {
+                            val embedded = Mp3AlbumArt.write(file, artBytes, track.title, track.artist.name)
+                            RemoteLogger.d("RingtoneManager", "Album art embed", mapOf(
+                                "embedded" to embedded.toString(),
+                                "size" to "${artBytes.size / 1024}KB"
+                            ))
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // negeer — preview blijft bruikbaar zonder art
+            }
+        }
         file
     }
 

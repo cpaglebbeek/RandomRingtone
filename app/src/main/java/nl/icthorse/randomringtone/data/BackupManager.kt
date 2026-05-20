@@ -36,7 +36,9 @@ data class TrackBackup(
     val id3Title: String? = null,
     val id3Artist: String? = null,
     val albumArtPath: String? = null,
-    val markerType: String? = null
+    val markerType: String? = null,
+    // "downloads" of "ringtones" — bepaalt restore-bestemming. Null bij oude backups → infer uit filename.
+    val subdir: String? = null
 )
 
 @Serializable
@@ -92,6 +94,34 @@ class BackupManager(private val context: Context) {
 
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
 
+    companion object {
+        /**
+         * Bepaal of een track in de downloads- of ringtones-subdir hoort.
+         * Volgorde: expliciet subdir-veld > markerType > filename-prefix > extensie > default downloads.
+         */
+        fun inferSubdir(
+            subdirHint: String?,
+            markerType: String?,
+            localPath: String?
+        ): String {
+            subdirHint?.takeIf { it == "downloads" || it == "ringtones" }?.let { return it }
+            when (markerType) {
+                "trimmed" -> return "ringtones"
+                "track", "youtube" -> return "downloads"
+            }
+            val fileName = localPath?.let { File(it).name.lowercase() }
+            if (fileName != null) {
+                if (fileName.startsWith("ringtone_")) return "ringtones"
+                if (fileName.startsWith("download_") ||
+                    fileName.startsWith("spotify_mp3_") ||
+                    fileName.startsWith("youtube_mp3_")
+                ) return "downloads"
+                if (fileName.endsWith(".m4a")) return "ringtones"
+            }
+            return "downloads"
+        }
+    }
+
     /**
      * Maak een volledige backup: database export + MP3 bestanden → SAF locatie.
      */
@@ -137,8 +167,18 @@ class BackupManager(private val context: Context) {
             val playlists = db.playlistDao().getAll()
             val playlistTracks = db.playlistTrackDao().getAll()
 
-            val trackBackups = tracks.map {
-                TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName, it.id3Title, it.id3Artist, it.albumArtPath, it.markerType)
+            // Bouw filename → subdir mapping op basis van waar het bestand fysiek staat
+            val downloadFileNames = downloadFiles.map { it.name }.toSet()
+            val ringtoneFileNames = ringtoneFiles.map { it.name }.toSet()
+            val trackBackups = tracks.map { tr ->
+                val fileName = tr.localPath?.let { File(it).name }
+                val subdir = when {
+                    fileName != null && fileName in ringtoneFileNames -> "ringtones"
+                    fileName != null && fileName in downloadFileNames -> "downloads"
+                    else -> inferSubdir(null, tr.markerType, tr.localPath)
+                }
+                TrackBackup(tr.deezerTrackId, tr.title, tr.artist, tr.previewUrl, tr.localPath, tr.playlistName,
+                    tr.id3Title, tr.id3Artist, tr.albumArtPath, tr.markerType, subdir)
             }
             val playlistBackups = playlists.map {
                 PlaylistBackup(it.id, it.name, it.channel.name, it.mode.name, it.schedule.name,
@@ -252,12 +292,15 @@ class BackupManager(private val context: Context) {
             onProgress(BackupProgress("Database herstellen...", 3, 5))
             db.clearAllTables()
 
-            // Insert tracks
+            // Insert tracks — kies bestemming per track op basis van subdir (Fix B)
             val ringtoneDir = storage.getRingtoneDir()
+            val downloadDir = storage.getDownloadDir()
             val tracks = trackBackups.map { tb ->
                 val newLocalPath = if (tb.localPath != null) {
                     val fileName = File(tb.localPath).name
-                    File(ringtoneDir, fileName).absolutePath
+                    val subdir = inferSubdir(tb.subdir, tb.markerType, tb.localPath)
+                    val destDir = if (subdir == "ringtones") ringtoneDir else downloadDir
+                    File(destDir, fileName).absolutePath
                 } else null
                 SavedTrack(tb.deezerTrackId, tb.title, tb.artist, tb.previewUrl, newLocalPath, tb.playlistName,
                     id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = tb.albumArtPath, markerType = tb.markerType)
@@ -292,7 +335,6 @@ class BackupManager(private val context: Context) {
             val dlSafDir = backupDir.findFile("downloads")
             val rtSafDir = backupDir.findFile("ringtones")
             val allSafFiles = mutableListOf<Pair<DocumentFile, File>>() // (bron, doel)
-            val downloadDir = storage.getDownloadDir()
             if (dlSafDir != null && dlSafDir.isDirectory) {
                 for (sf in dlSafDir.listFiles()) {
                     val ext = sf.name?.substringAfterLast(".", "")?.lowercase()
@@ -479,7 +521,9 @@ class BackupManager(private val context: Context) {
             val playlistTracks = db.playlistTrackDao().getAll()
 
             val trackBackups = tracks.map {
-                TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName, it.id3Title, it.id3Artist, it.albumArtPath, it.markerType)
+                TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName,
+                    it.id3Title, it.id3Artist, it.albumArtPath, it.markerType,
+                    subdir = inferSubdir(null, it.markerType, it.localPath))
             }
             val playlistBackups = playlists.map {
                 PlaylistBackup(it.id, it.name, it.channel.name, it.mode.name, it.schedule.name,
@@ -543,12 +587,20 @@ class BackupManager(private val context: Context) {
             val playlistsFile = File(dir, "playlists.json")
             if (!tracksFile.exists() && !playlistsFile.exists()) return@withContext false
 
-            // Herstel tracks
+            // Herstel tracks — herschrijf localPath naar huidige downloadDir/ringtoneDir (Fix C)
             if (tracksFile.exists()) {
                 val trackBackups = json.decodeFromString<List<TrackBackup>>(tracksFile.readText())
-                val tracks = trackBackups.map {
-                    SavedTrack(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName,
-                        id3Title = it.id3Title, id3Artist = it.id3Artist, albumArtPath = it.albumArtPath, markerType = it.markerType)
+                val currentDownloadDir = storage.getDownloadDir()
+                val currentRingtoneDir = storage.getRingtoneDir()
+                val tracks = trackBackups.map { tb ->
+                    val newLocalPath = if (tb.localPath != null) {
+                        val fileName = File(tb.localPath).name
+                        val subdir = inferSubdir(tb.subdir, tb.markerType, tb.localPath)
+                        val destDir = if (subdir == "ringtones") currentRingtoneDir else currentDownloadDir
+                        File(destDir, fileName).absolutePath
+                    } else null
+                    SavedTrack(tb.deezerTrackId, tb.title, tb.artist, tb.previewUrl, newLocalPath, tb.playlistName,
+                        id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = tb.albumArtPath, markerType = tb.markerType)
                 }
                 db.savedTrackDao().insertAll(tracks)
             }

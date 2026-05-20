@@ -74,3 +74,6 @@
 | 70 | Trimmed bestand vervangt originele Spotify/YouTube entry: saveToDB() hergebruikte soms deezerTrackId waardoor origineel overschreven werd | Geel | 1.9.14 | 1.9.15 | FIXED |
 | 71 | Album art bij MP3 alleen als cache + DB-pad — overleeft cache-wipe / share / backup niet; geen embedded picture | Geel | 1.9.15 | 1.9.16 | FIXED |
 | 72 | YouTube-download faalt "auth key niet gevonden" — y2mate.sc verhuisd naar v4.y2mate.nu, protocol gewijzigd (nieuwe /auth endpoint + Bearer-token op /init + ms-timestamp `_=` ipv `t=`) | Geel | 1.9.16 | 1.9.17 | FIXED |
+| 73 | Directory-move (Settings → locatie wijzigen → MOVE) updatet saved_tracks.localPath niet → orphan cleanup wist DB-records → playlist_tracks verliezen tracks | Rood | 1.9.17 | 1.9.18 | FIXED |
+| 74 | Restore: alle localPaths gezet naar ringtoneDir, ook downloads → DB-disk mismatch, orphan cleanup wist downloads na restore | Rood | 1.9.17 | 1.9.18 | FIXED |
+| 75 | Auto-restore (fresh install): localPath letterlijk overgenomen uit backup → wijst naar verdwenen app-internal paden → DB leeg na orphan cleanup | Rood | 1.9.17 | 1.9.18 | FIXED |

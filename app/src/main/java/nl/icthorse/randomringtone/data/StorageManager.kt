@@ -290,6 +290,34 @@ class StorageManager(private val context: Context) {
     }
 
     /**
+     * Migreer saved_tracks.localPath van oldDir → newDir.
+     * Aanroepen NA moveFilesToNewDir bij directory-wijziging zodat DB-records
+     * naar de nieuwe fysieke locatie blijven wijzen (en orphan cleanup ze niet wist).
+     * @return aantal bijgewerkte rijen
+     */
+    suspend fun migratePathsInDb(db: RingtoneDatabase, oldDir: File, newDir: File): Int =
+        withContext(Dispatchers.IO) {
+            val oldBase = oldDir.absolutePath.trimEnd('/')
+            val newBase = newDir.absolutePath.trimEnd('/')
+            if (oldBase == newBase) return@withContext 0
+
+            var migrated = 0
+            val all = db.savedTrackDao().getAll()
+            for (track in all) {
+                val lp = track.localPath ?: continue
+                if (lp.isBlank()) continue
+                val newPath = when {
+                    lp == oldBase -> newBase
+                    lp.startsWith("$oldBase/") -> newBase + lp.substring(oldBase.length)
+                    else -> continue
+                }
+                db.savedTrackDao().insert(track.copy(localPath = newPath))
+                migrated++
+            }
+            migrated
+        }
+
+    /**
      * Scan bestaande MP3 bestanden in download- en ringtone-mappen.
      * Herkent: download_<id>.mp3, ringtone_<id>.mp3, ringtone_<id>_<playlist>.mp3,
      * spotify_mp3_<track>-<artiest>.mp3

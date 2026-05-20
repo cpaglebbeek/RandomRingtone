@@ -545,7 +545,8 @@ fun SettingsScreen(
                             }
                             FileMoveAction.MOVE -> {
                                 val count = ringtoneManager.storage.moveFilesToNewDir(oldDir, newDir)
-                                snackbarHostState.showSnackbar("$count bestanden verplaatst")
+                                val migrated = db?.let { ringtoneManager.storage.migratePathsInDb(it, oldDir, newDir) } ?: 0
+                                snackbarHostState.showSnackbar("$count bestanden verplaatst, $migrated DB-paden bijgewerkt")
                             }
                             FileMoveAction.SKIP -> { /* alleen pad wijzigen */ }
                         }
@@ -580,7 +581,8 @@ fun SettingsScreen(
                             }
                             FileMoveAction.MOVE -> {
                                 val count = ringtoneManager.storage.moveFilesToNewDir(oldDir, newDir)
-                                snackbarHostState.showSnackbar("$count bestanden verplaatst")
+                                val migrated = db?.let { ringtoneManager.storage.migratePathsInDb(it, oldDir, newDir) } ?: 0
+                                snackbarHostState.showSnackbar("$count bestanden verplaatst, $migrated DB-paden bijgewerkt")
                             }
                             FileMoveAction.SKIP -> { /* alleen pad wijzigen */ }
                         }

@@ -6,6 +6,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -58,6 +60,11 @@ fun BackupScreen(
 
     // SAF backup meta (voor non-iCt Horse providers)
     var safBackupMeta by remember { mutableStateOf<BackupMeta?>(null) }
+
+    // Selectieve backup/restore (SAF) — preview-data + dialog state
+    var showBackupSelector by remember { mutableStateOf(false) }
+    var showRestoreSelector by remember { mutableStateOf(false) }
+    var selectorData by remember { mutableStateOf<SelectorData?>(null) }
 
     // Load saved state
     LaunchedEffect(Unit) {
@@ -339,16 +346,21 @@ fun BackupScreen(
                             showSlotBackupDialog = true
                         }
                     } else {
+                        // SAF: laad selectie-data uit DB, toon dialog
                         scope.launch {
-                            isProcessing = true
-                            AppBusyState.isBusy = true
-                            val result = backupManager.backup(Uri.parse(backupUri), db, storage, onProgress)
-                            isProcessing = false
-                            AppBusyState.isBusy = false
-                            if (result.success) {
-                                safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
-                            }
-                            snackbarHostState.showSnackbar(result.message)
+                            val tracks = db.savedTrackDao().getAll()
+                            val playlists = db.playlistDao().getAll()
+                            selectorData = SelectorData(
+                                downloads = tracks.filter { it.markerType != "trimmed" && it.markerType != "youtube" }
+                                    .map { SelectorTrack(it.deezerTrackId, it.title, it.artist) },
+                                tones = tracks.filter { it.markerType == "trimmed" }
+                                    .map { SelectorTrack(it.deezerTrackId, it.title, it.artist) },
+                                youtube = tracks.filter { it.markerType == "youtube" }
+                                    .map { SelectorTrack(it.deezerTrackId, it.title, it.artist) },
+                                playlists = playlists.map { SelectorPlaylist(it.id, it.name) },
+                                hasSettings = true
+                            )
+                            showBackupSelector = true
                         }
                     }
                 },
@@ -501,16 +513,25 @@ fun BackupScreen(
                         if (selectedProvider == BackupProvider.ICT_HORSE) {
                             doRestore(selectedSlot)
                         } else {
+                            // SAF: preview laden, dan selectie-dialog tonen
                             scope.launch {
-                                isProcessing = true
-                                AppBusyState.isBusy = true
-                                val result = backupManager.restore(Uri.parse(backupUri), db, storage, onProgress)
-                                isProcessing = false
-                                AppBusyState.isBusy = false
-                                if (result.success) {
-                                    safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+                                val preview = backupManager.previewBackup(Uri.parse(backupUri))
+                                if (preview == null) {
+                                    snackbarHostState.showSnackbar("Backup-preview niet leesbaar")
+                                } else {
+                                    selectorData = SelectorData(
+                                        downloads = preview.downloads.map {
+                                            SelectorTrack(it.deezerTrackId, it.title, it.artist) },
+                                        tones = preview.tones.map {
+                                            SelectorTrack(it.deezerTrackId, it.title, it.artist) },
+                                        youtube = preview.youtube.map {
+                                            SelectorTrack(it.deezerTrackId, it.title, it.artist) },
+                                        playlists = preview.playlists.map {
+                                            SelectorPlaylist(it.id, it.name) },
+                                        hasSettings = preview.meta.selection?.settings ?: true
+                                    )
+                                    showRestoreSelector = true
                                 }
-                                snackbarHostState.showSnackbar(result.message)
                             }
                         }
                     },
@@ -521,5 +542,224 @@ fun BackupScreen(
                 TextButton(onClick = { showRestoreConfirm = false }) { Text("Annuleren") }
             }
         )
+    }
+
+    // === Selectieve BACKUP dialog (SAF) ===
+    if (showBackupSelector && selectorData != null) {
+        SelectiveBackupDialog(
+            title = "Wat backuppen?",
+            available = selectorData!!,
+            confirmLabel = "Backup",
+            onDismiss = { showBackupSelector = false },
+            onConfirm = { selection ->
+                showBackupSelector = false
+                scope.launch {
+                    isProcessing = true
+                    AppBusyState.isBusy = true
+                    val result = backupManager.backup(Uri.parse(backupUri), db, storage, onProgress, selection)
+                    isProcessing = false
+                    AppBusyState.isBusy = false
+                    if (result.success) {
+                        safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+                    }
+                    snackbarHostState.showSnackbar(result.message)
+                }
+            }
+        )
+    }
+
+    // === Selectieve RESTORE dialog (SAF) ===
+    if (showRestoreSelector && selectorData != null) {
+        SelectiveBackupDialog(
+            title = "Wat herstellen?",
+            available = selectorData!!,
+            confirmLabel = "Herstellen",
+            onDismiss = { showRestoreSelector = false },
+            onConfirm = { selection ->
+                showRestoreSelector = false
+                scope.launch {
+                    isProcessing = true
+                    AppBusyState.isBusy = true
+                    val result = backupManager.restore(Uri.parse(backupUri), db, storage, onProgress, selection)
+                    isProcessing = false
+                    AppBusyState.isBusy = false
+                    if (result.success) {
+                        safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+                    }
+                    snackbarHostState.showSnackbar(result.message)
+                }
+            }
+        )
+    }
+}
+
+// ─── Selectieve backup/restore dialog ───────────────────────────────────────
+
+private data class SelectorTrack(val id: Long, val title: String, val artist: String)
+private data class SelectorPlaylist(val id: Long, val name: String)
+
+private data class SelectorData(
+    val downloads: List<SelectorTrack>,
+    val tones: List<SelectorTrack>,
+    val youtube: List<SelectorTrack>,
+    val playlists: List<SelectorPlaylist>,
+    val hasSettings: Boolean
+)
+
+@Composable
+private fun SelectiveBackupDialog(
+    title: String,
+    available: SelectorData,
+    confirmLabel: String,
+    onDismiss: () -> Unit,
+    onConfirm: (BackupSelection) -> Unit
+) {
+    // Per-categorie: null = alle aan (Boolean true), Set<Long> = subset, empty Set = niets
+    var dlIds by remember { mutableStateOf<Set<Long>?>(null) }
+    var tnIds by remember { mutableStateOf<Set<Long>?>(null) }
+    var ytIds by remember { mutableStateOf<Set<Long>?>(null) }
+    var plIds by remember { mutableStateOf<Set<Long>?>(null) }
+    var settingsOn by remember { mutableStateOf(available.hasSettings) }
+
+    var dlExpand by remember { mutableStateOf(false) }
+    var tnExpand by remember { mutableStateOf(false) }
+    var ytExpand by remember { mutableStateOf(false) }
+    var plExpand by remember { mutableStateOf(false) }
+
+    fun catOn(ids: Set<Long>?): Boolean = ids == null || ids.isNotEmpty()
+    fun catCount(all: List<*>, ids: Set<Long>?): Int = if (ids == null) all.size else ids.size
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(modifier = Modifier.heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                CategoryRow(
+                    label = "Downloads", count = catCount(available.downloads, dlIds),
+                    total = available.downloads.size, expanded = dlExpand,
+                    checked = catOn(dlIds),
+                    onChecked = { on -> dlIds = if (on) null else emptySet() },
+                    onExpand = { dlExpand = !dlExpand }
+                )
+                if (dlExpand) TrackList(available.downloads, dlIds) { dlIds = it }
+                CategoryRow(
+                    label = "Tones", count = catCount(available.tones, tnIds),
+                    total = available.tones.size, expanded = tnExpand,
+                    checked = catOn(tnIds),
+                    onChecked = { on -> tnIds = if (on) null else emptySet() },
+                    onExpand = { tnExpand = !tnExpand }
+                )
+                if (tnExpand) TrackList(available.tones, tnIds) { tnIds = it }
+                CategoryRow(
+                    label = "YouTube", count = catCount(available.youtube, ytIds),
+                    total = available.youtube.size, expanded = ytExpand,
+                    checked = catOn(ytIds),
+                    onChecked = { on -> ytIds = if (on) null else emptySet() },
+                    onExpand = { ytExpand = !ytExpand }
+                )
+                if (ytExpand) TrackList(available.youtube, ytIds) { ytIds = it }
+                CategoryRow(
+                    label = "Playlists", count = catCount(available.playlists, plIds),
+                    total = available.playlists.size, expanded = plExpand,
+                    checked = catOn(plIds),
+                    onChecked = { on -> plIds = if (on) null else emptySet() },
+                    onExpand = { plExpand = !plExpand }
+                )
+                if (plExpand) PlaylistList(available.playlists, plIds) { plIds = it }
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Checkbox(checked = settingsOn, onCheckedChange = { settingsOn = it },
+                        enabled = available.hasSettings)
+                    Text("Instellingen" + if (!available.hasSettings) " (niet in backup)" else "",
+                        style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onConfirm(BackupSelection(
+                    downloads = catOn(dlIds),
+                    downloadTrackIds = if (dlIds?.isNotEmpty() == true) dlIds else null,
+                    tones = catOn(tnIds),
+                    toneTrackIds = if (tnIds?.isNotEmpty() == true) tnIds else null,
+                    youtube = catOn(ytIds),
+                    youtubeTrackIds = if (ytIds?.isNotEmpty() == true) ytIds else null,
+                    playlists = catOn(plIds),
+                    playlistIds = if (plIds?.isNotEmpty() == true) plIds else null,
+                    settings = settingsOn
+                ))
+            }) { Text(confirmLabel) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuleren") } }
+    )
+}
+
+@Composable
+private fun CategoryRow(
+    label: String, count: Int, total: Int, expanded: Boolean,
+    checked: Boolean, onChecked: (Boolean) -> Unit, onExpand: () -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Checkbox(checked = checked, onCheckedChange = onChecked, enabled = total > 0)
+        Text("$label ($count / $total)",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f))
+        if (total > 0) {
+            IconButton(onClick = onExpand, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Inklappen" else "Uitklappen",
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackList(tracks: List<SelectorTrack>, ids: Set<Long>?, onChange: (Set<Long>?) -> Unit) {
+    // ids == null betekent "alles geselecteerd"; emptySet betekent "niets"
+    val activeSet = ids ?: tracks.map { it.id }.toSet()
+    Column(modifier = Modifier.padding(start = 24.dp).heightIn(max = 200.dp)
+        .verticalScroll(rememberScrollState())) {
+        for (t in tracks) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = t.id in activeSet,
+                    onCheckedChange = { on ->
+                        val newSet = if (on) activeSet + t.id else activeSet - t.id
+                        onChange(if (newSet.size == tracks.size) null else newSet)
+                    }
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(t.title, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                    if (t.artist.isNotBlank())
+                        Text(t.artist, style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaylistList(playlists: List<SelectorPlaylist>, ids: Set<Long>?, onChange: (Set<Long>?) -> Unit) {
+    val activeSet = ids ?: playlists.map { it.id }.toSet()
+    Column(modifier = Modifier.padding(start = 24.dp).heightIn(max = 200.dp)
+        .verticalScroll(rememberScrollState())) {
+        for (p in playlists) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = p.id in activeSet,
+                    onCheckedChange = { on ->
+                        val newSet = if (on) activeSet + p.id else activeSet - p.id
+                        onChange(if (newSet.size == playlists.size) null else newSet)
+                    }
+                )
+                Text(p.name, style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f), maxLines = 1)
+            }
+        }
     }
 }

@@ -22,7 +22,65 @@ data class BackupMeta(
     val playlistCount: Int,
     val playlistTrackCount: Int,
     val downloadFileCount: Int,
-    val ringtoneFileCount: Int
+    val ringtoneFileCount: Int,
+    val selection: BackupSelectionMeta? = null   // null = full (oude backups)
+)
+
+/** Wat zit er in deze backup? */
+@Serializable
+data class BackupSelectionMeta(
+    val downloads: Boolean = true,
+    val tones: Boolean = true,
+    val youtube: Boolean = true,
+    val playlists: Boolean = true,
+    val settings: Boolean = true,
+    val downloadCount: Int = 0,
+    val toneCount: Int = 0,
+    val youtubeCount: Int = 0,
+    val playlistCount: Int = 0
+)
+
+/** Wat wil gebruiker backuppen of restoren? null = alle van categorie. */
+data class BackupSelection(
+    val downloads: Boolean = true,
+    val downloadTrackIds: Set<Long>? = null,
+    val tones: Boolean = true,
+    val toneTrackIds: Set<Long>? = null,
+    val youtube: Boolean = true,
+    val youtubeTrackIds: Set<Long>? = null,
+    val playlists: Boolean = true,
+    val playlistIds: Set<Long>? = null,
+    val settings: Boolean = true
+) {
+    val isFull: Boolean get() = downloads && tones && youtube && playlists && settings &&
+        downloadTrackIds == null && toneTrackIds == null && youtubeTrackIds == null && playlistIds == null
+
+    fun includesTrack(t: SavedTrack): Boolean {
+        val ids = when (t.markerType) {
+            "trimmed" -> if (!tones) return false else toneTrackIds
+            "youtube" -> if (!youtube) return false else youtubeTrackIds
+            else      -> if (!downloads) return false else downloadTrackIds
+        }
+        return ids == null || t.deezerTrackId in ids
+    }
+
+    fun includesPlaylist(id: Long): Boolean {
+        if (!playlists) return false
+        return playlistIds == null || id in playlistIds
+    }
+
+    companion object {
+        val FULL = BackupSelection()
+    }
+}
+
+/** Preview van wat er in een backup-bestand zit, zonder restore. */
+data class BackupPreview(
+    val meta: BackupMeta,
+    val downloads: List<TrackBackup>,
+    val tones: List<TrackBackup>,
+    val youtube: List<TrackBackup>,
+    val playlists: List<PlaylistBackup>
 )
 
 @Serializable
@@ -123,13 +181,15 @@ class BackupManager(private val context: Context) {
     }
 
     /**
-     * Maak een volledige backup: database export + MP3 bestanden → SAF locatie.
+     * Maak een (selectieve) backup: database export + MP3 bestanden → SAF locatie.
+     * Default selection = BackupSelection.FULL (alle categorieën, alle tracks).
      */
     suspend fun backup(
         backupUri: Uri,
         db: RingtoneDatabase,
         storage: StorageManager,
-        onProgress: (BackupProgress) -> Unit
+        onProgress: (BackupProgress) -> Unit,
+        selection: BackupSelection = BackupSelection.FULL
     ): BackupResult = withContext(Dispatchers.IO) {
         try {
             val rootDoc = DocumentFile.fromTreeUri(context, backupUri)
@@ -140,12 +200,20 @@ class BackupManager(private val context: Context) {
                 ?: rootDoc.createDirectory("RandomRingtone_Backup")
                 ?: return@withContext BackupResult(false, "Kan backup map niet aanmaken")
 
-            // Pre-scan: inventariseer bestanden + totale grootte
+            // Pre-scan: inventariseer bestanden + filter op selection
             val audioExts = setOf("mp3", "m4a")
             val downloadDir = storage.getDownloadDir()
             val ringtoneDir = storage.getRingtoneDir()
-            val downloadFiles = downloadDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExts } ?: emptyList()
-            val ringtoneFiles = ringtoneDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in audioExts } ?: emptyList()
+            val allTracks = db.savedTrackDao().getAll()
+            val selectedTracks = allTracks.filter { selection.includesTrack(it) }
+            val selectedFileNames = selectedTracks.mapNotNull { it.localPath?.let { lp -> File(lp).name } }.toSet()
+
+            val downloadFiles = (downloadDir.listFiles()?.filter {
+                it.isFile && it.extension.lowercase() in audioExts && it.name in selectedFileNames
+            } ?: emptyList())
+            val ringtoneFiles = (ringtoneDir.listFiles()?.filter {
+                it.isFile && it.extension.lowercase() in audioExts && it.name in selectedFileNames
+            } ?: emptyList())
             val allFiles = downloadFiles + ringtoneFiles
             val totalBytes = allFiles.sumOf { it.length() }
             val totalFileCount = allFiles.size
@@ -161,20 +229,24 @@ class BackupManager(private val context: Context) {
                 onProgress(BackupProgress(phase, copiedFiles, totalFileCount, pct, bytesCopied, totalBytes, bytesPerSecond, eta))
             }
 
-            // Phase 1: Export database
+            // Phase 1: Export database (gefilterd op selection)
             reportProgress("Database exporteren...")
-            val tracks = db.savedTrackDao().getAll()
-            val playlists = db.playlistDao().getAll()
-            val playlistTracks = db.playlistTrackDao().getAll()
+            val playlists = if (selection.playlists)
+                db.playlistDao().getAll().filter { selection.includesPlaylist(it.id) }
+            else emptyList()
+            val selectedPlaylistIds = playlists.map { it.id }.toSet()
+            val playlistTracks = if (selection.playlists)
+                db.playlistTrackDao().getAll().filter { it.playlistId in selectedPlaylistIds }
+            else emptyList()
 
             // Bouw filename → subdir mapping op basis van waar het bestand fysiek staat
-            val downloadFileNames = downloadFiles.map { it.name }.toSet()
-            val ringtoneFileNames = ringtoneFiles.map { it.name }.toSet()
-            val trackBackups = tracks.map { tr ->
+            val downloadFileNamesPhys = downloadFiles.map { it.name }.toSet()
+            val ringtoneFileNamesPhys = ringtoneFiles.map { it.name }.toSet()
+            val trackBackups = selectedTracks.map { tr ->
                 val fileName = tr.localPath?.let { File(it).name }
                 val subdir = when {
-                    fileName != null && fileName in ringtoneFileNames -> "ringtones"
-                    fileName != null && fileName in downloadFileNames -> "downloads"
+                    fileName != null && fileName in ringtoneFileNamesPhys -> "ringtones"
+                    fileName != null && fileName in downloadFileNamesPhys -> "downloads"
                     else -> inferSubdir(null, tr.markerType, tr.localPath)
                 }
                 TrackBackup(tr.deezerTrackId, tr.title, tr.artist, tr.previewUrl, tr.localPath, tr.playlistName,
@@ -226,24 +298,59 @@ class BackupManager(private val context: Context) {
                 copiedFiles++
             }
 
-            // Phase 5: Write metadata
+            // Phase 5: Settings + Metadata
+            if (selection.settings) {
+                reportProgress("Instellingen opslaan...")
+                @Serializable
+                data class SettingsBackup(
+                    val downloadPath: String?,
+                    val ringtonePath: String?,
+                    val spotifyConverter: String,
+                    val backupUri: String?
+                )
+                val settings = SettingsBackup(
+                    downloadPath = storage.getDownloadDir().absolutePath,
+                    ringtonePath = storage.getRingtoneDir().absolutePath,
+                    spotifyConverter = storage.getSpotifyConverter(),
+                    backupUri = storage.getBackupUri()
+                )
+                writeJsonFile(backupDir, "settings.json", json.encodeToString(settings))
+            } else {
+                // Verwijder eventuele oude settings.json bij selectieve backup zonder settings
+                backupDir.findFile("settings.json")?.delete()
+            }
+
             reportProgress("Metadata opslaan...")
+            val dlCount = selectedTracks.count { it.markerType != "trimmed" && it.markerType != "youtube" }
+            val tnCount = selectedTracks.count { it.markerType == "trimmed" }
+            val ytCount = selectedTracks.count { it.markerType == "youtube" }
             val meta = BackupMeta(
                 appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?",
                 backupDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
-                trackCount = tracks.size,
+                trackCount = selectedTracks.size,
                 playlistCount = playlists.size,
                 playlistTrackCount = playlistTracks.size,
                 downloadFileCount = downloadFiles.size,
-                ringtoneFileCount = ringtoneFiles.size
+                ringtoneFileCount = ringtoneFiles.size,
+                selection = BackupSelectionMeta(
+                    downloads = selection.downloads,
+                    tones = selection.tones,
+                    youtube = selection.youtube,
+                    playlists = selection.playlists,
+                    settings = selection.settings,
+                    downloadCount = dlCount,
+                    toneCount = tnCount,
+                    youtubeCount = ytCount,
+                    playlistCount = playlists.size
+                )
             )
             writeJsonFile(backupDir, "backup_meta.json", json.encodeToString(meta))
 
             val totalMB = "%.1f".format(totalBytes / (1024.0 * 1024.0))
             BackupResult(
                 success = true,
-                message = "Backup geslaagd: ${tracks.size} tracks, ${playlists.size} playlists, $copiedFiles bestanden (${totalMB}MB)",
-                trackCount = tracks.size,
+                message = "Backup geslaagd: ${selectedTracks.size} tracks, ${playlists.size} playlists, $copiedFiles bestanden (${totalMB}MB)",
+                trackCount = selectedTracks.size,
                 playlistCount = playlists.size,
                 fileCount = copiedFiles
             )
@@ -253,14 +360,42 @@ class BackupManager(private val context: Context) {
     }
 
     /**
-     * Herstel een volledige backup: database import + MP3 bestanden ← SAF locatie.
-     * Vervangt ALLE huidige data.
+     * Lees backup-inhoud zonder restore — voor UI-preview met selectievakjes.
+     */
+    suspend fun previewBackup(backupUri: Uri): BackupPreview? = withContext(Dispatchers.IO) {
+        try {
+            val rootDoc = DocumentFile.fromTreeUri(context, backupUri) ?: return@withContext null
+            val backupDir = rootDoc.findFile("RandomRingtone_Backup") ?: return@withContext null
+            val metaFile = backupDir.findFile("backup_meta.json") ?: return@withContext null
+            val meta = json.decodeFromString<BackupMeta>(readSafFile(metaFile))
+
+            val tracks: List<TrackBackup> = backupDir.findFile("saved_tracks.json")
+                ?.let { json.decodeFromString<List<TrackBackup>>(readSafFile(it)) }
+                ?: emptyList()
+            val playlists: List<PlaylistBackup> = backupDir.findFile("playlists.json")
+                ?.let { json.decodeFromString<List<PlaylistBackup>>(readSafFile(it)) }
+                ?: emptyList()
+
+            val downloads = tracks.filter { it.markerType != "trimmed" && it.markerType != "youtube" }
+            val tones = tracks.filter { it.markerType == "trimmed" }
+            val youtube = tracks.filter { it.markerType == "youtube" }
+            BackupPreview(meta, downloads, tones, youtube, playlists)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Herstel een (selectieve) backup: database import + MP3 bestanden ← SAF locatie.
+     * - selection.isFull = true → bestaande full-restore-flow met clearAllTables (destructief)
+     * - anders → partial-restore: per-categorie upsert, geen clearAllTables, orphan-cleanup achteraf
      */
     suspend fun restore(
         backupUri: Uri,
         db: RingtoneDatabase,
         storage: StorageManager,
-        onProgress: (BackupProgress) -> Unit
+        onProgress: (BackupProgress) -> Unit,
+        selection: BackupSelection = BackupSelection.FULL
     ): BackupResult = withContext(Dispatchers.IO) {
         try {
             val rootDoc = DocumentFile.fromTreeUri(context, backupUri)
@@ -288,14 +423,24 @@ class BackupManager(private val context: Context) {
             val playlistBackups = json.decodeFromString<List<PlaylistBackup>>(playlistsJson)
             val ptBackups = json.decodeFromString<List<PlaylistTrackBackup>>(ptJson)
 
-            // Phase 3: Clear and restore database
+            // Phase 3: Clear (alleen bij full) + filtered insert
             onProgress(BackupProgress("Database herstellen...", 3, 5))
-            db.clearAllTables()
+            if (selection.isFull) db.clearAllTables()
+
+            // Filter trackBackups op selection
+            val filteredTracks = trackBackups.filter { tb ->
+                val fakeSavedTrack = SavedTrack(
+                    deezerTrackId = tb.deezerTrackId, title = tb.title, artist = tb.artist,
+                    previewUrl = tb.previewUrl, localPath = tb.localPath, playlistName = tb.playlistName,
+                    markerType = tb.markerType
+                )
+                selection.includesTrack(fakeSavedTrack)
+            }
 
             // Insert tracks — kies bestemming per track op basis van subdir (Fix B)
             val ringtoneDir = storage.getRingtoneDir()
             val downloadDir = storage.getDownloadDir()
-            val tracks = trackBackups.map { tb ->
+            val tracks = filteredTracks.map { tb ->
                 val newLocalPath = if (tb.localPath != null) {
                     val fileName = File(tb.localPath).name
                     val subdir = inferSubdir(tb.subdir, tb.markerType, tb.localPath)
@@ -307,44 +452,72 @@ class BackupManager(private val context: Context) {
             }
             db.savedTrackDao().insertAll(tracks)
 
-            // Insert playlists (met expliciete IDs)
-            for (pb in playlistBackups) {
+            // Insert playlists (gefilterd op selection)
+            val filteredPlaylists = playlistBackups.filter { selection.includesPlaylist(it.id) }
+            for (pb in filteredPlaylists) {
                 db.playlistDao().insert(
                     Playlist(
-                        id = pb.id,
-                        name = pb.name,
+                        id = pb.id, name = pb.name,
                         channel = Channel.valueOf(pb.channel),
                         mode = Mode.valueOf(pb.mode),
                         schedule = Schedule.valueOf(pb.schedule),
-                        contactUri = pb.contactUri,
-                        contactName = pb.contactName,
-                        isActive = pb.isActive,
-                        lastPlayedTrackId = pb.lastPlayedTrackId,
+                        contactUri = pb.contactUri, contactName = pb.contactName,
+                        isActive = pb.isActive, lastPlayedTrackId = pb.lastPlayedTrackId,
                         playedTrackIds = pb.playedTrackIds
                     )
                 )
             }
 
-            // Insert playlist_tracks
-            for (pt in ptBackups) {
+            // Insert playlist_tracks (orphan-filter: alleen waar playlist + track in DB)
+            val playlistIdsInDb = db.playlistDao().getAll().map { it.id }.toSet()
+            val trackIdsInDb = db.savedTrackDao().getAll().map { it.deezerTrackId }.toSet()
+            val filteredPt = ptBackups.filter { it.playlistId in playlistIdsInDb && it.trackId in trackIdsInDb }
+            for (pt in filteredPt) {
                 db.playlistTrackDao().insert(PlaylistTrack(pt.playlistId, pt.trackId, pt.sortOrder))
             }
 
-            // Phase 4: Copy files back — met speed tracking
+            // Settings restoren als geselecteerd + aanwezig in backup
+            if (selection.settings) {
+                backupDir.findFile("settings.json")?.let { sf ->
+                    try {
+                        @Serializable
+                        data class SettingsBackup(
+                            val downloadPath: String? = null,
+                            val ringtonePath: String? = null,
+                            val spotifyConverter: String = StorageManager.DEFAULT_SPOTIFY_CONVERTER,
+                            val backupUri: String? = null
+                        )
+                        val s = json.decodeFromString<SettingsBackup>(readSafFile(sf))
+                        if (s.downloadPath != null) storage.setDownloadDir(s.downloadPath)
+                        if (s.ringtonePath != null) storage.setRingtoneDir(s.ringtonePath)
+                        storage.setSpotifyConverter(s.spotifyConverter)
+                        if (s.backupUri != null) storage.setBackupUri(s.backupUri)
+                    } catch (_: Exception) {}
+                }
+            }
+
+            // Phase 4: Copy files back — gefilterd op selection
             val restoreAudioExts = setOf("mp3", "m4a")
             val dlSafDir = backupDir.findFile("downloads")
             val rtSafDir = backupDir.findFile("ringtones")
+            val selectedFileNames = filteredTracks.mapNotNull { it.localPath?.let { lp -> File(lp).name } }.toSet()
             val allSafFiles = mutableListOf<Pair<DocumentFile, File>>() // (bron, doel)
             if (dlSafDir != null && dlSafDir.isDirectory) {
                 for (sf in dlSafDir.listFiles()) {
                     val ext = sf.name?.substringAfterLast(".", "")?.lowercase()
-                    if (sf.isFile && ext in restoreAudioExts) allSafFiles.add(sf to File(downloadDir, sf.name!!))
+                    if (sf.isFile && ext in restoreAudioExts &&
+                        (selection.isFull || sf.name in selectedFileNames)) {
+                        allSafFiles.add(sf to File(downloadDir, sf.name!!))
+                    }
                 }
             }
             if (rtSafDir != null && rtSafDir.isDirectory) {
                 for (sf in rtSafDir.listFiles()) {
                     val ext = sf.name?.substringAfterLast(".", "")?.lowercase()
-                    if (sf.isFile && ext in restoreAudioExts) allSafFiles.add(sf to File(ringtoneDir, sf.name!!))
+                    if (sf.isFile && ext in restoreAudioExts &&
+                        (selection.isFull || sf.name in selectedFileNames)) {
+                        allSafFiles.add(sf to File(ringtoneDir, sf.name!!))
+                    }
                 }
             }
 

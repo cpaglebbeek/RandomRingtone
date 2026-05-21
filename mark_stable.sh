@@ -45,12 +45,12 @@ while IFS= read -r line; do
         continue
     fi
 
-    # Parse: versie|build|timestamp|apk|marker
-    IFS='|' read -r ver bld ts apk marker <<< "$line"
+    # Parse: versie|build|timestamp|apk|marker|codename|releaseName
+    IFS='|' read -r ver bld ts apk marker codename relname <<< "$line"
 
     if [ "$bld" = "$BUILD" ]; then
         # Target build: verwijder marker (stable)
-        echo "${ver}|${bld}|${ts}|${apk}" >> "$tmpfile"
+        echo "${ver}|${bld}|${ts}|${apk}||${codename}|${relname}" >> "$tmpfile"
         echo "  v${ver} (Build ${bld}): STABLE"
     elif [ "$marker" = "BUG" ] || [ "$marker" = "UPGRADE" ]; then
         # BUG/UPGRADE: laat ongewijzigd
@@ -58,7 +58,7 @@ while IFS= read -r line; do
         echo "  v${ver} (Build ${bld}): ${marker} (ongewijzigd)"
     else
         # Alles anders: zet op DEBUG
-        echo "${ver}|${bld}|${ts}|${apk}|DEBUG" >> "$tmpfile"
+        echo "${ver}|${bld}|${ts}|${apk}|DEBUG|${codename}|${relname}" >> "$tmpfile"
         echo "  v${ver} (Build ${bld}): DEBUG"
     fi
 done < build.timestamp

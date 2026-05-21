@@ -114,4 +114,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 130 | 1.9.19 | Michael_Jackson | Bad | 2026-05-20 | Nee |
 | 131 | 1.9.20 | Michael_Jackson | Heal_The_World | 2026-05-20 | Nee |
 | 132 | 1.10.0 | Whitney_Houston | I_Will_Always_Love_You | 2026-05-20 | Nee |
-| 133 | 1.10.1 | Whitney_Houston | How_Will_I_Know | 2026-05-21 | Nee |
+| 133 | 1.10.1 | Whitney_Houston | How_Will_I_Know | 2026-05-21 | **Ja** |

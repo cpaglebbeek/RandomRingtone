@@ -81,3 +81,4 @@
 | 77 | Custom path zonder schrijfrechten (Android 11+ scoped storage): mkdirs() faalt stil, downloads landen daarna nergens — geen feedback aan gebruiker | Geel | 1.9.17 | 1.9.19 | FIXED |
 | 78 | Scan blokkeerde lang bij grote audio-collecties — markerscan opende elk audiobestand zonder MIME-filter en zonder budget | Geel | 1.9.19 | 1.9.20 | FIXED |
 | 79 | TrackId-strategie inconsistent (Deezer-id vs file.name.hashCode signed vs absolutePath.hashCode positief) → dupes in DB + mismatches bij scan/move | Oranje | sinds 0.x | 1.10.0 | FIXED (R11 — canonical helper + auto-migratie v8 + pre-migratie backup) |
+| 80 | YouTube-download faalt opnieuw "auth key" — Y2Mate v4 → v3 host-verhuizing + Referer-validatie strenger (alleen v3 geaccepteerd, v4 = HTTP 403) | Geel | 1.10.0 | 1.10.1 | FIXED (SITE_URL v4 → v3) |

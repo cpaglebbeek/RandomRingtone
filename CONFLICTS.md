@@ -214,3 +214,4 @@ Toont per kanaal de actieve instelling en eventuele conflicten:
 | R9 | OkHttpClient singleton | Performance | LOW |
 | R10 | Pre-download bij playlist activering | Offline support | LOW |
 | R11 | TrackId-strategie consolideren | Data-integriteit / dedup | DONE 1.10.0 (TrackIdResolver + auto-migratie v8 met pre-backup, forward-fixes YouTube/Spotify) |
+| R12 | Y2Mate host dynamisch resolven (geen hardcoded SITE_URL) — derde host-verhuizing dit jaar, structurele oplossing nodig | Resiliency / 3rd-party scraping | OPEN — quickfix 1.10.1, structurele fix later |

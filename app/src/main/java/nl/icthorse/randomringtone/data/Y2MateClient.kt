@@ -23,7 +23,7 @@ import java.io.File
 class Y2MateClient {
 
     companion object {
-        private const val SITE_URL = "https://v4.y2mate.nu"
+        private const val SITE_URL = "https://v3.y2mate.nu"
         private const val AUTH_URL = "https://eta.etacloud.org/api/v1/auth"
         private const val INIT_URL = "https://eta.etacloud.org/api/v1/init"
         private const val MAX_POLL_ATTEMPTS = 60

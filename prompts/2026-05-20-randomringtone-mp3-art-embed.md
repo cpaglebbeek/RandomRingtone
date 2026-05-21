@@ -3,7 +3,7 @@ date: 2026-05-20
 project: RandomRingtone
 topic: MP3 album art embed (overal)
 resume: 2026-05-20-randomringtone-mp3-art-embed
-status: open
+status: pending
 codename: Michael_Jackson
 release: Billie_Jean
 version: 1.9.16

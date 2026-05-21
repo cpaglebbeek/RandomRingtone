@@ -3,7 +3,7 @@ date: 2026-05-21
 project: RandomRingtone
 topic: Feature — selectieve backup/restore (per categorie + per track)
 resume: 2026-05-21-randomringtone-selective-backup-restore
-status: open
+status: pending
 codename: Whitney_Houston
 release: I_Wanna_Dance_With_Somebody
 version: 1.11.0

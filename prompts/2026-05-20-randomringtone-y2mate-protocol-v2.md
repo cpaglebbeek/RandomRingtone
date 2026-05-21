@@ -3,7 +3,7 @@ date: 2026-05-20
 project: RandomRingtone
 topic: Y2Mate protocol v2 (domain-migratie + nieuw auth-protocol)
 resume: 2026-05-20-randomringtone-y2mate-protocol-v2
-status: open
+status: done
 codename: Michael_Jackson
 release: Beat_It
 version: 1.9.17

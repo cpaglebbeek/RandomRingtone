@@ -3,7 +3,7 @@ date: 2026-05-20
 project: RandomRingtone
 topic: Storage P1 — Library-filter versoepelen + storage write-test
 resume: 2026-05-20-randomringtone-storage-p1
-status: open
+status: pending
 codename: Michael_Jackson
 release: Bad
 version: 1.9.19

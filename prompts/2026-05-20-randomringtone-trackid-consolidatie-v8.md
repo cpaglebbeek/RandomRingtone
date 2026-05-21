@@ -3,7 +3,7 @@ date: 2026-05-20
 project: RandomRingtone
 topic: R11 — TrackId-consolidatie (DataStore-flag migratie v8)
 resume: 2026-05-20-randomringtone-trackid-consolidatie-v8
-status: open
+status: pending
 codename: Whitney_Houston
 release: I_Will_Always_Love_You
 version: 1.10.0

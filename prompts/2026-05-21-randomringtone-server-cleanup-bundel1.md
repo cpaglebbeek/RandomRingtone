@@ -3,7 +3,7 @@ date: 2026-05-21
 project: RandomRingtone
 topic: Sanitycheck P1 Bundel 1 — server-side cleanup + D1 re-render
 resume: 2026-05-21-randomringtone-server-cleanup-bundel1
-status: open
+status: done
 kleur: Geel — server-side destructief (irreversible deletes)
 ---
 

@@ -3,7 +3,7 @@ date: 2026-05-20
 project: RandomRingtone
 topic: Storage P0 — directory-move, restore-routing, auto-restore path-rewrite
 resume: 2026-05-20-randomringtone-storage-p0
-status: open
+status: pending
 codename: Michael_Jackson
 release: Man_In_The_Mirror
 version: 1.9.18

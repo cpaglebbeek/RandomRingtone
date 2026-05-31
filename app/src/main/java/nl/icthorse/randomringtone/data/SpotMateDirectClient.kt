@@ -59,9 +59,15 @@ class SpotMateDirectClient {
      */
     suspend fun fetchTrackInfo(spotifyUrl: String): TrackInfo? = withContext(Dispatchers.IO) {
         try {
+            RemoteLogger.input("SpotMate", "fetchTrackInfo gestart", mapOf("url" to spotifyUrl))
             fetchCsrfToken()
             getTrackData(spotifyUrl)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            RemoteLogger.e("SpotMate", "fetchTrackInfo FAILED", mapOf(
+                "error" to (e.message ?: "?"),
+                "type" to e.javaClass.simpleName,
+                "url" to spotifyUrl
+            ))
             null
         }
     }
@@ -144,7 +150,10 @@ class SpotMateDirectClient {
             .build()
 
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw Exception("SpotMate niet bereikbaar (${response.code})")
+            if (!response.isSuccessful) {
+                RemoteLogger.e("SpotMate", "CSRF GET niet ok", mapOf("code" to response.code.toString()))
+                throw Exception("SpotMate niet bereikbaar (${response.code})")
+            }
 
             // Session cookies opslaan
             sessionCookies = response.headers("Set-Cookie")
@@ -154,8 +163,17 @@ class SpotMateDirectClient {
             // CSRF token uit HTML meta tag parsen
             val html = response.body?.string() ?: ""
             val csrfMatch = Regex("""<meta\s+name="csrf-token"\s+content="([^"]+)"""").find(html)
-            csrfToken = csrfMatch?.groupValues?.get(1)
-                ?: throw Exception("CSRF token niet gevonden")
+            csrfToken = csrfMatch?.groupValues?.get(1) ?: run {
+                RemoteLogger.e("SpotMate", "CSRF regex faalt", mapOf(
+                    "htmlLen" to html.length.toString(),
+                    "htmlHead" to html.take(300)
+                ))
+                throw Exception("CSRF token niet gevonden")
+            }
+            RemoteLogger.d("SpotMate", "CSRF OK", mapOf(
+                "tokenLen" to (csrfToken?.length ?: 0).toString(),
+                "cookieLen" to (sessionCookies?.length ?: 0).toString()
+            ))
         }
     }
 
@@ -172,13 +190,28 @@ class SpotMateDirectClient {
             .build()
 
         client.newCall(request).execute().use { response ->
-            val responseBody = response.body?.string() ?: return null
-            if (!response.isSuccessful) return null
+            val responseBody = response.body?.string() ?: run {
+                RemoteLogger.e("SpotMate", "getTrackData lege body", mapOf("code" to response.code.toString()))
+                return null
+            }
+            if (!response.isSuccessful) {
+                RemoteLogger.e("SpotMate", "getTrackData niet ok", mapOf(
+                    "code" to response.code.toString(),
+                    "bodyHead" to responseBody.take(300)
+                ))
+                return null
+            }
 
             val obj = json.parseToJsonElement(responseBody).jsonObject
             val type = obj["type"]?.jsonPrimitive?.contentOrNull
 
-            if (type != "track") return null
+            if (type != "track") {
+                RemoteLogger.e("SpotMate", "getTrackData type != track", mapOf(
+                    "type" to (type ?: "null"),
+                    "keys" to obj.keys.joinToString(",")
+                ))
+                return null
+            }
 
             val name = obj["name"]?.jsonPrimitive?.contentOrNull ?: "Onbekend"
             val id = obj["id"]?.jsonPrimitive?.contentOrNull ?: ""
@@ -189,6 +222,7 @@ class SpotMateDirectClient {
                 ?.jsonArray?.firstOrNull()?.jsonObject?.get("url")
                 ?.jsonPrimitive?.contentOrNull
 
+            RemoteLogger.d("SpotMate", "getTrackData OK", mapOf("name" to name, "artist" to artist))
             return TrackInfo(id = id, name = name, artist = artist, albumArt = albumArt)
         }
     }

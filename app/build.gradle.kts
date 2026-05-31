@@ -7,7 +7,7 @@ plugins {
 }
 
 val appCodename = "Whitney_Houston"
-val appReleaseName = "I_Wanna_Dance_With_Somebody"
+val appReleaseName = "Greatest_Love_Of_All"
 
 android {
     namespace = "nl.icthorse.randomringtone"
@@ -32,13 +32,13 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 134
-        versionName = "1.11.0"
+        versionCode = 135
+        versionName = "1.11.1"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"$appCodename\"")
         buildConfigField("String", "RELEASE_NAME", "\"$appReleaseName\"")
-        buildConfigField("int", "BUILD_NUMBER", "134")
+        buildConfigField("int", "BUILD_NUMBER", "135")
         buildConfigField("String", "BUILD_STATUS", "\"DEBUG\"")  // DEBUG of STABLE
     }
 

@@ -6,8 +6,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0"
 }
 
-val appCodename = "Whitney_Houston"
-val appReleaseName = "Greatest_Love_Of_All"
+val appCodename = "Aretha_Franklin"
+val appReleaseName = "Natural_Woman"
 
 android {
     namespace = "nl.icthorse.randomringtone"
@@ -32,13 +32,13 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 135
-        versionName = "1.11.1"
+        versionCode = 139
+        versionName = "1.12.2"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"$appCodename\"")
         buildConfigField("String", "RELEASE_NAME", "\"$appReleaseName\"")
-        buildConfigField("int", "BUILD_NUMBER", "135")
+        buildConfigField("int", "BUILD_NUMBER", "139")
         buildConfigField("String", "BUILD_STATUS", "\"DEBUG\"")  // DEBUG of STABLE
     }
 

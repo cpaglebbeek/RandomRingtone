@@ -117,3 +117,7 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 133 | 1.10.1 | Whitney_Houston | How_Will_I_Know | 2026-05-21 | **Ja** |
 | 134 | 1.11.0 | Whitney_Houston | I_Wanna_Dance_With_Somebody | 2026-05-21 | Nee |
 | 135 | 1.11.1 | Whitney_Houston | Greatest_Love_Of_All | 2026-05-31 | Nee |
+| 136 | 1.11.2 | Whitney_Houston | Saving_All_My_Love_For_You | 2026-06-01 | Nee |
+| 137 | 1.12.0 | Aretha_Franklin | Respect | 2026-06-01 | Nee |
+| 138 | 1.12.1 | Aretha_Franklin | Think | 2026-06-01 | Nee |
+| 139 | 1.12.2 | Aretha_Franklin | Natural_Woman | 2026-06-01 | Nee (revert-marker, geen APK; Cronet teruggerold) |

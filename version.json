@@ -1,11 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "1.11.1",
-  "versionCode": 135,
-  "codename": "Whitney_Houston",
-  "releaseName": "Greatest_Love_Of_All",
+  "version": "1.12.2",
+  "versionCode": 139,
+  "codename": "Aretha_Franklin",
+  "releaseName": "Natural_Woman",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
-  "last_updated": "2026-05-31",
-  "status": "development"
+  "last_updated": "2026-06-01",
+  "status": "development",
+  "note": "v1.12.2 = revert-marker — Cronet experiment teruggerold; geen APK gebouwd. Volgende geplande build: v2.0.0 Tina_Turner met Spotify Web API"
 }

@@ -8,6 +8,7 @@ import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 /**
  * Directe API client voor SpotMate (spotmate.online).
@@ -28,9 +29,9 @@ class SpotMateDirectClient {
 
     private val client = OkHttpClient.Builder()
         .followRedirects(true)
-        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-        .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -146,6 +147,16 @@ class SpotMateDirectClient {
         val request = Request.Builder()
             .url("$BASE_URL/en1")
             .header("User-Agent", UA)
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+            .header("Accept-Language", "nl-NL,nl;q=0.9")
+            .header("Upgrade-Insecure-Requests", "1")
+            .header("Sec-Ch-Ua", SEC_CH_UA)
+            .header("Sec-Ch-Ua-Mobile", "?0")
+            .header("Sec-Ch-Ua-Platform", "\"macOS\"")
+            .header("Sec-Fetch-Dest", "document")
+            .header("Sec-Fetch-Mode", "navigate")
+            .header("Sec-Fetch-Site", "none")
+            .header("Sec-Fetch-User", "?1")
             .get()
             .build()
 
@@ -346,9 +357,17 @@ class SpotMateDirectClient {
         return Request.Builder()
             .url(url)
             .header("User-Agent", UA)
-            .header("Accept", "application/json")
+            .header("Accept", "*/*")
+            .header("Accept-Language", "nl-NL,nl;q=0.9")
             .header("X-CSRF-TOKEN", csrfToken ?: "")
+            .header("Origin", BASE_URL)
             .header("Referer", "$BASE_URL/en1")
+            .header("Sec-Ch-Ua", SEC_CH_UA)
+            .header("Sec-Ch-Ua-Mobile", "?0")
+            .header("Sec-Ch-Ua-Platform", "\"macOS\"")
+            .header("Sec-Fetch-Dest", "empty")
+            .header("Sec-Fetch-Mode", "cors")
+            .header("Sec-Fetch-Site", "same-origin")
             .apply {
                 if (sessionCookies != null) {
                     header("Cookie", sessionCookies!!)
@@ -357,4 +376,7 @@ class SpotMateDirectClient {
     }
 }
 
-private const val UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+// Chrome desktop spoof — Cloudflare op spotmate.online laat mobile/short-UA's niet door (HTTP 403)
+// Verified via HAR-capture 2026-06-01: Chrome Mac 148 = 200, kale OkHttp UA = 403.
+private const val UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+private const val SEC_CH_UA = "\"Chromium\";v=\"148\", \"Google Chrome\";v=\"148\", \"Not/A)Brand\";v=\"99\""

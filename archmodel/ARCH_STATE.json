@@ -1,0 +1,29 @@
+{
+  "tool": "ModelArchDSL",
+  "toolVersion": "0.1.0",
+  "engineSha256": "0bdabb3b46febb6190ec1e1698d285c5b140e15f4c7f07e7c22a85f2105dacae",
+  "tobeSha256": "97d313912c55a39475183419a585b52b5219d6e10095aff2a107f90a2b72ce87",
+  "factsSha256": "21ff5afc0dd952feccf7f7a530cebd273d2ee4b04bdd8d4f02e92d02d44fec80",
+  "plates": {
+    "conceptueel.archdsl": "3136d5e46c5d1239e50ebca81449e2e6208a567c3112aff2bb25f42f67bafa0e",
+    "logisch.archdsl": "b48fa45f326c8a11cad2c05cde7271b234f6bca16e28d5ee005c383441dcb4f5",
+    "fysiek.archdsl": "ef2f14b2b75742167978dba74ff9fe21300f4903228aaae52047baa790bed422",
+    "reis-reis_knippen.archdsl": "78e9886da32d163432b2cc554323e92c4f3f30737fc7993250b42d207e8a825c",
+    "reis-reis_playlist.archdsl": "bca5b8dfa5390c70158661112bb793bd0c3948834b6270b305a1f41f6b4bb0bf",
+    "reis-reis_oproep.archdsl": "d0d5336885c3d5a1056ba337b23325847b21e09c798badd5f469346bc0dd40dc",
+    "reis-reis_backup.archdsl": "65e8f0ff067025411a85a160f32386d91f5f63bce42e28188caa773a42347269",
+    "reis-reis_bericht.archdsl": "aed146945366e0cb13fb8b2791852d168171693161e8490973eb43ed359457ad"
+  },
+  "counts": {
+    "gebouwd": 56,
+    "deels": 0,
+    "gepland": 7,
+    "alleen_code": 0,
+    "ongetraceerd": 0,
+    "extern": 11,
+    "ontwerp": 49
+  },
+  "facts": 42,
+  "unclaimedFacts": 0,
+  "warnings": 0
+}

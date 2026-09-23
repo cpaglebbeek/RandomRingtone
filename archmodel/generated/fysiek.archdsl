@@ -1,0 +1,137 @@
+// GEGENEREERD door ModelArchDSL — niet met de hand bewerken.
+// Bron: archmodel/tobe.archdsl (ontwerp) + archmodel/asis.facts.json (code).
+set language archimate
+set title "RandomRingtone — Fysiek"
+set subtitle "Architectuurplaat fysiek niveau (ArchiMate/Dragon1)"
+set purpose "Bij elke oproep (of op schema) automatisch een willekeurige ringtone uit zelf samengestelde playlists, per kanaal en per contact."
+show legend true
+switch badges on
+set current state "As-is (code)"
+set target state "To-be (ontwerp)"
+
+Group laag_technology "Technologie" {
+    -width 1220
+    -height 570
+}
+Device dv_toestel "Android-toestel (min SDK 26, target 35; Samsung OneUI)" in laag_technology {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "android:*"
+}
+SystemSoftware ss_android "Android-systeemdiensten (RingtoneManager, MediaStore, ContactsContract, TelephonyManager)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+SystemSoftware ss_compose "Jetpack Compose + Material 3 + Navigation" in laag_technology {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "dep:maven:libs.compose.*, dep:maven:libs.activity.compose, dep:maven:libs.navigation.compose, dep:maven:libs.lifecycle.*, dep:maven:libs.core.ktx"
+}
+SystemSoftware ss_room "Room (SQLite, DB-versie 7, migraties 4→7)" in laag_technology {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "dep:maven:libs.room.*"
+}
+SystemSoftware ss_workmanager "WorkManager" in laag_technology {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "dep:maven:libs.work.runtime.ktx"
+}
+SystemSoftware ss_net "OkHttp + kotlinx.serialization" in laag_technology {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "dep:maven:libs.okhttp, dep:maven:libs.kotlinx.serialization.json"
+}
+SystemSoftware ss_datastore "DataStore Preferences" in laag_technology {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "dep:maven:libs.datastore.preferences"
+}
+SystemSoftware ss_saf "Storage Access Framework (DocumentFile)" in laag_technology {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "dep:maven:libs.documentfile"
+}
+TechnologyInterface ti_fileprovider "FileProvider (update-APK installeren)" in laag_technology {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "android:provider:FileProvider"
+}
+Node nd_spotify "open.spotify.com (Spotify Web in WebView)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+Node nd_spotify_api "Spotify Web API (gepland v2.0.0)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+Node nd_converters "Converter-sites (spotifydown e.a., via WebView)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+Node nd_spotmate "spotmate.online" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+Node nd_youtube "YouTube (www.youtube.com in WebView)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+Node nd_y2mate "Y2Mate (v3.y2mate.nu / etacloud.org)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+Node nd_deezer "api.deezer.com (30 s-previews)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+Node nd_icthorse "icthorse.nl (licentie, backup_api.php, APK-updates)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+Node nd_logger "HC55 horsecloud55.ddns.net/rrlog (logger + viewer)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+    -description "De viewer-pagina staat in deze repo als logger-server/index.html; de logger-dienst zelf draait op HC55 buiten deze repo."
+}
+Node nd_cloud "Cloudmap via SAF (Google Drive, Dropbox, OneDrive)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+
+// Posities (deterministische raster-layout per ArchiMate-laag)
+pos laag_technology 40, 40
+pos dv_toestel 60, 90
+pos ss_android 260, 90
+pos ss_compose 460, 90
+pos ss_room 660, 90
+pos ss_workmanager 860, 90
+pos ss_net 1060, 90
+pos ss_datastore 60, 220
+pos ss_saf 260, 220
+pos ti_fileprovider 460, 220
+pos nd_spotify 660, 220
+pos nd_spotify_api 860, 220
+pos nd_converters 1060, 220
+pos nd_spotmate 60, 350
+pos nd_youtube 260, 350
+pos nd_y2mate 460, 350
+pos nd_deezer 660, 350
+pos nd_icthorse 860, 350
+pos nd_logger 1060, 350
+pos nd_cloud 60, 480
+
+// Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
+dv_toestel composes ss_android
+nd_cloud serves ss_saf

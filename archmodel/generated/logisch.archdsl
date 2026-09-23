@@ -1,0 +1,431 @@
+// GEGENEREERD door ModelArchDSL — niet met de hand bewerken.
+// Bron: archmodel/tobe.archdsl (ontwerp) + archmodel/asis.facts.json (code).
+set language archimate
+set title "RandomRingtone — Logisch"
+set subtitle "Architectuurplaat logisch niveau (ArchiMate/Dragon1)"
+set purpose "Bij elke oproep (of op schema) automatisch een willekeurige ringtone uit zelf samengestelde playlists, per kanaal en per contact."
+show legend true
+switch badges on
+set current state "As-is (code)"
+set target state "To-be (ontwerp)"
+
+Group laag_application "Applicatie" {
+    -width 1220
+    -height 1220
+}
+ApplicationComponent ac_main "MainActivity: 7 tabs + editor, licentieblokkade" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "android:activity:MainActivity, module:app/src/main/java"
+}
+ApplicationComponent ac_theme "Thema (Material 3 + Dynamic Color)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/theme"
+}
+ApplicationComponent ac_scr_spotify "SpotifyScreen: Spotify-WebView, klembord, converter" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_youtube "YouTubeScreen: YouTube-WebView + Y2Mate" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_editor "EditorScreen: waveform, trim, fade, opslaan" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_library "LibraryScreen: bibliotheek, scan, verwijderen" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_playlists "PlaylistManagerScreen: playlists, triggers, schema" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_overview "OverviewScreen: actieve instellingen + conflicten" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_backup "BackupScreen: backup/restore SAF of iCt Horse" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_settings "SettingsScreen: permissies, opslag, converter, updates, logging" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_ringtone "Ringtone-engine (RingtoneManager.kt: MediaStore, globaal/contact/notificatie)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_resolver "TrackResolver: modus → track → bestand (R8)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_conflict "ConflictResolver: één actief per kanaal + scope (R1/R6)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_contacts "ContactsRepository: contacten + CUSTOM_RINGTONE" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan, converterlijst" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_backupmgr "BackupManager: SAF-backup, selectie, auto-backup, playlist-export" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_trackid "TrackId-strategie + eenmalige migratie v8 (TrackIdResolver, TrackIdMigration)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_tags "Metadata-tools (Mp3Marker, Mp3TagReader, Mp3AlbumArt, M4aMetadata)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_license "LicenseManager: device-hash → licentie" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_update "UpdateManager: in-app APK-updates (T12)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data, android:provider:FileProvider"
+}
+ApplicationComponent ac_logger "RemoteLogger: wachtrij, flush 2 s, heartbeat 30 s" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_spotmate "SpotMateDirectClient (Spotify → MP3)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+    -description "Directe API-route. Bug #81: structureel geblokkeerd door Cloudflare; wordt vervangen in v2.0.0."
+}
+ApplicationComponent ac_y2mate "Y2MateClient (YouTube → MP3)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_icthorse_client "IctHorseBackupClient (backup_api.php)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_deezer "DeezerApi-client (T1; in main geen aanroeper meer)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+    -description "Deezer-tab is uit main verdwenen; Deezer-previews worden nog door de ringtone-engine gedownload via previewUrl."
+}
+ApplicationComponent ac_spotify_webapi "SpotifyWebApiClient: Client Credentials + preview_url (v2.0.0)" in laag_application {
+    -fill "#fff7ed"
+    -stroke "#ea580c"
+    -state target
+    -attr status = "gepland"
+    -description "Vervangt SpotMateDirectClient in SpotifyScreen; token-cache ~1 uur; tracks zonder preview_url → WebView-converter."
+}
+ApplicationComponent ac_okhttp_shared "Gedeelde OkHttpClient (R9)" in laag_application {
+    -fill "#fff7ed"
+    -stroke "#ea580c"
+    -state target
+    -attr status = "gepland"
+    -description "Nu maakt elke client een eigen OkHttpClient aan (FLOW §13)."
+}
+ApplicationComponent ac_predownload "Pre-download bij playlist-activering (R10)" in laag_application {
+    -fill "#fff7ed"
+    -stroke "#ea580c"
+    -state target
+    -attr status = "gepland"
+}
+ApplicationComponent ac_y2mate_host "Y2Mate-host dynamisch bepalen (R12)" in laag_application {
+    -fill "#fff7ed"
+    -stroke "#ea580c"
+    -state target
+    -attr status = "gepland"
+}
+ApplicationComponent ac_accu "Uitzondering batterij-optimalisatie aanvragen (roadmap v0.8.0)" in laag_application {
+    -fill "#fff7ed"
+    -stroke "#ea580c"
+    -state target
+    -attr status = "gepland"
+}
+ApplicationComponent ac_wissel_melding "Melding bij ringtone-wissel (roadmap v0.8.0)" in laag_application {
+    -fill "#fff7ed"
+    -stroke "#ea580c"
+    -state target
+    -attr status = "gepland"
+    -description "POST_NOTIFICATIONS staat al in het manifest maar wordt nog niet gebruikt."
+}
+ApplicationComponent ac_decoder "AudioDecoder: MP3 → PCM-waveform (MediaCodec)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/audio"
+}
+ApplicationComponent ac_trimmer "AudioTrimmer: lossless trim + fade (AAC/M4A)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/audio"
+}
+ApplicationComponent ac_player "AudioPlayer: selectie voorbeluisteren" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/audio"
+}
+ApplicationComponent ac_receiver "CallStateReceiver: EVERY_CALL, beller in 3 lagen" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "android:receiver:CallStateReceiver, module:app/src/main/java/receiver"
+}
+ApplicationComponent ac_notifsvc "NotificationService: SMS/WhatsApp-geluid" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "android:service:NotificationService, module:app/src/main/java/service"
+}
+ApplicationComponent ac_worker "RingtoneWorker: periodiek uur/dag/week (WorkManager)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/worker"
+}
+DataObject do_saved_tracks "saved_tracks (Room)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "table:saved_tracks"
+}
+DataObject do_playlists "playlists (Room: kanaal, modus, schema, contact, actief)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "table:playlists"
+}
+DataObject do_playlist_tracks "playlist_tracks (Room-koppeltabel, CASCADE)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "table:playlist_tracks"
+    -description "Koppeltabel playlist ↔ track in RingtoneDb.kt (meerregelige @Entity, sinds ArchPortal AP-004 herkend)."
+}
+DataObject do_settings "Instellingen (DataStore storage_settings)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "dep:maven:libs.datastore.preferences"
+}
+DataObject do_audio "Audiobestanden (downloads, ringtones, MediaStore-items)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+DataObject do_autobackup "Lokale auto-backup (filesDir/auto_backup, JSON)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+DataObject do_backupset "Backupset (JSON + MP3's) in cloudmap of op iCt Horse" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "dep:maven:libs.documentfile, module:app/src/main/java/data"
+}
+Artifact ar_apk "Release-APK RandomRingtone-v…-release.apk (gebundelde afhankelijkheden)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "dep:maven:*"
+}
+Artifact pm_internet "Permissie INTERNET" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:INTERNET"
+}
+Artifact pm_settings "Permissie WRITE_SETTINGS (speciaal)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:WRITE_SETTINGS"
+}
+Artifact pm_contacts "Permissies READ_/WRITE_CONTACTS" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:READ_CONTACTS, permission:WRITE_CONTACTS"
+}
+Artifact pm_call "Permissies READ_PHONE_STATE + READ_CALL_LOG" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:READ_PHONE_STATE, permission:READ_CALL_LOG"
+}
+Artifact pm_media "Permissie READ_MEDIA_AUDIO (scan)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:READ_MEDIA_AUDIO"
+}
+Artifact pm_boot "Permissie RECEIVE_BOOT_COMPLETED" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:RECEIVE_BOOT_COMPLETED"
+}
+Artifact pm_notif "Permissie POST_NOTIFICATIONS (nog ongebruikt)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:POST_NOTIFICATIONS"
+}
+Artifact pm_install "Permissie REQUEST_INSTALL_PACKAGES (in-app update)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:REQUEST_INSTALL_PACKAGES"
+}
+Artifact pm_listener "Notificatie-toegang (BIND_NOTIFICATION_LISTENER_SERVICE)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "android:service:NotificationService"
+}
+
+// Posities (deterministische raster-layout per ArchiMate-laag)
+pos laag_application 40, 40
+pos ac_main 60, 90
+pos ac_theme 260, 90
+pos ac_scr_spotify 460, 90
+pos ac_scr_youtube 660, 90
+pos ac_scr_editor 860, 90
+pos ac_scr_library 1060, 90
+pos ac_scr_playlists 60, 220
+pos ac_scr_overview 260, 220
+pos ac_scr_backup 460, 220
+pos ac_scr_settings 660, 220
+pos ac_ringtone 860, 220
+pos ac_resolver 1060, 220
+pos ac_conflict 60, 350
+pos ac_contacts 260, 350
+pos ac_storage 460, 350
+pos ac_backupmgr 660, 350
+pos ac_trackid 860, 350
+pos ac_tags 1060, 350
+pos ac_license 60, 480
+pos ac_update 260, 480
+pos ac_logger 460, 480
+pos ac_spotmate 660, 480
+pos ac_y2mate 860, 480
+pos ac_icthorse_client 1060, 480
+pos ac_deezer 60, 610
+pos ac_spotify_webapi 260, 610
+pos ac_okhttp_shared 460, 610
+pos ac_predownload 660, 610
+pos ac_y2mate_host 860, 610
+pos ac_accu 1060, 610
+pos ac_wissel_melding 60, 740
+pos ac_decoder 260, 740
+pos ac_trimmer 460, 740
+pos ac_player 660, 740
+pos ac_receiver 860, 740
+pos ac_notifsvc 1060, 740
+pos ac_worker 60, 870
+pos do_saved_tracks 260, 870
+pos do_playlists 460, 870
+pos do_playlist_tracks 660, 870
+pos do_settings 860, 870
+pos do_audio 1060, 870
+pos do_autobackup 60, 1000
+pos do_backupset 260, 1000
+pos ar_apk 460, 1000
+pos pm_internet 660, 1000
+pos pm_settings 860, 1000
+pos pm_contacts 1060, 1000
+pos pm_call 60, 1130
+pos pm_media 260, 1130
+pos pm_boot 460, 1130
+pos pm_notif 660, 1130
+pos pm_install 860, 1130
+pos pm_listener 1060, 1130
+
+// Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
+ac_main composes ac_scr_spotify
+ac_main composes ac_scr_youtube
+ac_main composes ac_scr_editor
+ac_main composes ac_scr_library
+ac_main composes ac_scr_playlists
+ac_main composes ac_scr_overview
+ac_main composes ac_scr_backup
+ac_main composes ac_scr_settings
+ac_theme serves ac_main "thema"
+ac_logger serves ac_main "logging"
+ac_spotmate serves ac_scr_spotify
+ac_spotify_webapi serves ac_scr_spotify "vervangt SpotMate"
+ac_y2mate serves ac_scr_youtube
+ac_y2mate_host serves ac_y2mate
+ac_trackid serves ac_scr_spotify "canonieke trackId"
+ac_trackid serves ac_scr_youtube "canonieke trackId"
+ac_decoder serves ac_scr_editor
+ac_trimmer serves ac_scr_editor
+ac_player serves ac_scr_editor
+ac_tags serves ac_trimmer "metadata behouden"
+ac_tags serves ac_scr_library "ID3-tags"
+ac_storage serves ac_scr_library "scan"
+ac_ringtone serves ac_scr_library "instellen"
+ac_contacts serves ac_scr_playlists
+ac_conflict serves ac_scr_playlists
+ac_conflict serves ac_scr_overview
+ac_backupmgr serves ac_scr_backup
+ac_icthorse_client serves ac_scr_backup
+ac_backupmgr serves ac_scr_playlists "export/import"
+ac_storage serves ac_scr_settings
+ac_update serves ac_scr_settings
+ac_license serves ac_main "blokkade of grace"
+ac_accu serves ac_scr_settings
+ac_resolver serves ac_worker
+ac_resolver serves ac_receiver
+ac_resolver serves ac_notifsvc
+ac_ringtone serves ac_resolver "on-the-fly download"
+ac_ringtone serves ac_worker
+ac_ringtone serves ac_receiver
+ac_contacts serves ac_receiver "naam beller"
+ac_contacts serves ac_ringtone "CUSTOM_RINGTONE"
+ac_predownload serves ac_resolver
+ac_wissel_melding serves ac_worker
+ac_okhttp_shared serves ac_ringtone
+ac_okhttp_shared serves ac_icthorse_client
+ac_okhttp_shared serves ac_spotmate
+ac_resolver accesses do_playlists "leest/werkt bij"
+ac_resolver accesses do_playlist_tracks "leest"
+ac_resolver accesses do_saved_tracks "leest"
+ac_resolver accesses do_audio "leest"
+ac_conflict accesses do_playlists "deactiveert"
+ac_scr_editor accesses do_saved_tracks "schrijft"
+ac_scr_editor accesses do_audio "schrijft"
+ac_scr_library accesses do_saved_tracks "leest/schrijft"
+ac_scr_playlists accesses do_playlists "schrijft"
+ac_scr_playlists accesses do_playlist_tracks "schrijft"
+ac_storage accesses do_settings "leest/schrijft"
+ac_storage accesses do_audio "beheert"
+ac_ringtone accesses do_audio "MediaStore-registratie"
+ac_backupmgr accesses do_autobackup "schrijft/leest"
+ac_backupmgr accesses do_backupset "schrijft/leest"
+ac_icthorse_client accesses do_backupset "upload/download"
+ac_trackid accesses do_saved_tracks "hernummert"
+ac_trackid accesses do_playlist_tracks "remapt"
+do_saved_tracks associates do_playlist_tracks "trackId"
+do_playlists composes do_playlist_tracks "CASCADE"
+ar_apk realizes ac_main
+pm_install serves ac_update
+pm_boot serves ac_worker "na herstart"
+pm_media serves ac_scr_library "scan"
+pm_notif serves ac_wissel_melding
+pm_settings serves ac_ringtone
+pm_contacts serves ac_contacts
+pm_call serves ac_receiver
+pm_listener serves ac_notifsvc

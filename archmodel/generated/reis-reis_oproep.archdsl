@@ -1,0 +1,139 @@
+// GEGENEREERD door ModelArchDSL — niet met de hand bewerken.
+// Bron: archmodel/tobe.archdsl (ontwerp) + archmodel/asis.facts.json (code).
+set language archimate
+set title "RandomRingtone — Klantreis: oproep → volgende willekeurige ringtone"
+set subtitle "Klantreis (stappen genummerd, afspeelbaar in het portaal)"
+set purpose "EVERY_CALL: na afloop van een gesprek kiest de app volgens de modus de volgende track en zet die als ringtone voor de volgende oproep."
+show legend true
+switch badges on
+set current state "As-is (code)"
+set target state "To-be (ontwerp)"
+
+Group laag_business "Business" {
+    -width 1220
+    -height 310
+}
+BusinessActor ba_beller "Beller / afzender" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_oproep "Oproep komt binnen, beller wordt vastgelegd" in laag_business {
+    -step 1
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_gesprek_einde "Gesprek eindigt (telefoon weer IDLE)" in laag_business {
+    -step 2
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_track_kiezen "Volgende track kiezen volgens modus" in laag_business {
+    -step 3
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_ringtone_zetten "Ringtone vervangen (globaal of per contact)" in laag_business {
+    -step 4
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_volgende_oproep "Volgende oproep klinkt met nieuwe ringtone" in laag_business {
+    -step 5
+    -attr status = "ontwerp"
+}
+BusinessService bs_wisselen "Wisselende ringtone" in laag_business {
+    -attr status = "ontwerp"
+}
+
+Group laag_application "Applicatie" {
+    -width 1220
+    -height 310
+}
+Artifact pm_call "Permissies READ_PHONE_STATE + READ_CALL_LOG" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:READ_PHONE_STATE, permission:READ_CALL_LOG"
+}
+ApplicationComponent ac_receiver "CallStateReceiver: EVERY_CALL, beller in 3 lagen" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "android:receiver:CallStateReceiver, module:app/src/main/java/receiver"
+}
+ApplicationComponent ac_resolver "TrackResolver: modus → track → bestand (R8)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+DataObject do_playlists "playlists (Room: kanaal, modus, schema, contact, actief)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "table:playlists"
+}
+ApplicationComponent ac_ringtone "Ringtone-engine (RingtoneManager.kt: MediaStore, globaal/contact/notificatie)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_contacts "ContactsRepository: contacten + CUSTOM_RINGTONE" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+Artifact pm_settings "Permissie WRITE_SETTINGS (speciaal)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "permission:WRITE_SETTINGS"
+}
+
+Group laag_technology "Technologie" {
+    -width 400
+    -height 180
+}
+SystemSoftware ss_android "Android-systeemdiensten (RingtoneManager, MediaStore, ContactsContract, TelephonyManager)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+
+// Posities (deterministische raster-layout per ArchiMate-laag)
+pos laag_business 40, 40
+pos ba_beller 60, 90
+pos bp_oproep 260, 90
+pos bp_gesprek_einde 460, 90
+pos bp_track_kiezen 660, 90
+pos bp_ringtone_zetten 860, 90
+pos bp_volgende_oproep 1060, 90
+pos bs_wisselen 60, 220
+pos laag_application 40, 390
+pos pm_call 60, 440
+pos ac_receiver 260, 440
+pos ac_resolver 460, 440
+pos do_playlists 660, 440
+pos ac_ringtone 860, 440
+pos ac_contacts 1060, 440
+pos pm_settings 60, 570
+pos laag_technology 40, 740
+pos ss_android 60, 790
+
+// Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
+ba_beller triggers bp_oproep "belt"
+bp_ringtone_zetten realizes bs_wisselen
+ac_receiver serves bp_oproep
+pm_call serves bp_oproep
+ac_receiver serves bp_gesprek_einde
+ac_resolver serves bp_track_kiezen
+do_playlists serves bp_track_kiezen "lastPlayed/playedTrackIds"
+ac_ringtone serves bp_ringtone_zetten
+ac_contacts serves bp_ringtone_zetten "per contact"
+pm_settings serves bp_ringtone_zetten
+ss_android serves bp_volgende_oproep
+ac_resolver serves ac_receiver
+ac_ringtone serves ac_resolver "on-the-fly download"
+ac_ringtone serves ac_receiver
+ac_contacts serves ac_receiver "naam beller"
+ac_contacts serves ac_ringtone "CUSTOM_RINGTONE"
+ac_resolver accesses do_playlists "leest/werkt bij"
+ss_android serves ac_ringtone "RingtoneManager/MediaStore"
+ss_android serves ac_contacts "ContactsContract"
+ss_android serves ac_receiver "PHONE_STATE-broadcast"
+pm_settings serves ac_ringtone
+pm_call serves ac_receiver
+bp_oproep -> bp_gesprek_einde
+bp_gesprek_einde -> bp_track_kiezen
+bp_track_kiezen -> bp_ringtone_zetten
+bp_ringtone_zetten -> bp_volgende_oproep

@@ -1,0 +1,84 @@
+// GEGENEREERD door ModelArchDSL — niet met de hand bewerken.
+// Bron: archmodel/tobe.archdsl (ontwerp) + archmodel/asis.facts.json (code).
+set language archimate
+set title "RandomRingtone — Klantreis: bericht met eigen geluid"
+set subtitle "Klantreis (stappen genummerd, afspeelbaar in het portaal)"
+set purpose "NotificationService vangt een SMS- of WhatsApp-melding, zoekt de playlist (contact vóór globaal) en speelt een eigen geluid."
+show legend true
+switch badges on
+set current state "As-is (code)"
+set target state "To-be (ontwerp)"
+
+Group laag_business "Business" {
+    -width 1020
+    -height 180
+}
+BusinessActor ba_beller "Beller / afzender" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bericht_binnen "SMS- of WhatsApp-bericht komt binnen" in laag_business {
+    -step 1
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bericht_match "Playlist zoeken: eerst contact, dan globaal" in laag_business {
+    -step 2
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bericht_geluid "Eigen geluid bij SMS/WhatsApp" in laag_business {
+    -step 3
+    -attr status = "ontwerp"
+}
+BusinessService bs_wisselen "Wisselende ringtone" in laag_business {
+    -attr status = "ontwerp"
+}
+
+Group laag_application "Applicatie" {
+    -width 820
+    -height 180
+}
+Artifact pm_listener "Notificatie-toegang (BIND_NOTIFICATION_LISTENER_SERVICE)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "android:service:NotificationService"
+}
+ApplicationComponent ac_conflict "ConflictResolver: één actief per kanaal + scope (R1/R6)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_notifsvc "NotificationService: SMS/WhatsApp-geluid" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "android:service:NotificationService, module:app/src/main/java/service"
+}
+ApplicationComponent ac_resolver "TrackResolver: modus → track → bestand (R8)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+
+// Posities (deterministische raster-layout per ArchiMate-laag)
+pos laag_business 40, 40
+pos ba_beller 60, 90
+pos bp_bericht_binnen 260, 90
+pos bp_bericht_match 460, 90
+pos bp_bericht_geluid 660, 90
+pos bs_wisselen 860, 90
+pos laag_application 40, 260
+pos pm_listener 60, 310
+pos ac_conflict 260, 310
+pos ac_notifsvc 460, 310
+pos ac_resolver 660, 310
+
+// Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
+ba_beller triggers bp_bericht_binnen "stuurt bericht"
+bp_bericht_geluid realizes bs_wisselen
+bp_bericht_binnen triggers bp_bericht_match
+bp_bericht_match triggers bp_bericht_geluid
+ac_notifsvc serves bp_bericht_binnen
+pm_listener serves bp_bericht_binnen
+ac_conflict serves bp_bericht_match
+ac_resolver serves bp_bericht_geluid
+ac_notifsvc serves bp_bericht_geluid "MediaPlayer"
+ac_resolver serves ac_notifsvc
+pm_listener serves ac_notifsvc

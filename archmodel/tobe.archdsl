@@ -1,0 +1,584 @@
+// RandomRingtone — architectuurontwerp (to-be) in ArchDSL.
+// Bron van het ONTWERP. Platen in generated/ komen hieruit plus de gemeten code
+// (asis.facts.json) via /ModelArchDSL update. Niet de platen bewerken, wel dit bestand.
+// Inhoud overgenomen uit README.md, CLAUDE.md (F1-F6, T1-T14), FLOW.md v1.6.4 (§1-§13),
+// DEPENDENCY_MAP.md, ACTIONS.md (open acties, v2.0.0-plan) en de Kotlin-bronnen op branch main.
+// Branches deezer/spotify/youtube zijn historische zijtakken; main (v1.12.2, build 139) is leidend.
+//
+// Let op granulariteit: de extractor meet modules op mapniveau (data, ui/screens, audio, ...).
+// Elementen binnen dezelfde map delen daarom dezelfde trace; het label noemt het Kotlin-bestand.
+//
+// Conventies: ArchPortal/docs/DSL_CONVENTIES.md
+//   -view conceptueel|logisch|fysiek · -attr trace = "<glob op feit-id>" · -attr status = "gepland"|"extern"
+
+set title "RandomRingtone"
+set subtitle "Android-app die je ringtone wisselt uit eigen playlists"
+set purpose "Bij elke oproep (of op schema) automatisch een willekeurige ringtone uit zelf samengestelde playlists, per kanaal en per contact."
+
+// ================= Conceptueel =================
+Driver dr_afwisseling "Afwisseling in ringtone zonder handwerk"
+Goal go_random "Willekeurige ringtone per oproep uit eigen playlists"
+Goal go_eigen_muziek "Eigen muziek (Spotify/YouTube) als kort ringtone-fragment"
+Goal go_geen_verlies "Geen verlies van tracks en playlists"
+Requirement rq_kanalen "Vier kanalen: Telefoon, Notificatie, SMS, WhatsApp (F3)"
+Requirement rq_modi "Vier modi: Vast, Echt-, Semi- en Quasi-willekeurig"
+Requirement rq_schema "Schema: handmatig, elke oproep, 1-12 uur, dagelijks, wekelijks (F4)"
+Requirement rq_eenactief "Eén actieve playlist per kanaal + scope (R6)"
+Requirement rq_percontact "Per-contact ringtone naast globale ringtone"
+Requirement rq_licentie "Alleen gelicenseerde toestellen (device-hash, grace period)"
+Constraint cn_permissies "Android-permissies en speciale toegang (WRITE_SETTINGS, notificatie-toegang)"
+Constraint cn_standalone "Kernfunctie draait op het toestel; geen eigen server nodig om te wisselen"
+Constraint cn_samsung "Samsung OneUI: batterij-optimalisatie en restricted settings"
+Constraint cn_converters "Converter-diensten onbetrouwbaar (Cloudflare/JA3, bug #81)"
+Principle pr_trackresolver "Eén gedeelde track-resolver voor worker, receiver en service (R8)"
+
+BusinessActor ba_gebruiker "Gebruiker (toestelbezitter)"
+BusinessActor ba_beller "Beller / afzender"
+
+BusinessService bs_wisselen "Wisselende ringtone"
+BusinessService bs_verzamelen "Ringtones verzamelen en knippen"
+BusinessService bs_playlists "Playlists per kanaal en contact"
+BusinessService bs_backup "Backup en herstel"
+BusinessService bs_beheer "App-beheer (permissies, opslag, updates)"
+
+BusinessProcess bp_schema_wissel "Wisselen op schema (uur/dag/week)"
+BusinessProcess bp_bericht_geluid "Eigen geluid bij SMS/WhatsApp"
+BusinessProcess bp_permissies "Permissies en speciale toegang verlenen (F5)"
+BusinessProcess bp_updaten "App bijwerken via in-app update"
+BusinessProcess bp_opstarten "App starten: licentie, migratie, auto-restore"
+BusinessProcess bp_spotify_preview "Spotify-preview via Spotify Web API (v2.0.0)" {
+    -attr status = "gepland"
+    -description "ACTIONS.md hoogste prio: SpotMate vervangen door Client Credentials + preview_url."
+}
+
+// Stappen klantreis 1: nummer zoeken en als ringtone knippen
+BusinessProcess bp_zoeken "Nummer zoeken in Spotify- of YouTube-tab"
+BusinessProcess bp_downloaden "MP3 downloaden via converter"
+BusinessProcess bp_editor_openen "Openen in de editor (waveform)"
+BusinessProcess bp_knippen "Fragment kiezen, fade instellen, voorbeluisteren"
+BusinessProcess bp_opslaan "Opslaan in bibliotheek + playlist (optioneel als ringtone)"
+
+// Stappen klantreis 2: playlist maken en koppelen
+BusinessProcess bp_pl_aanmaken "Playlist aanmaken: kanaal, modus, schema"
+BusinessProcess bp_contact_kiezen "Scope kiezen: globaal of contact"
+BusinessProcess bp_tracks_toevoegen "Tracks uit bibliotheek toevoegen"
+BusinessProcess bp_activeren "Playlist activeren (conflicten oplossen)"
+BusinessProcess bp_overzicht "Actieve instellingen controleren in Overzicht"
+
+// Stappen klantreis 3: inkomende oproep, daarna willekeurige ringtone
+BusinessProcess bp_oproep "Oproep komt binnen, beller wordt vastgelegd"
+BusinessProcess bp_gesprek_einde "Gesprek eindigt (telefoon weer IDLE)"
+BusinessProcess bp_track_kiezen "Volgende track kiezen volgens modus"
+BusinessProcess bp_ringtone_zetten "Ringtone vervangen (globaal of per contact)"
+BusinessProcess bp_volgende_oproep "Volgende oproep klinkt met nieuwe ringtone"
+
+// Stappen klantreis 4: backup maken en terugzetten
+BusinessProcess bp_bk_provider "Backupbestemming kiezen (cloudmap of iCt Horse)"
+BusinessProcess bp_bk_selectie "Selectie kiezen (tracks, playlists)"
+BusinessProcess bp_bk_maken "Backup maken"
+BusinessProcess bp_bk_preview "Backup-inhoud bekijken"
+BusinessProcess bp_bk_herstellen "Herstellen (vervangt huidige data)"
+
+// Stappen klantreis 5: bericht met eigen geluid
+BusinessProcess bp_bericht_binnen "SMS- of WhatsApp-bericht komt binnen"
+BusinessProcess bp_bericht_match "Playlist zoeken: eerst contact, dan globaal"
+
+// ================= Logisch — UI =================
+ApplicationComponent ac_main "MainActivity: 7 tabs + editor, licentieblokkade" {
+    -attr trace = "android:activity:MainActivity, module:app/src/main/java"
+}
+ApplicationComponent ac_theme "Thema (Material 3 + Dynamic Color)" {
+    -attr trace = "module:app/src/main/java/ui/theme"
+}
+ApplicationComponent ac_scr_spotify "SpotifyScreen: Spotify-WebView, klembord, converter" {
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_youtube "YouTubeScreen: YouTube-WebView + Y2Mate" {
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_editor "EditorScreen: waveform, trim, fade, opslaan" {
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_library "LibraryScreen: bibliotheek, scan, verwijderen" {
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_playlists "PlaylistManagerScreen: playlists, triggers, schema" {
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_overview "OverviewScreen: actieve instellingen + conflicten" {
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_backup "BackupScreen: backup/restore SAF of iCt Horse" {
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_scr_settings "SettingsScreen: permissies, opslag, converter, updates, logging" {
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+
+// ================= Logisch — data-laag =================
+ApplicationComponent ac_ringtone "Ringtone-engine (RingtoneManager.kt: MediaStore, globaal/contact/notificatie)" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_resolver "TrackResolver: modus → track → bestand (R8)" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_conflict "ConflictResolver: één actief per kanaal + scope (R1/R6)" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_contacts "ContactsRepository: contacten + CUSTOM_RINGTONE" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan, converterlijst" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_backupmgr "BackupManager: SAF-backup, selectie, auto-backup, playlist-export" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_trackid "TrackId-strategie + eenmalige migratie v8 (TrackIdResolver, TrackIdMigration)" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_tags "Metadata-tools (Mp3Marker, Mp3TagReader, Mp3AlbumArt, M4aMetadata)" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_license "LicenseManager: device-hash → licentie" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_update "UpdateManager: in-app APK-updates (T12)" {
+    -attr trace = "module:app/src/main/java/data, android:provider:FileProvider"
+}
+ApplicationComponent ac_logger "RemoteLogger: wachtrij, flush 2 s, heartbeat 30 s" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_spotmate "SpotMateDirectClient (Spotify → MP3)" {
+    -attr trace = "module:app/src/main/java/data"
+    -description "Directe API-route. Bug #81: structureel geblokkeerd door Cloudflare; wordt vervangen in v2.0.0."
+}
+ApplicationComponent ac_y2mate "Y2MateClient (YouTube → MP3)" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_icthorse_client "IctHorseBackupClient (backup_api.php)" {
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_deezer "DeezerApi-client (T1; in main geen aanroeper meer)" {
+    -attr trace = "module:app/src/main/java/data"
+    -description "Deezer-tab is uit main verdwenen; Deezer-previews worden nog door de ringtone-engine gedownload via previewUrl."
+}
+
+// Gepland (ACTIONS.md / CONFLICTS open / roadmap v0.8.0)
+ApplicationComponent ac_spotify_webapi "SpotifyWebApiClient: Client Credentials + preview_url (v2.0.0)" {
+    -attr status = "gepland"
+    -description "Vervangt SpotMateDirectClient in SpotifyScreen; token-cache ~1 uur; tracks zonder preview_url → WebView-converter."
+}
+ApplicationComponent ac_okhttp_shared "Gedeelde OkHttpClient (R9)" {
+    -attr status = "gepland"
+    -description "Nu maakt elke client een eigen OkHttpClient aan (FLOW §13)."
+}
+ApplicationComponent ac_predownload "Pre-download bij playlist-activering (R10)" {
+    -attr status = "gepland"
+}
+ApplicationComponent ac_y2mate_host "Y2Mate-host dynamisch bepalen (R12)" {
+    -attr status = "gepland"
+}
+ApplicationComponent ac_accu "Uitzondering batterij-optimalisatie aanvragen (roadmap v0.8.0)" {
+    -attr status = "gepland"
+}
+ApplicationComponent ac_wissel_melding "Melding bij ringtone-wissel (roadmap v0.8.0)" {
+    -attr status = "gepland"
+    -description "POST_NOTIFICATIONS staat al in het manifest maar wordt nog niet gebruikt."
+}
+
+// ================= Logisch — audio-editor =================
+ApplicationComponent ac_decoder "AudioDecoder: MP3 → PCM-waveform (MediaCodec)" {
+    -attr trace = "module:app/src/main/java/audio"
+}
+ApplicationComponent ac_trimmer "AudioTrimmer: lossless trim + fade (AAC/M4A)" {
+    -attr trace = "module:app/src/main/java/audio"
+}
+ApplicationComponent ac_player "AudioPlayer: selectie voorbeluisteren" {
+    -attr trace = "module:app/src/main/java/audio"
+}
+
+// ================= Logisch — achtergrond (ringtone-wissel) =================
+ApplicationComponent ac_receiver "CallStateReceiver: EVERY_CALL, beller in 3 lagen" {
+    -attr trace = "android:receiver:CallStateReceiver, module:app/src/main/java/receiver"
+}
+ApplicationComponent ac_notifsvc "NotificationService: SMS/WhatsApp-geluid" {
+    -attr trace = "android:service:NotificationService, module:app/src/main/java/service"
+}
+ApplicationComponent ac_worker "RingtoneWorker: periodiek uur/dag/week (WorkManager)" {
+    -attr trace = "module:app/src/main/java/worker"
+}
+
+// ================= Logisch — opslag =================
+DataObject do_saved_tracks "saved_tracks (Room)" {
+    -attr trace = "table:saved_tracks"
+}
+DataObject do_playlists "playlists (Room: kanaal, modus, schema, contact, actief)" {
+    -attr trace = "table:playlists"
+}
+DataObject do_playlist_tracks "playlist_tracks (Room-koppeltabel, CASCADE)" {
+    -attr trace = "table:playlist_tracks"
+    -description "Koppeltabel playlist ↔ track in RingtoneDb.kt (meerregelige @Entity, sinds ArchPortal AP-004 herkend)."
+}
+DataObject do_settings "Instellingen (DataStore storage_settings)" {
+    -attr trace = "dep:maven:libs.datastore.preferences"
+}
+DataObject do_audio "Audiobestanden (downloads, ringtones, MediaStore-items)" {
+    -attr trace = "module:app/src/main/java/data"
+}
+DataObject do_autobackup "Lokale auto-backup (filesDir/auto_backup, JSON)" {
+    -attr trace = "module:app/src/main/java/data"
+}
+DataObject do_backupset "Backupset (JSON + MP3's) in cloudmap of op iCt Horse" {
+    -attr trace = "dep:maven:libs.documentfile, module:app/src/main/java/data"
+}
+
+// ================= Fysiek =================
+Device dv_toestel "Android-toestel (min SDK 26, target 35; Samsung OneUI)" {
+    -attr trace = "android:*"
+}
+SystemSoftware ss_android "Android-systeemdiensten (RingtoneManager, MediaStore, ContactsContract, TelephonyManager)" {
+    -attr status = "extern"
+}
+SystemSoftware ss_compose "Jetpack Compose + Material 3 + Navigation" {
+    -attr trace = "dep:maven:libs.compose.*, dep:maven:libs.activity.compose, dep:maven:libs.navigation.compose, dep:maven:libs.lifecycle.*, dep:maven:libs.core.ktx"
+}
+SystemSoftware ss_room "Room (SQLite, DB-versie 7, migraties 4→7)" {
+    -attr trace = "dep:maven:libs.room.*"
+}
+SystemSoftware ss_workmanager "WorkManager" {
+    -attr trace = "dep:maven:libs.work.runtime.ktx"
+}
+SystemSoftware ss_net "OkHttp + kotlinx.serialization" {
+    -attr trace = "dep:maven:libs.okhttp, dep:maven:libs.kotlinx.serialization.json"
+}
+SystemSoftware ss_datastore "DataStore Preferences" {
+    -attr trace = "dep:maven:libs.datastore.preferences"
+}
+SystemSoftware ss_saf "Storage Access Framework (DocumentFile)" {
+    -attr trace = "dep:maven:libs.documentfile"
+}
+Artifact ar_apk "Release-APK RandomRingtone-v…-release.apk (gebundelde afhankelijkheden)" {
+    -attr trace = "dep:maven:*"
+}
+TechnologyInterface ti_fileprovider "FileProvider (update-APK installeren)" {
+    -attr trace = "android:provider:FileProvider"
+}
+
+// Permissies (manifest)
+Artifact pm_internet "Permissie INTERNET" {
+    -attr trace = "permission:INTERNET"
+}
+Artifact pm_settings "Permissie WRITE_SETTINGS (speciaal)" {
+    -attr trace = "permission:WRITE_SETTINGS"
+}
+Artifact pm_contacts "Permissies READ_/WRITE_CONTACTS" {
+    -attr trace = "permission:READ_CONTACTS, permission:WRITE_CONTACTS"
+}
+Artifact pm_call "Permissies READ_PHONE_STATE + READ_CALL_LOG" {
+    -attr trace = "permission:READ_PHONE_STATE, permission:READ_CALL_LOG"
+}
+Artifact pm_media "Permissie READ_MEDIA_AUDIO (scan)" {
+    -attr trace = "permission:READ_MEDIA_AUDIO"
+}
+Artifact pm_boot "Permissie RECEIVE_BOOT_COMPLETED" {
+    -attr trace = "permission:RECEIVE_BOOT_COMPLETED"
+}
+Artifact pm_notif "Permissie POST_NOTIFICATIONS (nog ongebruikt)" {
+    -attr trace = "permission:POST_NOTIFICATIONS"
+}
+Artifact pm_install "Permissie REQUEST_INSTALL_PACKAGES (in-app update)" {
+    -attr trace = "permission:REQUEST_INSTALL_PACKAGES"
+}
+Artifact pm_listener "Notificatie-toegang (BIND_NOTIFICATION_LISTENER_SERVICE)" {
+    -attr trace = "android:service:NotificationService"
+}
+
+// Externe diensten
+Node nd_spotify "open.spotify.com (Spotify Web in WebView)" {
+    -attr status = "extern"
+}
+Node nd_spotify_api "Spotify Web API (gepland v2.0.0)" {
+    -attr status = "extern"
+}
+Node nd_converters "Converter-sites (spotifydown e.a., via WebView)" {
+    -attr status = "extern"
+}
+Node nd_spotmate "spotmate.online" {
+    -attr status = "extern"
+}
+Node nd_youtube "YouTube (www.youtube.com in WebView)" {
+    -attr status = "extern"
+}
+Node nd_y2mate "Y2Mate (v3.y2mate.nu / etacloud.org)" {
+    -attr status = "extern"
+}
+Node nd_deezer "api.deezer.com (30 s-previews)" {
+    -attr status = "extern"
+}
+Node nd_icthorse "icthorse.nl (licentie, backup_api.php, APK-updates)" {
+    -attr status = "extern"
+}
+Node nd_logger "HC55 horsecloud55.ddns.net/rrlog (logger + viewer)" {
+    -attr status = "extern"
+    -description "De viewer-pagina staat in deze repo als logger-server/index.html; de logger-dienst zelf draait op HC55 buiten deze repo."
+}
+Node nd_cloud "Cloudmap via SAF (Google Drive, Dropbox, OneDrive)" {
+    -attr status = "extern"
+}
+
+// ================= Relaties — motivatie =================
+dr_afwisseling -> go_random : influence "drijft aan"
+dr_afwisseling -> go_eigen_muziek : influence "drijft aan"
+go_random -> rq_kanalen : influence "vereist"
+go_random -> rq_modi : influence "vereist"
+go_random -> rq_schema : influence "vereist"
+go_random -> rq_eenactief : influence "vereist"
+go_random -> rq_percontact : influence "vereist"
+go_geen_verlies -> bs_backup : influence "vereist"
+cn_permissies -> bp_permissies : influence "begrenst"
+cn_standalone -> ac_resolver : influence "begrenst"
+cn_samsung -> ac_worker : influence "begrenst"
+cn_samsung -> ac_notifsvc : influence "begrenst"
+cn_converters -> ac_spotmate : influence "begrenst"
+cn_converters -> bp_spotify_preview : influence "drijft aan"
+pr_trackresolver -> ac_resolver : influence "vormt"
+rq_eenactief -> ac_conflict : realization
+rq_licentie -> ac_license : realization
+
+// ================= Relaties — business =================
+ba_gebruiker -> bs_verzamelen : association "gebruikt"
+ba_gebruiker -> bs_playlists : association "gebruikt"
+ba_gebruiker -> bs_backup : association "gebruikt"
+ba_gebruiker -> bs_beheer : association "gebruikt"
+ba_beller -> bp_oproep : triggers "belt"
+ba_beller -> bp_bericht_binnen : triggers "stuurt bericht"
+bp_ringtone_zetten -> bs_wisselen : realization
+bp_schema_wissel -> bs_wisselen : realization
+bp_bericht_geluid -> bs_wisselen : realization
+bp_opslaan -> bs_verzamelen : realization
+bp_activeren -> bs_playlists : realization
+bp_bk_maken -> bs_backup : realization
+bp_bk_herstellen -> bs_backup : realization
+bp_permissies -> bs_beheer : realization
+bp_updaten -> bs_beheer : realization
+bp_spotify_preview -> bs_verzamelen : realization
+bp_bericht_binnen -> bp_bericht_match : triggers
+bp_bericht_match -> bp_bericht_geluid : triggers
+
+// ================= Relaties — stappen ↔ componenten (klantreizen) =================
+ac_scr_spotify -> bp_zoeken : serving
+ac_scr_youtube -> bp_zoeken : serving
+nd_spotify -> bp_zoeken : serving
+nd_youtube -> bp_zoeken : serving
+ac_spotmate -> bp_downloaden : serving
+ac_y2mate -> bp_downloaden : serving
+nd_converters -> bp_downloaden : serving
+ac_tags -> bp_downloaden : serving "marker + albumcover"
+ac_main -> bp_editor_openen : serving "navigatie"
+ac_scr_editor -> bp_editor_openen : serving
+ac_decoder -> bp_editor_openen : serving "waveform"
+ac_scr_editor -> bp_knippen : serving
+ac_trimmer -> bp_knippen : serving
+ac_player -> bp_knippen : serving
+ac_scr_editor -> bp_opslaan : serving
+do_saved_tracks -> bp_opslaan : serving
+ac_ringtone -> bp_opslaan : serving "optioneel als hoofdringtone"
+
+ac_scr_playlists -> bp_pl_aanmaken : serving
+do_playlists -> bp_pl_aanmaken : serving
+ac_contacts -> bp_contact_kiezen : serving
+pm_contacts -> bp_contact_kiezen : serving
+ac_scr_playlists -> bp_tracks_toevoegen : serving
+do_playlist_tracks -> bp_tracks_toevoegen : serving
+ac_conflict -> bp_activeren : serving
+ac_resolver -> bp_activeren : serving "past oproep-playlist direct toe"
+ac_worker -> bp_activeren : serving "scheduleAll"
+ac_scr_overview -> bp_overzicht : serving
+ac_conflict -> bp_overzicht : serving
+
+ac_receiver -> bp_oproep : serving
+pm_call -> bp_oproep : serving
+ac_receiver -> bp_gesprek_einde : serving
+ac_resolver -> bp_track_kiezen : serving
+do_playlists -> bp_track_kiezen : serving "lastPlayed/playedTrackIds"
+ac_ringtone -> bp_ringtone_zetten : serving
+ac_contacts -> bp_ringtone_zetten : serving "per contact"
+pm_settings -> bp_ringtone_zetten : serving
+ss_android -> bp_volgende_oproep : serving
+
+ac_scr_backup -> bp_bk_provider : serving
+nd_cloud -> bp_bk_provider : serving
+nd_icthorse -> bp_bk_provider : serving
+ac_scr_backup -> bp_bk_selectie : serving
+ac_backupmgr -> bp_bk_maken : serving
+ac_icthorse_client -> bp_bk_maken : serving
+ac_backupmgr -> bp_bk_preview : serving
+ac_backupmgr -> bp_bk_herstellen : serving
+ac_icthorse_client -> bp_bk_herstellen : serving
+
+ac_notifsvc -> bp_bericht_binnen : serving
+pm_listener -> bp_bericht_binnen : serving
+ac_conflict -> bp_bericht_match : serving
+ac_resolver -> bp_bericht_geluid : serving
+ac_notifsvc -> bp_bericht_geluid : serving "MediaPlayer"
+
+ac_worker -> bp_schema_wissel : serving
+ac_scr_settings -> bp_permissies : serving
+ac_scr_settings -> bp_updaten : serving
+ac_update -> bp_updaten : serving
+ac_main -> bp_opstarten : serving
+ac_license -> bp_opstarten : serving
+ac_trackid -> bp_opstarten : serving "migratie v8"
+ac_backupmgr -> bp_opstarten : serving "auto-restore"
+ac_spotify_webapi -> bp_spotify_preview : serving
+
+// ================= Relaties — logisch =================
+ac_main -> ac_scr_spotify : composition
+ac_main -> ac_scr_youtube : composition
+ac_main -> ac_scr_editor : composition
+ac_main -> ac_scr_library : composition
+ac_main -> ac_scr_playlists : composition
+ac_main -> ac_scr_overview : composition
+ac_main -> ac_scr_backup : composition
+ac_main -> ac_scr_settings : composition
+ac_theme -> ac_main : serving "thema"
+ac_logger -> ac_main : serving "logging"
+
+ac_spotmate -> ac_scr_spotify : serving
+ac_spotify_webapi -> ac_scr_spotify : serving "vervangt SpotMate"
+ac_y2mate -> ac_scr_youtube : serving
+ac_y2mate_host -> ac_y2mate : serving
+ac_trackid -> ac_scr_spotify : serving "canonieke trackId"
+ac_trackid -> ac_scr_youtube : serving "canonieke trackId"
+ac_decoder -> ac_scr_editor : serving
+ac_trimmer -> ac_scr_editor : serving
+ac_player -> ac_scr_editor : serving
+ac_tags -> ac_trimmer : serving "metadata behouden"
+ac_tags -> ac_scr_library : serving "ID3-tags"
+ac_storage -> ac_scr_library : serving "scan"
+ac_ringtone -> ac_scr_library : serving "instellen"
+ac_contacts -> ac_scr_playlists : serving
+ac_conflict -> ac_scr_playlists : serving
+ac_conflict -> ac_scr_overview : serving
+ac_backupmgr -> ac_scr_backup : serving
+ac_icthorse_client -> ac_scr_backup : serving
+ac_backupmgr -> ac_scr_playlists : serving "export/import"
+ac_storage -> ac_scr_settings : serving
+ac_update -> ac_scr_settings : serving
+ac_license -> ac_main : serving "blokkade of grace"
+ac_accu -> ac_scr_settings : serving
+
+ac_resolver -> ac_worker : serving
+ac_resolver -> ac_receiver : serving
+ac_resolver -> ac_notifsvc : serving
+ac_ringtone -> ac_resolver : serving "on-the-fly download"
+ac_ringtone -> ac_worker : serving
+ac_ringtone -> ac_receiver : serving
+ac_contacts -> ac_receiver : serving "naam beller"
+ac_contacts -> ac_ringtone : serving "CUSTOM_RINGTONE"
+ac_predownload -> ac_resolver : serving
+ac_wissel_melding -> ac_worker : serving
+ac_okhttp_shared -> ac_ringtone : serving
+ac_okhttp_shared -> ac_icthorse_client : serving
+ac_okhttp_shared -> ac_spotmate : serving
+
+ac_resolver -> do_playlists : access "leest/werkt bij"
+ac_resolver -> do_playlist_tracks : access "leest"
+ac_resolver -> do_saved_tracks : access "leest"
+ac_resolver -> do_audio : access "leest"
+ac_conflict -> do_playlists : access "deactiveert"
+ac_scr_editor -> do_saved_tracks : access "schrijft"
+ac_scr_editor -> do_audio : access "schrijft"
+ac_scr_library -> do_saved_tracks : access "leest/schrijft"
+ac_scr_playlists -> do_playlists : access "schrijft"
+ac_scr_playlists -> do_playlist_tracks : access "schrijft"
+ac_storage -> do_settings : access "leest/schrijft"
+ac_storage -> do_audio : access "beheert"
+ac_ringtone -> do_audio : access "MediaStore-registratie"
+ac_backupmgr -> do_autobackup : access "schrijft/leest"
+ac_backupmgr -> do_backupset : access "schrijft/leest"
+ac_icthorse_client -> do_backupset : access "upload/download"
+ac_trackid -> do_saved_tracks : access "hernummert"
+ac_trackid -> do_playlist_tracks : access "remapt"
+do_saved_tracks -> do_playlist_tracks : association "trackId"
+do_playlists -> do_playlist_tracks : composition "CASCADE"
+
+// ================= Relaties — fysiek =================
+dv_toestel -> ar_apk : assignment "installeert"
+ar_apk -> ac_main : realization
+ss_compose -> ar_apk : aggregation
+ss_room -> ar_apk : aggregation
+ss_workmanager -> ar_apk : aggregation
+ss_net -> ar_apk : aggregation
+ss_datastore -> ar_apk : aggregation
+ss_saf -> ar_apk : aggregation
+dv_toestel -> ss_android : composition
+ss_compose -> ac_main : serving
+ss_room -> do_saved_tracks : serving
+ss_room -> do_playlists : serving
+ss_room -> do_playlist_tracks : serving
+ss_workmanager -> ac_worker : serving
+ss_datastore -> do_settings : serving
+ss_saf -> do_backupset : serving
+ss_net -> ac_logger : serving
+ss_android -> ac_ringtone : serving "RingtoneManager/MediaStore"
+ss_android -> ac_contacts : serving "ContactsContract"
+ss_android -> ac_receiver : serving "PHONE_STATE-broadcast"
+ss_android -> ac_notifsvc : serving "NotificationListener"
+ti_fileprovider -> ac_update : serving
+pm_install -> ac_update : serving
+pm_boot -> ac_worker : serving "na herstart"
+pm_media -> ac_scr_library : serving "scan"
+pm_internet -> ss_net : serving
+pm_notif -> ac_wissel_melding : serving
+pm_settings -> ac_ringtone : serving
+pm_contacts -> ac_contacts : serving
+pm_call -> ac_receiver : serving
+pm_listener -> ac_notifsvc : serving
+
+nd_spotify -> ac_scr_spotify : serving "WebView"
+nd_converters -> ac_scr_spotify : serving "WebView-converter"
+nd_spotmate -> ac_spotmate : serving
+nd_spotify_api -> ac_spotify_webapi : serving
+nd_youtube -> ac_scr_youtube : serving "WebView"
+nd_y2mate -> ac_y2mate : serving
+nd_deezer -> ac_ringtone : serving "previewUrl"
+nd_deezer -> ac_deezer : serving
+nd_icthorse -> ac_license : serving "lics/{hash}.json"
+nd_icthorse -> ac_icthorse_client : serving "backup_api.php"
+nd_icthorse -> ac_update : serving "RandomRing/Apk"
+nd_cloud -> ss_saf : serving
+ac_logger -> nd_logger : flow "POST /rrlog/log"
+
+// ================= Klantreizen =================
+Viewpoint reis_knippen "Klantreis: nummer zoeken en als ringtone knippen" {
+    -attr journey = "true"
+    -attr actor = "ba_gebruiker"
+    -attr steps = "bp_zoeken bp_downloaden bp_editor_openen bp_knippen bp_opslaan"
+    -description "Via Spotify- of YouTube-tab een nummer vinden, MP3 laten converteren, in de editor een fragment met fade knippen en opslaan."
+}
+Viewpoint reis_playlist "Klantreis: playlist maken en koppelen" {
+    -attr journey = "true"
+    -attr actor = "ba_gebruiker"
+    -attr steps = "bp_pl_aanmaken bp_contact_kiezen bp_tracks_toevoegen bp_activeren bp_overzicht"
+    -description "Playlist met kanaal, modus en schema maken, aan een contact of globaal koppelen, tracks toevoegen, activeren en in Overzicht nakijken."
+}
+Viewpoint reis_oproep "Klantreis: oproep → volgende willekeurige ringtone" {
+    -attr journey = "true"
+    -attr actor = "ba_beller"
+    -attr steps = "bp_oproep bp_gesprek_einde bp_track_kiezen bp_ringtone_zetten bp_volgende_oproep"
+    -description "EVERY_CALL: na afloop van een gesprek kiest de app volgens de modus de volgende track en zet die als ringtone voor de volgende oproep."
+}
+Viewpoint reis_backup "Klantreis: backup maken en terugzetten" {
+    -attr journey = "true"
+    -attr actor = "ba_gebruiker"
+    -attr steps = "bp_bk_provider bp_bk_selectie bp_bk_maken bp_bk_preview bp_bk_herstellen"
+    -description "Bestemming en selectie kiezen, backup maken naar cloudmap of iCt Horse, inhoud bekijken en herstellen (destructief)."
+}
+Viewpoint reis_bericht "Klantreis: bericht met eigen geluid" {
+    -attr journey = "true"
+    -attr actor = "ba_beller"
+    -attr steps = "bp_bericht_binnen bp_bericht_match bp_bericht_geluid"
+    -description "NotificationService vangt een SMS- of WhatsApp-melding, zoekt de playlist (contact vóór globaal) en speelt een eigen geluid."
+}

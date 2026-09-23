@@ -1,0 +1,115 @@
+// GEGENEREERD door ModelArchDSL — niet met de hand bewerken.
+// Bron: archmodel/tobe.archdsl (ontwerp) + archmodel/asis.facts.json (code).
+set language archimate
+set title "RandomRingtone — Klantreis: backup maken en terugzetten"
+set subtitle "Klantreis (stappen genummerd, afspeelbaar in het portaal)"
+set purpose "Bestemming en selectie kiezen, backup maken naar cloudmap of iCt Horse, inhoud bekijken en herstellen (destructief)."
+show legend true
+switch badges on
+set current state "As-is (code)"
+set target state "To-be (ontwerp)"
+
+Group laag_business "Business" {
+    -width 1220
+    -height 310
+}
+BusinessActor ba_gebruiker "Gebruiker (toestelbezitter)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_provider "Backupbestemming kiezen (cloudmap of iCt Horse)" in laag_business {
+    -step 1
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_selectie "Selectie kiezen (tracks, playlists)" in laag_business {
+    -step 2
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_maken "Backup maken" in laag_business {
+    -step 3
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_preview "Backup-inhoud bekijken" in laag_business {
+    -step 4
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_herstellen "Herstellen (vervangt huidige data)" in laag_business {
+    -step 5
+    -attr status = "ontwerp"
+}
+BusinessService bs_backup "Backup en herstel" in laag_business {
+    -attr status = "ontwerp"
+}
+
+Group laag_application "Applicatie" {
+    -width 620
+    -height 180
+}
+ApplicationComponent ac_scr_backup "BackupScreen: backup/restore SAF of iCt Horse" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/ui/screens"
+}
+ApplicationComponent ac_backupmgr "BackupManager: SAF-backup, selectie, auto-backup, playlist-export" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+ApplicationComponent ac_icthorse_client "IctHorseBackupClient (backup_api.php)" in laag_application {
+    -stroke "#16a34a"
+    -attr status = "gebouwd"
+    -attr trace = "module:app/src/main/java/data"
+}
+
+Group laag_technology "Technologie" {
+    -width 420
+    -height 180
+}
+Node nd_cloud "Cloudmap via SAF (Google Drive, Dropbox, OneDrive)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+Node nd_icthorse "icthorse.nl (licentie, backup_api.php, APK-updates)" in laag_technology {
+    -fill "#f0f9ff"
+    -stroke "#0284c7"
+    -attr status = "extern"
+}
+
+// Posities (deterministische raster-layout per ArchiMate-laag)
+pos laag_business 40, 40
+pos ba_gebruiker 60, 90
+pos bp_bk_provider 260, 90
+pos bp_bk_selectie 460, 90
+pos bp_bk_maken 660, 90
+pos bp_bk_preview 860, 90
+pos bp_bk_herstellen 1060, 90
+pos bs_backup 60, 220
+pos laag_application 40, 390
+pos ac_scr_backup 60, 440
+pos ac_backupmgr 260, 440
+pos ac_icthorse_client 460, 440
+pos laag_technology 40, 610
+pos nd_cloud 60, 660
+pos nd_icthorse 260, 660
+
+// Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
+ba_gebruiker associates bs_backup "gebruikt"
+bp_bk_maken realizes bs_backup
+bp_bk_herstellen realizes bs_backup
+ac_scr_backup serves bp_bk_provider
+nd_cloud serves bp_bk_provider
+nd_icthorse serves bp_bk_provider
+ac_scr_backup serves bp_bk_selectie
+ac_backupmgr serves bp_bk_maken
+ac_icthorse_client serves bp_bk_maken
+ac_backupmgr serves bp_bk_preview
+ac_backupmgr serves bp_bk_herstellen
+ac_icthorse_client serves bp_bk_herstellen
+ac_backupmgr serves ac_scr_backup
+ac_icthorse_client serves ac_scr_backup
+nd_icthorse serves ac_icthorse_client "backup_api.php"
+bp_bk_provider -> bp_bk_selectie
+bp_bk_selectie -> bp_bk_maken
+bp_bk_maken -> bp_bk_preview
+bp_bk_preview -> bp_bk_herstellen
+ba_gebruiker -> bp_bk_provider "start"

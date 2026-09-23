@@ -1,0 +1,374 @@
+{
+  "schema": 1,
+  "extractor": "ModelArchDSL/extract",
+  "facts": [
+    {
+      "id": "android:activity:MainActivity",
+      "kind": "android",
+      "label": "activity MainActivity",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:40"
+      ],
+      "sub": "activity"
+    },
+    {
+      "id": "android:provider:FileProvider",
+      "kind": "android",
+      "label": "provider FileProvider",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:61"
+      ],
+      "sub": "provider"
+    },
+    {
+      "id": "android:receiver:CallStateReceiver",
+      "kind": "android",
+      "label": "receiver CallStateReceiver",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:72"
+      ],
+      "sub": "receiver"
+    },
+    {
+      "id": "android:service:NotificationService",
+      "kind": "android",
+      "label": "service NotificationService",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:51"
+      ],
+      "sub": "service"
+    },
+    {
+      "id": "dep:maven:libs.activity.compose",
+      "kind": "dep",
+      "label": "libs.activity.compose",
+      "sources": [
+        "app/build.gradle.kts:91"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.compose.icons.extended",
+      "kind": "dep",
+      "label": "libs.compose.icons.extended",
+      "sources": [
+        "app/build.gradle.kts:90"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.compose.material3",
+      "kind": "dep",
+      "label": "libs.compose.material3",
+      "sources": [
+        "app/build.gradle.kts:88"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.compose.ui",
+      "kind": "dep",
+      "label": "libs.compose.ui",
+      "sources": [
+        "app/build.gradle.kts:87"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.compose.ui.tooling.preview",
+      "kind": "dep",
+      "label": "libs.compose.ui.tooling.preview",
+      "sources": [
+        "app/build.gradle.kts:89"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.core.ktx",
+      "kind": "dep",
+      "label": "libs.core.ktx",
+      "sources": [
+        "app/build.gradle.kts:114"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.datastore.preferences",
+      "kind": "dep",
+      "label": "libs.datastore.preferences",
+      "sources": [
+        "app/build.gradle.kts:115"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.documentfile",
+      "kind": "dep",
+      "label": "libs.documentfile",
+      "sources": [
+        "app/build.gradle.kts:111"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.kotlinx.serialization.json",
+      "kind": "dep",
+      "label": "libs.kotlinx.serialization.json",
+      "sources": [
+        "app/build.gradle.kts:108"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.lifecycle.runtime.compose",
+      "kind": "dep",
+      "label": "libs.lifecycle.runtime.compose",
+      "sources": [
+        "app/build.gradle.kts:94"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.lifecycle.viewmodel.compose",
+      "kind": "dep",
+      "label": "libs.lifecycle.viewmodel.compose",
+      "sources": [
+        "app/build.gradle.kts:93"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.navigation.compose",
+      "kind": "dep",
+      "label": "libs.navigation.compose",
+      "sources": [
+        "app/build.gradle.kts:92"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.okhttp",
+      "kind": "dep",
+      "label": "libs.okhttp",
+      "sources": [
+        "app/build.gradle.kts:105"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.room.compiler",
+      "kind": "dep",
+      "label": "libs.room.compiler",
+      "sources": [
+        "app/build.gradle.kts:102"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.room.ktx",
+      "kind": "dep",
+      "label": "libs.room.ktx",
+      "sources": [
+        "app/build.gradle.kts:101"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.room.runtime",
+      "kind": "dep",
+      "label": "libs.room.runtime",
+      "sources": [
+        "app/build.gradle.kts:100"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "dep:maven:libs.work.runtime.ktx",
+      "kind": "dep",
+      "label": "libs.work.runtime.ktx",
+      "sources": [
+        "app/build.gradle.kts:97"
+      ],
+      "eco": "maven"
+    },
+    {
+      "id": "module:app/src/main/java",
+      "kind": "module",
+      "label": "app",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/MainActivity.kt"
+      ],
+      "files": 1
+    },
+    {
+      "id": "module:app/src/main/java/audio",
+      "kind": "module",
+      "label": "app:/audio",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/audio/AudioDecoder.kt"
+      ],
+      "files": 3
+    },
+    {
+      "id": "module:app/src/main/java/data",
+      "kind": "module",
+      "label": "app:/data",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+      ],
+      "files": 20
+    },
+    {
+      "id": "module:app/src/main/java/receiver",
+      "kind": "module",
+      "label": "app:/receiver",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/receiver/CallStateReceiver.kt"
+      ],
+      "files": 1
+    },
+    {
+      "id": "module:app/src/main/java/service",
+      "kind": "module",
+      "label": "app:/service",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/service/NotificationService.kt"
+      ],
+      "files": 1
+    },
+    {
+      "id": "module:app/src/main/java/ui/screens",
+      "kind": "module",
+      "label": "app:/ui/screens",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+      ],
+      "files": 8
+    },
+    {
+      "id": "module:app/src/main/java/ui/theme",
+      "kind": "module",
+      "label": "app:/ui/theme",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/ui/theme/Theme.kt"
+      ],
+      "files": 1
+    },
+    {
+      "id": "module:app/src/main/java/worker",
+      "kind": "module",
+      "label": "app:/worker",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/worker/RingtoneWorker.kt"
+      ],
+      "files": 1
+    },
+    {
+      "id": "permission:INTERNET",
+      "kind": "permission",
+      "label": "INTERNET",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:5"
+      ]
+    },
+    {
+      "id": "permission:POST_NOTIFICATIONS",
+      "kind": "permission",
+      "label": "POST_NOTIFICATIONS",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:14"
+      ]
+    },
+    {
+      "id": "permission:READ_CALL_LOG",
+      "kind": "permission",
+      "label": "READ_CALL_LOG",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:27"
+      ]
+    },
+    {
+      "id": "permission:READ_CONTACTS",
+      "kind": "permission",
+      "label": "READ_CONTACTS",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:20"
+      ]
+    },
+    {
+      "id": "permission:READ_MEDIA_AUDIO",
+      "kind": "permission",
+      "label": "READ_MEDIA_AUDIO",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:11"
+      ]
+    },
+    {
+      "id": "permission:READ_PHONE_STATE",
+      "kind": "permission",
+      "label": "READ_PHONE_STATE",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:24"
+      ]
+    },
+    {
+      "id": "permission:RECEIVE_BOOT_COMPLETED",
+      "kind": "permission",
+      "label": "RECEIVE_BOOT_COMPLETED",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:17"
+      ]
+    },
+    {
+      "id": "permission:REQUEST_INSTALL_PACKAGES",
+      "kind": "permission",
+      "label": "REQUEST_INSTALL_PACKAGES",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:30"
+      ]
+    },
+    {
+      "id": "permission:WRITE_CONTACTS",
+      "kind": "permission",
+      "label": "WRITE_CONTACTS",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:21"
+      ]
+    },
+    {
+      "id": "permission:WRITE_SETTINGS",
+      "kind": "permission",
+      "label": "WRITE_SETTINGS",
+      "sources": [
+        "app/src/main/AndroidManifest.xml:8"
+      ]
+    },
+    {
+      "id": "table:playlist_tracks",
+      "kind": "table",
+      "label": "playlist_tracks",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/data/RingtoneDb.kt:68"
+      ],
+      "module": "module:app/src/main/java"
+    },
+    {
+      "id": "table:playlists",
+      "kind": "table",
+      "label": "playlists",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/data/RingtoneDb.kt:51"
+      ],
+      "module": "module:app/src/main/java"
+    },
+    {
+      "id": "table:saved_tracks",
+      "kind": "table",
+      "label": "saved_tracks",
+      "sources": [
+        "app/src/main/java/nl/icthorse/randomringtone/data/RingtoneDb.kt:86"
+      ],
+      "module": "module:app/src/main/java"
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+// GEGENEREERD door ModelArchDSL — niet met de hand bewerken.
+// Bron: archmodel/tobe.archdsl (ontwerp) + archmodel/asis.facts.json (code).
+set language archimate
+set title "RandomRingtone — Conceptueel"
+set subtitle "Architectuurplaat conceptueel niveau (ArchiMate/Dragon1)"
+set purpose "Bij elke oproep (of op schema) automatisch een willekeurige ringtone uit zelf samengestelde playlists, per kanaal en per contact."
+show legend true
+switch badges on
+set current state "As-is (code)"
+set target state "To-be (ontwerp)"
+
+Group laag_motivation "Motivatie" {
+    -width 1220
+    -height 440
+}
+Driver dr_afwisseling "Afwisseling in ringtone zonder handwerk" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Goal go_random "Willekeurige ringtone per oproep uit eigen playlists" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Goal go_eigen_muziek "Eigen muziek (Spotify/YouTube) als kort ringtone-fragment" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Goal go_geen_verlies "Geen verlies van tracks en playlists" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Requirement rq_kanalen "Vier kanalen: Telefoon, Notificatie, SMS, WhatsApp (F3)" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Requirement rq_modi "Vier modi: Vast, Echt-, Semi- en Quasi-willekeurig" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Requirement rq_schema "Schema: handmatig, elke oproep, 1-12 uur, dagelijks, wekelijks (F4)" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Requirement rq_eenactief "Eén actieve playlist per kanaal + scope (R6)" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Requirement rq_percontact "Per-contact ringtone naast globale ringtone" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Requirement rq_licentie "Alleen gelicenseerde toestellen (device-hash, grace period)" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Constraint cn_permissies "Android-permissies en speciale toegang (WRITE_SETTINGS, notificatie-toegang)" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Constraint cn_standalone "Kernfunctie draait op het toestel; geen eigen server nodig om te wisselen" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Constraint cn_samsung "Samsung OneUI: batterij-optimalisatie en restricted settings" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Constraint cn_converters "Converter-diensten onbetrouwbaar (Cloudflare/JA3, bug #81)" in laag_motivation {
+    -attr status = "ontwerp"
+}
+Principle pr_trackresolver "Eén gedeelde track-resolver voor worker, receiver en service (R8)" in laag_motivation {
+    -attr status = "ontwerp"
+}
+
+Group laag_business "Business" {
+    -width 1220
+    -height 830
+}
+BusinessProcess bp_spotify_preview "Spotify-preview via Spotify Web API (v2.0.0)" in laag_business {
+    -fill "#fff7ed"
+    -stroke "#ea580c"
+    -state target
+    -attr status = "gepland"
+    -description "ACTIONS.md hoogste prio: SpotMate vervangen door Client Credentials + preview_url."
+}
+BusinessService bs_backup "Backup en herstel" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_permissies "Permissies en speciale toegang verlenen (F5)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessActor ba_gebruiker "Gebruiker (toestelbezitter)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessActor ba_beller "Beller / afzender" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessService bs_wisselen "Wisselende ringtone" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessService bs_verzamelen "Ringtones verzamelen en knippen" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessService bs_playlists "Playlists per kanaal en contact" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessService bs_beheer "App-beheer (permissies, opslag, updates)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_schema_wissel "Wisselen op schema (uur/dag/week)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bericht_geluid "Eigen geluid bij SMS/WhatsApp" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_updaten "App bijwerken via in-app update" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_opstarten "App starten: licentie, migratie, auto-restore" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_zoeken "Nummer zoeken in Spotify- of YouTube-tab" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_downloaden "MP3 downloaden via converter" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_editor_openen "Openen in de editor (waveform)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_knippen "Fragment kiezen, fade instellen, voorbeluisteren" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_opslaan "Opslaan in bibliotheek + playlist (optioneel als ringtone)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_pl_aanmaken "Playlist aanmaken: kanaal, modus, schema" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_contact_kiezen "Scope kiezen: globaal of contact" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_tracks_toevoegen "Tracks uit bibliotheek toevoegen" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_activeren "Playlist activeren (conflicten oplossen)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_overzicht "Actieve instellingen controleren in Overzicht" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_oproep "Oproep komt binnen, beller wordt vastgelegd" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_gesprek_einde "Gesprek eindigt (telefoon weer IDLE)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_track_kiezen "Volgende track kiezen volgens modus" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_ringtone_zetten "Ringtone vervangen (globaal of per contact)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_volgende_oproep "Volgende oproep klinkt met nieuwe ringtone" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_provider "Backupbestemming kiezen (cloudmap of iCt Horse)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_selectie "Selectie kiezen (tracks, playlists)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_maken "Backup maken" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_preview "Backup-inhoud bekijken" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bk_herstellen "Herstellen (vervangt huidige data)" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bericht_binnen "SMS- of WhatsApp-bericht komt binnen" in laag_business {
+    -attr status = "ontwerp"
+}
+BusinessProcess bp_bericht_match "Playlist zoeken: eerst contact, dan globaal" in laag_business {
+    -attr status = "ontwerp"
+}
+
+// Posities (deterministische raster-layout per ArchiMate-laag)
+pos laag_motivation 40, 40
+pos dr_afwisseling 60, 90
+pos go_random 260, 90
+pos go_eigen_muziek 460, 90
+pos go_geen_verlies 660, 90
+pos rq_kanalen 860, 90
+pos rq_modi 1060, 90
+pos rq_schema 60, 220
+pos rq_eenactief 260, 220
+pos rq_percontact 460, 220
+pos rq_licentie 660, 220
+pos cn_permissies 860, 220
+pos cn_standalone 1060, 220
+pos cn_samsung 60, 350
+pos cn_converters 260, 350
+pos pr_trackresolver 460, 350
+pos laag_business 40, 520
+pos bp_spotify_preview 60, 570
+pos bs_backup 260, 570
+pos bp_permissies 460, 570
+pos ba_gebruiker 660, 570
+pos ba_beller 860, 570
+pos bs_wisselen 1060, 570
+pos bs_verzamelen 60, 700
+pos bs_playlists 260, 700
+pos bs_beheer 460, 700
+pos bp_schema_wissel 660, 700
+pos bp_bericht_geluid 860, 700
+pos bp_updaten 1060, 700
+pos bp_opstarten 60, 830
+pos bp_zoeken 260, 830
+pos bp_downloaden 460, 830
+pos bp_editor_openen 660, 830
+pos bp_knippen 860, 830
+pos bp_opslaan 1060, 830
+pos bp_pl_aanmaken 60, 960
+pos bp_contact_kiezen 260, 960
+pos bp_tracks_toevoegen 460, 960
+pos bp_activeren 660, 960
+pos bp_overzicht 860, 960
+pos bp_oproep 1060, 960
+pos bp_gesprek_einde 60, 1090
+pos bp_track_kiezen 260, 1090
+pos bp_ringtone_zetten 460, 1090
+pos bp_volgende_oproep 660, 1090
+pos bp_bk_provider 860, 1090
+pos bp_bk_selectie 1060, 1090
+pos bp_bk_maken 60, 1220
+pos bp_bk_preview 260, 1220
+pos bp_bk_herstellen 460, 1220
+pos bp_bericht_binnen 660, 1220
+pos bp_bericht_match 860, 1220
+
+// Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
+dr_afwisseling influences go_random "drijft aan"
+dr_afwisseling influences go_eigen_muziek "drijft aan"
+go_random influences rq_kanalen "vereist"
+go_random influences rq_modi "vereist"
+go_random influences rq_schema "vereist"
+go_random influences rq_eenactief "vereist"
+go_random influences rq_percontact "vereist"
+go_geen_verlies influences bs_backup "vereist"
+cn_permissies influences bp_permissies "begrenst"
+cn_converters influences bp_spotify_preview "drijft aan"
+ba_gebruiker associates bs_verzamelen "gebruikt"
+ba_gebruiker associates bs_playlists "gebruikt"
+ba_gebruiker associates bs_backup "gebruikt"
+ba_gebruiker associates bs_beheer "gebruikt"
+ba_beller triggers bp_oproep "belt"
+ba_beller triggers bp_bericht_binnen "stuurt bericht"
+bp_ringtone_zetten realizes bs_wisselen
+bp_schema_wissel realizes bs_wisselen
+bp_bericht_geluid realizes bs_wisselen
+bp_opslaan realizes bs_verzamelen
+bp_activeren realizes bs_playlists
+bp_bk_maken realizes bs_backup
+bp_bk_herstellen realizes bs_backup
+bp_permissies realizes bs_beheer
+bp_updaten realizes bs_beheer
+bp_spotify_preview realizes bs_verzamelen
+bp_bericht_binnen triggers bp_bericht_match
+bp_bericht_match triggers bp_bericht_geluid

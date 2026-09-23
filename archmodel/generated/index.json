@@ -1,0 +1,2878 @@
+{
+  "plates": [
+    {
+      "file": "conceptueel.archdsl",
+      "kind": "niveau",
+      "level": "conceptueel",
+      "label": "Conceptueel",
+      "elements": 50,
+      "relations": 28,
+      "sha256": "3136d5e46c5d1239e50ebca81449e2e6208a567c3112aff2bb25f42f67bafa0e"
+    },
+    {
+      "file": "logisch.archdsl",
+      "kind": "niveau",
+      "level": "logisch",
+      "label": "Logisch",
+      "elements": 54,
+      "relations": 75,
+      "sha256": "b48fa45f326c8a11cad2c05cde7271b234f6bca16e28d5ee005c383441dcb4f5"
+    },
+    {
+      "file": "fysiek.archdsl",
+      "kind": "niveau",
+      "level": "fysiek",
+      "label": "Fysiek",
+      "elements": 19,
+      "relations": 2,
+      "sha256": "ef2f14b2b75742167978dba74ff9fe21300f4903228aaae52047baa790bed422"
+    },
+    {
+      "file": "reis-reis_knippen.archdsl",
+      "kind": "klantreis",
+      "journey": "reis_knippen",
+      "label": "Klantreis: nummer zoeken en als ringtone knippen",
+      "steps": [
+        "bp_zoeken",
+        "bp_downloaden",
+        "bp_editor_openen",
+        "bp_knippen",
+        "bp_opslaan"
+      ],
+      "actor": "ba_gebruiker",
+      "elements": 22,
+      "relations": 37,
+      "sha256": "78e9886da32d163432b2cc554323e92c4f3f30737fc7993250b42d207e8a825c"
+    },
+    {
+      "file": "reis-reis_playlist.archdsl",
+      "kind": "klantreis",
+      "journey": "reis_playlist",
+      "label": "Klantreis: playlist maken en koppelen",
+      "steps": [
+        "bp_pl_aanmaken",
+        "bp_contact_kiezen",
+        "bp_tracks_toevoegen",
+        "bp_activeren",
+        "bp_overzicht"
+      ],
+      "actor": "ba_gebruiker",
+      "elements": 16,
+      "relations": 29,
+      "sha256": "bca5b8dfa5390c70158661112bb793bd0c3948834b6270b305a1f41f6b4bb0bf"
+    },
+    {
+      "file": "reis-reis_oproep.archdsl",
+      "kind": "klantreis",
+      "journey": "reis_oproep",
+      "label": "Klantreis: oproep → volgende willekeurige ringtone",
+      "steps": [
+        "bp_oproep",
+        "bp_gesprek_einde",
+        "bp_track_kiezen",
+        "bp_ringtone_zetten",
+        "bp_volgende_oproep"
+      ],
+      "actor": "ba_beller",
+      "elements": 15,
+      "relations": 26,
+      "sha256": "d0d5336885c3d5a1056ba337b23325847b21e09c798badd5f469346bc0dd40dc"
+    },
+    {
+      "file": "reis-reis_backup.archdsl",
+      "kind": "klantreis",
+      "journey": "reis_backup",
+      "label": "Klantreis: backup maken en terugzetten",
+      "steps": [
+        "bp_bk_provider",
+        "bp_bk_selectie",
+        "bp_bk_maken",
+        "bp_bk_preview",
+        "bp_bk_herstellen"
+      ],
+      "actor": "ba_gebruiker",
+      "elements": 12,
+      "relations": 20,
+      "sha256": "65e8f0ff067025411a85a160f32386d91f5f63bce42e28188caa773a42347269"
+    },
+    {
+      "file": "reis-reis_bericht.archdsl",
+      "kind": "klantreis",
+      "journey": "reis_bericht",
+      "label": "Klantreis: bericht met eigen geluid",
+      "steps": [
+        "bp_bericht_binnen",
+        "bp_bericht_match",
+        "bp_bericht_geluid"
+      ],
+      "actor": "ba_beller",
+      "elements": 9,
+      "relations": 11,
+      "sha256": "aed146945366e0cb13fb8b2791852d168171693161e8490973eb43ed359457ad"
+    }
+  ],
+  "repo": "RandomRingtone",
+  "title": "RandomRingtone",
+  "purpose": "Bij elke oproep (of op schema) automatisch een willekeurige ringtone uit zelf samengestelde playlists, per kanaal en per contact.",
+  "tool": {
+    "name": "ModelArchDSL",
+    "version": "0.1.0",
+    "engineSha256": "0bdabb3b46febb6190ec1e1698d285c5b140e15f4c7f07e7c22a85f2105dacae"
+  },
+  "status": {
+    "gebouwd": {
+      "label": "Gebouwd",
+      "stroke": "#16a34a"
+    },
+    "deels": {
+      "label": "Deels gebouwd",
+      "stroke": "#ca8a04",
+      "fill": "#fefce8"
+    },
+    "gepland": {
+      "label": "Gepland (to-be)",
+      "stroke": "#ea580c",
+      "fill": "#fff7ed",
+      "state": "target"
+    },
+    "alleen_code": {
+      "label": "Alleen in code",
+      "stroke": "#7c3aed",
+      "fill": "#f5f3ff",
+      "state": "current"
+    },
+    "ongetraceerd": {
+      "label": "Niet traceerbaar",
+      "stroke": "#64748b"
+    },
+    "extern": {
+      "label": "Extern (andere repo)",
+      "stroke": "#0284c7",
+      "fill": "#f0f9ff"
+    },
+    "ontwerp": {
+      "label": "Ontwerp",
+      "stroke": ""
+    }
+  },
+  "counts": {
+    "gebouwd": 56,
+    "deels": 0,
+    "gepland": 7,
+    "alleen_code": 0,
+    "ongetraceerd": 0,
+    "extern": 11,
+    "ontwerp": 49
+  },
+  "facts": 42,
+  "unclaimedFacts": 0,
+  "warnings": [],
+  "elements": [
+    {
+      "id": "ac_backupmgr",
+      "type": "ApplicationComponent",
+      "label": "BackupManager: SAF-backup, selectie, auto-backup, playlist-export",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_conflict",
+      "type": "ApplicationComponent",
+      "label": "ConflictResolver: één actief per kanaal + scope (R1/R6)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_contacts",
+      "type": "ApplicationComponent",
+      "label": "ContactsRepository: contacten + CUSTOM_RINGTONE",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_decoder",
+      "type": "ApplicationComponent",
+      "label": "AudioDecoder: MP3 → PCM-waveform (MediaCodec)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/audio"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/audio",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/audio/AudioDecoder.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_deezer",
+      "type": "ApplicationComponent",
+      "label": "DeezerApi-client (T1; in main geen aanroeper meer)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": "Deezer-tab is uit main verdwenen; Deezer-previews worden nog door de ringtone-engine gedownload via previewUrl."
+    },
+    {
+      "id": "ac_icthorse_client",
+      "type": "ApplicationComponent",
+      "label": "IctHorseBackupClient (backup_api.php)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_license",
+      "type": "ApplicationComponent",
+      "label": "LicenseManager: device-hash → licentie",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_logger",
+      "type": "ApplicationComponent",
+      "label": "RemoteLogger: wachtrij, flush 2 s, heartbeat 30 s",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_main",
+      "type": "ApplicationComponent",
+      "label": "MainActivity: 7 tabs + editor, licentieblokkade",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "android:activity:MainActivity",
+        "module:app/src/main/java"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "android:activity:MainActivity",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:40"
+          ]
+        },
+        {
+          "id": "module:app/src/main/java",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/MainActivity.kt"
+          ]
+        }
+      ],
+      "factCount": 2,
+      "description": ""
+    },
+    {
+      "id": "ac_notifsvc",
+      "type": "ApplicationComponent",
+      "label": "NotificationService: SMS/WhatsApp-geluid",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "android:service:NotificationService",
+        "module:app/src/main/java/service"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "android:service:NotificationService",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:51"
+          ]
+        },
+        {
+          "id": "module:app/src/main/java/service",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/service/NotificationService.kt"
+          ]
+        }
+      ],
+      "factCount": 2,
+      "description": ""
+    },
+    {
+      "id": "ac_player",
+      "type": "ApplicationComponent",
+      "label": "AudioPlayer: selectie voorbeluisteren",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/audio"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/audio",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/audio/AudioDecoder.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_receiver",
+      "type": "ApplicationComponent",
+      "label": "CallStateReceiver: EVERY_CALL, beller in 3 lagen",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "android:receiver:CallStateReceiver",
+        "module:app/src/main/java/receiver"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "android:receiver:CallStateReceiver",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:72"
+          ]
+        },
+        {
+          "id": "module:app/src/main/java/receiver",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/receiver/CallStateReceiver.kt"
+          ]
+        }
+      ],
+      "factCount": 2,
+      "description": ""
+    },
+    {
+      "id": "ac_resolver",
+      "type": "ApplicationComponent",
+      "label": "TrackResolver: modus → track → bestand (R8)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_ringtone",
+      "type": "ApplicationComponent",
+      "label": "Ringtone-engine (RingtoneManager.kt: MediaStore, globaal/contact/notificatie)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_scr_backup",
+      "type": "ApplicationComponent",
+      "label": "BackupScreen: backup/restore SAF of iCt Horse",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/screens"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/screens",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_scr_editor",
+      "type": "ApplicationComponent",
+      "label": "EditorScreen: waveform, trim, fade, opslaan",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/screens"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/screens",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_scr_library",
+      "type": "ApplicationComponent",
+      "label": "LibraryScreen: bibliotheek, scan, verwijderen",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/screens"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/screens",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_scr_overview",
+      "type": "ApplicationComponent",
+      "label": "OverviewScreen: actieve instellingen + conflicten",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/screens"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/screens",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_scr_playlists",
+      "type": "ApplicationComponent",
+      "label": "PlaylistManagerScreen: playlists, triggers, schema",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/screens"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/screens",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_scr_settings",
+      "type": "ApplicationComponent",
+      "label": "SettingsScreen: permissies, opslag, converter, updates, logging",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/screens"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/screens",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_scr_spotify",
+      "type": "ApplicationComponent",
+      "label": "SpotifyScreen: Spotify-WebView, klembord, converter",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/screens"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/screens",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_scr_youtube",
+      "type": "ApplicationComponent",
+      "label": "YouTubeScreen: YouTube-WebView + Y2Mate",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/screens"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/screens",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_spotmate",
+      "type": "ApplicationComponent",
+      "label": "SpotMateDirectClient (Spotify → MP3)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": "Directe API-route. Bug #81: structureel geblokkeerd door Cloudflare; wordt vervangen in v2.0.0."
+    },
+    {
+      "id": "ac_storage",
+      "type": "ApplicationComponent",
+      "label": "StorageManager: paden, DataStore, bestandsscan, converterlijst",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_tags",
+      "type": "ApplicationComponent",
+      "label": "Metadata-tools (Mp3Marker, Mp3TagReader, Mp3AlbumArt, M4aMetadata)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_theme",
+      "type": "ApplicationComponent",
+      "label": "Thema (Material 3 + Dynamic Color)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/theme"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/theme",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/theme/Theme.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_trackid",
+      "type": "ApplicationComponent",
+      "label": "TrackId-strategie + eenmalige migratie v8 (TrackIdResolver, TrackIdMigration)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_trimmer",
+      "type": "ApplicationComponent",
+      "label": "AudioTrimmer: lossless trim + fade (AAC/M4A)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/audio"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/audio",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/audio/AudioDecoder.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_update",
+      "type": "ApplicationComponent",
+      "label": "UpdateManager: in-app APK-updates (T12)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data",
+        "android:provider:FileProvider"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "android:provider:FileProvider",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:61"
+          ]
+        },
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 2,
+      "description": ""
+    },
+    {
+      "id": "ac_worker",
+      "type": "ApplicationComponent",
+      "label": "RingtoneWorker: periodiek uur/dag/week (WorkManager)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/worker"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/worker",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/worker/RingtoneWorker.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_y2mate",
+      "type": "ApplicationComponent",
+      "label": "Y2MateClient (YouTube → MP3)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ar_apk",
+      "type": "Artifact",
+      "label": "Release-APK RandomRingtone-v…-release.apk (gebundelde afhankelijkheden)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "dep:maven:*"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "dep:maven:libs.activity.compose",
+          "sources": [
+            "app/build.gradle.kts:91"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.compose.icons.extended",
+          "sources": [
+            "app/build.gradle.kts:90"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.compose.material3",
+          "sources": [
+            "app/build.gradle.kts:88"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.compose.ui",
+          "sources": [
+            "app/build.gradle.kts:87"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.compose.ui.tooling.preview",
+          "sources": [
+            "app/build.gradle.kts:89"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.core.ktx",
+          "sources": [
+            "app/build.gradle.kts:114"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.datastore.preferences",
+          "sources": [
+            "app/build.gradle.kts:115"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.documentfile",
+          "sources": [
+            "app/build.gradle.kts:111"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.kotlinx.serialization.json",
+          "sources": [
+            "app/build.gradle.kts:108"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.lifecycle.runtime.compose",
+          "sources": [
+            "app/build.gradle.kts:94"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.lifecycle.viewmodel.compose",
+          "sources": [
+            "app/build.gradle.kts:93"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.navigation.compose",
+          "sources": [
+            "app/build.gradle.kts:92"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.okhttp",
+          "sources": [
+            "app/build.gradle.kts:105"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.room.compiler",
+          "sources": [
+            "app/build.gradle.kts:102"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.room.ktx",
+          "sources": [
+            "app/build.gradle.kts:101"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.room.runtime",
+          "sources": [
+            "app/build.gradle.kts:100"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.work.runtime.ktx",
+          "sources": [
+            "app/build.gradle.kts:97"
+          ]
+        }
+      ],
+      "factCount": 17,
+      "description": ""
+    },
+    {
+      "id": "do_audio",
+      "type": "DataObject",
+      "label": "Audiobestanden (downloads, ringtones, MediaStore-items)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "do_autobackup",
+      "type": "DataObject",
+      "label": "Lokale auto-backup (filesDir/auto_backup, JSON)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "do_backupset",
+      "type": "DataObject",
+      "label": "Backupset (JSON + MP3's) in cloudmap of op iCt Horse",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "dep:maven:libs.documentfile",
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "dep:maven:libs.documentfile",
+          "sources": [
+            "app/build.gradle.kts:111"
+          ]
+        },
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 2,
+      "description": ""
+    },
+    {
+      "id": "do_playlist_tracks",
+      "type": "DataObject",
+      "label": "playlist_tracks (Room-koppeltabel, CASCADE)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "table:playlist_tracks"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "table:playlist_tracks",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/RingtoneDb.kt:68"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": "Koppeltabel playlist ↔ track in RingtoneDb.kt (meerregelige @Entity, sinds ArchPortal AP-004 herkend)."
+    },
+    {
+      "id": "do_playlists",
+      "type": "DataObject",
+      "label": "playlists (Room: kanaal, modus, schema, contact, actief)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "table:playlists"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "table:playlists",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/RingtoneDb.kt:51"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "do_saved_tracks",
+      "type": "DataObject",
+      "label": "saved_tracks (Room)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "table:saved_tracks"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "table:saved_tracks",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/RingtoneDb.kt:86"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "do_settings",
+      "type": "DataObject",
+      "label": "Instellingen (DataStore storage_settings)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "dep:maven:libs.datastore.preferences"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "dep:maven:libs.datastore.preferences",
+          "sources": [
+            "app/build.gradle.kts:115"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "dv_toestel",
+      "type": "Device",
+      "label": "Android-toestel (min SDK 26, target 35; Samsung OneUI)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "android:*"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "android:activity:MainActivity",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:40"
+          ]
+        },
+        {
+          "id": "android:provider:FileProvider",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:61"
+          ]
+        },
+        {
+          "id": "android:receiver:CallStateReceiver",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:72"
+          ]
+        },
+        {
+          "id": "android:service:NotificationService",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:51"
+          ]
+        }
+      ],
+      "factCount": 4,
+      "description": ""
+    },
+    {
+      "id": "pm_boot",
+      "type": "Artifact",
+      "label": "Permissie RECEIVE_BOOT_COMPLETED",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "permission:RECEIVE_BOOT_COMPLETED"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "permission:RECEIVE_BOOT_COMPLETED",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:17"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "pm_call",
+      "type": "Artifact",
+      "label": "Permissies READ_PHONE_STATE + READ_CALL_LOG",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "permission:READ_PHONE_STATE",
+        "permission:READ_CALL_LOG"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "permission:READ_CALL_LOG",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:27"
+          ]
+        },
+        {
+          "id": "permission:READ_PHONE_STATE",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:24"
+          ]
+        }
+      ],
+      "factCount": 2,
+      "description": ""
+    },
+    {
+      "id": "pm_contacts",
+      "type": "Artifact",
+      "label": "Permissies READ_/WRITE_CONTACTS",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "permission:READ_CONTACTS",
+        "permission:WRITE_CONTACTS"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "permission:READ_CONTACTS",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:20"
+          ]
+        },
+        {
+          "id": "permission:WRITE_CONTACTS",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:21"
+          ]
+        }
+      ],
+      "factCount": 2,
+      "description": ""
+    },
+    {
+      "id": "pm_install",
+      "type": "Artifact",
+      "label": "Permissie REQUEST_INSTALL_PACKAGES (in-app update)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "permission:REQUEST_INSTALL_PACKAGES"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "permission:REQUEST_INSTALL_PACKAGES",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:30"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "pm_internet",
+      "type": "Artifact",
+      "label": "Permissie INTERNET",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "permission:INTERNET"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "permission:INTERNET",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:5"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "pm_listener",
+      "type": "Artifact",
+      "label": "Notificatie-toegang (BIND_NOTIFICATION_LISTENER_SERVICE)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "android:service:NotificationService"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "android:service:NotificationService",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:51"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "pm_media",
+      "type": "Artifact",
+      "label": "Permissie READ_MEDIA_AUDIO (scan)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "permission:READ_MEDIA_AUDIO"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "permission:READ_MEDIA_AUDIO",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:11"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "pm_notif",
+      "type": "Artifact",
+      "label": "Permissie POST_NOTIFICATIONS (nog ongebruikt)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "permission:POST_NOTIFICATIONS"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "permission:POST_NOTIFICATIONS",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:14"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "pm_settings",
+      "type": "Artifact",
+      "label": "Permissie WRITE_SETTINGS (speciaal)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "permission:WRITE_SETTINGS"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "permission:WRITE_SETTINGS",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:8"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ss_compose",
+      "type": "SystemSoftware",
+      "label": "Jetpack Compose + Material 3 + Navigation",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "dep:maven:libs.compose.*",
+        "dep:maven:libs.activity.compose",
+        "dep:maven:libs.navigation.compose",
+        "dep:maven:libs.lifecycle.*",
+        "dep:maven:libs.core.ktx"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "dep:maven:libs.activity.compose",
+          "sources": [
+            "app/build.gradle.kts:91"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.compose.icons.extended",
+          "sources": [
+            "app/build.gradle.kts:90"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.compose.material3",
+          "sources": [
+            "app/build.gradle.kts:88"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.compose.ui",
+          "sources": [
+            "app/build.gradle.kts:87"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.compose.ui.tooling.preview",
+          "sources": [
+            "app/build.gradle.kts:89"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.core.ktx",
+          "sources": [
+            "app/build.gradle.kts:114"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.lifecycle.runtime.compose",
+          "sources": [
+            "app/build.gradle.kts:94"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.lifecycle.viewmodel.compose",
+          "sources": [
+            "app/build.gradle.kts:93"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.navigation.compose",
+          "sources": [
+            "app/build.gradle.kts:92"
+          ]
+        }
+      ],
+      "factCount": 9,
+      "description": ""
+    },
+    {
+      "id": "ss_datastore",
+      "type": "SystemSoftware",
+      "label": "DataStore Preferences",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "dep:maven:libs.datastore.preferences"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "dep:maven:libs.datastore.preferences",
+          "sources": [
+            "app/build.gradle.kts:115"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ss_net",
+      "type": "SystemSoftware",
+      "label": "OkHttp + kotlinx.serialization",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "dep:maven:libs.okhttp",
+        "dep:maven:libs.kotlinx.serialization.json"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "dep:maven:libs.kotlinx.serialization.json",
+          "sources": [
+            "app/build.gradle.kts:108"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.okhttp",
+          "sources": [
+            "app/build.gradle.kts:105"
+          ]
+        }
+      ],
+      "factCount": 2,
+      "description": ""
+    },
+    {
+      "id": "ss_room",
+      "type": "SystemSoftware",
+      "label": "Room (SQLite, DB-versie 7, migraties 4→7)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "dep:maven:libs.room.*"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "dep:maven:libs.room.compiler",
+          "sources": [
+            "app/build.gradle.kts:102"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.room.ktx",
+          "sources": [
+            "app/build.gradle.kts:101"
+          ]
+        },
+        {
+          "id": "dep:maven:libs.room.runtime",
+          "sources": [
+            "app/build.gradle.kts:100"
+          ]
+        }
+      ],
+      "factCount": 3,
+      "description": ""
+    },
+    {
+      "id": "ss_saf",
+      "type": "SystemSoftware",
+      "label": "Storage Access Framework (DocumentFile)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "dep:maven:libs.documentfile"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "dep:maven:libs.documentfile",
+          "sources": [
+            "app/build.gradle.kts:111"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ss_workmanager",
+      "type": "SystemSoftware",
+      "label": "WorkManager",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "dep:maven:libs.work.runtime.ktx"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "dep:maven:libs.work.runtime.ktx",
+          "sources": [
+            "app/build.gradle.kts:97"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ti_fileprovider",
+      "type": "TechnologyInterface",
+      "label": "FileProvider (update-APK installeren)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "android:provider:FileProvider"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "android:provider:FileProvider",
+          "sources": [
+            "app/src/main/AndroidManifest.xml:61"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": ""
+    },
+    {
+      "id": "ac_accu",
+      "type": "ApplicationComponent",
+      "label": "Uitzondering batterij-optimalisatie aanvragen (roadmap v0.8.0)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gepland",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "ac_okhttp_shared",
+      "type": "ApplicationComponent",
+      "label": "Gedeelde OkHttpClient (R9)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gepland",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": "Nu maakt elke client een eigen OkHttpClient aan (FLOW §13)."
+    },
+    {
+      "id": "ac_predownload",
+      "type": "ApplicationComponent",
+      "label": "Pre-download bij playlist-activering (R10)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gepland",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "ac_spotify_webapi",
+      "type": "ApplicationComponent",
+      "label": "SpotifyWebApiClient: Client Credentials + preview_url (v2.0.0)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gepland",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": "Vervangt SpotMateDirectClient in SpotifyScreen; token-cache ~1 uur; tracks zonder preview_url → WebView-converter."
+    },
+    {
+      "id": "ac_wissel_melding",
+      "type": "ApplicationComponent",
+      "label": "Melding bij ringtone-wissel (roadmap v0.8.0)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gepland",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": "POST_NOTIFICATIONS staat al in het manifest maar wordt nog niet gebruikt."
+    },
+    {
+      "id": "ac_y2mate_host",
+      "type": "ApplicationComponent",
+      "label": "Y2Mate-host dynamisch bepalen (R12)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gepland",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_spotify_preview",
+      "type": "BusinessProcess",
+      "label": "Spotify-preview via Spotify Web API (v2.0.0)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "gepland",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": "ACTIONS.md hoogste prio: SpotMate vervangen door Client Credentials + preview_url."
+    },
+    {
+      "id": "nd_cloud",
+      "type": "Node",
+      "label": "Cloudmap via SAF (Google Drive, Dropbox, OneDrive)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "nd_converters",
+      "type": "Node",
+      "label": "Converter-sites (spotifydown e.a., via WebView)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "nd_deezer",
+      "type": "Node",
+      "label": "api.deezer.com (30 s-previews)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "nd_icthorse",
+      "type": "Node",
+      "label": "icthorse.nl (licentie, backup_api.php, APK-updates)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "nd_logger",
+      "type": "Node",
+      "label": "HC55 horsecloud55.ddns.net/rrlog (logger + viewer)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": "De viewer-pagina staat in deze repo als logger-server/index.html; de logger-dienst zelf draait op HC55 buiten deze repo."
+    },
+    {
+      "id": "nd_spotify",
+      "type": "Node",
+      "label": "open.spotify.com (Spotify Web in WebView)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "nd_spotify_api",
+      "type": "Node",
+      "label": "Spotify Web API (gepland v2.0.0)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "nd_spotmate",
+      "type": "Node",
+      "label": "spotmate.online",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "nd_y2mate",
+      "type": "Node",
+      "label": "Y2Mate (v3.y2mate.nu / etacloud.org)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "nd_youtube",
+      "type": "Node",
+      "label": "YouTube (www.youtube.com in WebView)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "ss_android",
+      "type": "SystemSoftware",
+      "label": "Android-systeemdiensten (RingtoneManager, MediaStore, ContactsContract, TelephonyManager)",
+      "layer": "technology",
+      "levels": [
+        "fysiek"
+      ],
+      "status": "extern",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "ba_beller",
+      "type": "BusinessActor",
+      "label": "Beller / afzender",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "ba_gebruiker",
+      "type": "BusinessActor",
+      "label": "Gebruiker (toestelbezitter)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_activeren",
+      "type": "BusinessProcess",
+      "label": "Playlist activeren (conflicten oplossen)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_bericht_binnen",
+      "type": "BusinessProcess",
+      "label": "SMS- of WhatsApp-bericht komt binnen",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_bericht_geluid",
+      "type": "BusinessProcess",
+      "label": "Eigen geluid bij SMS/WhatsApp",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_bericht_match",
+      "type": "BusinessProcess",
+      "label": "Playlist zoeken: eerst contact, dan globaal",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_bk_herstellen",
+      "type": "BusinessProcess",
+      "label": "Herstellen (vervangt huidige data)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_bk_maken",
+      "type": "BusinessProcess",
+      "label": "Backup maken",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_bk_preview",
+      "type": "BusinessProcess",
+      "label": "Backup-inhoud bekijken",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_bk_provider",
+      "type": "BusinessProcess",
+      "label": "Backupbestemming kiezen (cloudmap of iCt Horse)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_bk_selectie",
+      "type": "BusinessProcess",
+      "label": "Selectie kiezen (tracks, playlists)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_contact_kiezen",
+      "type": "BusinessProcess",
+      "label": "Scope kiezen: globaal of contact",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_downloaden",
+      "type": "BusinessProcess",
+      "label": "MP3 downloaden via converter",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_editor_openen",
+      "type": "BusinessProcess",
+      "label": "Openen in de editor (waveform)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_gesprek_einde",
+      "type": "BusinessProcess",
+      "label": "Gesprek eindigt (telefoon weer IDLE)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_knippen",
+      "type": "BusinessProcess",
+      "label": "Fragment kiezen, fade instellen, voorbeluisteren",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_oproep",
+      "type": "BusinessProcess",
+      "label": "Oproep komt binnen, beller wordt vastgelegd",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_opslaan",
+      "type": "BusinessProcess",
+      "label": "Opslaan in bibliotheek + playlist (optioneel als ringtone)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_opstarten",
+      "type": "BusinessProcess",
+      "label": "App starten: licentie, migratie, auto-restore",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_overzicht",
+      "type": "BusinessProcess",
+      "label": "Actieve instellingen controleren in Overzicht",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_permissies",
+      "type": "BusinessProcess",
+      "label": "Permissies en speciale toegang verlenen (F5)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_pl_aanmaken",
+      "type": "BusinessProcess",
+      "label": "Playlist aanmaken: kanaal, modus, schema",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_ringtone_zetten",
+      "type": "BusinessProcess",
+      "label": "Ringtone vervangen (globaal of per contact)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_schema_wissel",
+      "type": "BusinessProcess",
+      "label": "Wisselen op schema (uur/dag/week)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_track_kiezen",
+      "type": "BusinessProcess",
+      "label": "Volgende track kiezen volgens modus",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_tracks_toevoegen",
+      "type": "BusinessProcess",
+      "label": "Tracks uit bibliotheek toevoegen",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_updaten",
+      "type": "BusinessProcess",
+      "label": "App bijwerken via in-app update",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_volgende_oproep",
+      "type": "BusinessProcess",
+      "label": "Volgende oproep klinkt met nieuwe ringtone",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bp_zoeken",
+      "type": "BusinessProcess",
+      "label": "Nummer zoeken in Spotify- of YouTube-tab",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bs_backup",
+      "type": "BusinessService",
+      "label": "Backup en herstel",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bs_beheer",
+      "type": "BusinessService",
+      "label": "App-beheer (permissies, opslag, updates)",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bs_playlists",
+      "type": "BusinessService",
+      "label": "Playlists per kanaal en contact",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bs_verzamelen",
+      "type": "BusinessService",
+      "label": "Ringtones verzamelen en knippen",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "bs_wisselen",
+      "type": "BusinessService",
+      "label": "Wisselende ringtone",
+      "layer": "business",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "cn_converters",
+      "type": "Constraint",
+      "label": "Converter-diensten onbetrouwbaar (Cloudflare/JA3, bug #81)",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "cn_permissies",
+      "type": "Constraint",
+      "label": "Android-permissies en speciale toegang (WRITE_SETTINGS, notificatie-toegang)",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "cn_samsung",
+      "type": "Constraint",
+      "label": "Samsung OneUI: batterij-optimalisatie en restricted settings",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "cn_standalone",
+      "type": "Constraint",
+      "label": "Kernfunctie draait op het toestel; geen eigen server nodig om te wisselen",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "dr_afwisseling",
+      "type": "Driver",
+      "label": "Afwisseling in ringtone zonder handwerk",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "go_eigen_muziek",
+      "type": "Goal",
+      "label": "Eigen muziek (Spotify/YouTube) als kort ringtone-fragment",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "go_geen_verlies",
+      "type": "Goal",
+      "label": "Geen verlies van tracks en playlists",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "go_random",
+      "type": "Goal",
+      "label": "Willekeurige ringtone per oproep uit eigen playlists",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "pr_trackresolver",
+      "type": "Principle",
+      "label": "Eén gedeelde track-resolver voor worker, receiver en service (R8)",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "rq_eenactief",
+      "type": "Requirement",
+      "label": "Eén actieve playlist per kanaal + scope (R6)",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "rq_kanalen",
+      "type": "Requirement",
+      "label": "Vier kanalen: Telefoon, Notificatie, SMS, WhatsApp (F3)",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "rq_licentie",
+      "type": "Requirement",
+      "label": "Alleen gelicenseerde toestellen (device-hash, grace period)",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "rq_modi",
+      "type": "Requirement",
+      "label": "Vier modi: Vast, Echt-, Semi- en Quasi-willekeurig",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "rq_percontact",
+      "type": "Requirement",
+      "label": "Per-contact ringtone naast globale ringtone",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    },
+    {
+      "id": "rq_schema",
+      "type": "Requirement",
+      "label": "Schema: handmatig, elke oproep, 1-12 uur, dagelijks, wekelijks (F4)",
+      "layer": "motivation",
+      "levels": [
+        "conceptueel"
+      ],
+      "status": "ontwerp",
+      "trace": [],
+      "missing": [],
+      "auto": false,
+      "facts": [],
+      "factCount": 0,
+      "description": ""
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 date: 2026-09-29
 repo: RandomRingtone
 status: pending
-resume: "verder met randomringtone — v2.2.2 Signed_Sealed_Delivered (DEBUG) LIVE (update-fallback via HC55-spiegel). EERST vragen: lukt update + restore op de Fairphone 6 (2a7d66dd, Fold-backup) nu gelukt, contactenrecht toegestaan? Resultaat staat in app.log (Restore/Resultaat cloud). Daarna: shad-playlist vullen, archief HC55 backups-20260929 opruimen na bevestiging. Nog open uit 29-09: E2E magic link, ProjectGrant Fairphone, DEBUG-marker weg (vrijgave), Spotify-sleutels, accounts overige toestellen."
+resume: "verder met randomringtone — v2.2.3 Isnt_She_Lovely (DEBUG) LIVE (art na restore + toestemming vervangen 23 oude bestanden). EERST vragen: restore op Fairphone 6 met v2.2.3 — toestemmingsvenster verschenen, alle album art zichtbaar? Log: Restore/Toestemming + Library/Scan. Daarna (2a7d66dd, Fold-backup) nu gelukt, contactenrecht toegestaan? Resultaat staat in app.log (Restore/Resultaat cloud). Daarna: shad-playlist vullen, archief HC55 backups-20260929 opruimen na bevestiging. Nog open uit 29-09: E2E magic link, ProjectGrant Fairphone, DEBUG-marker weg (vrijgave), Spotify-sleutels, accounts overige toestellen."
 ---
 
 # 2026-09-29 — Backup-consolidatie Fold + v2.2.0 "Stevie_Wonder" / "Superstition"
@@ -65,3 +65,16 @@ Keuze (a)/(b) niet beantwoord → (b) gekozen: 5 playlists van 29-09 actief, tho
   Commit 90ece78, 33/33 tests, smoke groen, DEBUG gepubliceerd (HorseAPK + icthorse.nl + spiegel).
 - Niet getest: de fallback zelf op een toestel (emulators hebben geen licentie ⇒ Instellingen/update niet bereikbaar);
   de spiegel is wel live gemeten (200, juiste inhoud).
+
+## Vervolg — "debug: bij leeg begin: restore, geen album art. rescan: meer bestanden meteen na restoren en meer album art maar nog steeds niet allemaal." → v2.2.3 (146)
+- Meting restore 20:35/20:37 (Fairphone, v2.2.2): contacten gekoppeld + 4 contactringtones gezet ✅; 75 bestanden ok
+  (71 al aanwezig); **23 niet vervangen** = precies de bestanden waaraan op de server album art is toegevoegd (oude
+  versie zonder cover van eerdere installatie, EACCES ook bij delete).
+- RCA: (1) art-cache alleen voor tracks zonder id3Title — geconsolideerde backup had id3Title ⇒ nooit art na restore;
+  enrich draaide bovendien alleen als markers ontbraken; (2) rescan voegt bestaande bestanden in de map toe die niet in
+  de backup zaten ⇒ die krijgen wél art; (3) de 23 oude bestanden; (4) art-cache nooit ververst.
+- Akkoord WhatIf → v2.2.3: `needsEnrich`, enrich na restore + bij elke refresh, geen albumArtPath uit backup,
+  `ForeignFileWriter`/`RestoreFinisher` (MediaStore.createWriteRequest: één Android-toestemming ⇒ vervangen),
+  LibraryRescan na restore, scan-logging. BUG #90, 38/38 tests, smoke groen, commit f8cc052, DEBUG gepubliceerd.
+- Niet getest op toestel: toestemmingsvenster + vervangen (emulators zonder licentie). SAF-restore krijgt het venster ook
+  (BackupScreen), maar parkeert zelf nog geen bestanden — alleen cloud-restore.

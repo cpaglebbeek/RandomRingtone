@@ -2,7 +2,7 @@
 date: 2026-09-29
 repo: RandomRingtone
 status: pending
-resume: "verder met randomringtone — v2.2.1 Sir_Duke (DEBUG) LIVE. EERST vragen: is de restore op de Fairphone 6 (2a7d66dd, Fold-backup) nu gelukt, contactenrecht toegestaan? Resultaat staat in app.log (Restore/Resultaat cloud). Daarna: shad-playlist vullen, archief HC55 backups-20260929 opruimen na bevestiging. Nog open uit 29-09: E2E magic link, ProjectGrant Fairphone, DEBUG-marker weg (vrijgave), Spotify-sleutels, accounts overige toestellen."
+resume: "verder met randomringtone — v2.2.2 Signed_Sealed_Delivered (DEBUG) LIVE (update-fallback via HC55-spiegel). EERST vragen: lukt update + restore op de Fairphone 6 (2a7d66dd, Fold-backup) nu gelukt, contactenrecht toegestaan? Resultaat staat in app.log (Restore/Resultaat cloud). Daarna: shad-playlist vullen, archief HC55 backups-20260929 opruimen na bevestiging. Nog open uit 29-09: E2E magic link, ProjectGrant Fairphone, DEBUG-marker weg (vrijgave), Spotify-sleutels, accounts overige toestellen."
 ---
 
 # 2026-09-29 — Backup-consolidatie Fold + v2.2.0 "Stevie_Wonder" / "Superstition"
@@ -53,3 +53,15 @@ Keuze (a)/(b) niet beantwoord → (b) gekozen: 5 playlists van 29-09 actief, tho
   0 geschreven ⇒ afbreken zonder DB-wijziging; resultaat naar RemoteLogger. BUG #88, 7 tests (33/33), smoke groen,
   commit 25bc546, gepubliceerd als DEBUG (HorseAPK, 2 toestellen gewekt + icthorse.nl).
 - Open: Christian herstelt opnieuw op de Fairphone met v2.2.1 (contactenrecht toestaan).
+
+## Vervolg — "check update loopt nu vast. daarvoor liep downloaden update halverwege vast" → v2.2.2 (145)
+- Meting: Fairphone (thuis-IP 178.225.141.153) kreeg timeouts naar icthorse.nl (download 2.2.1 20:24, check 20:25,
+  licentiecheck 20:25); logs naar HC55 liepen door. icthorse.nl zelf gezond vanaf HC55 en HorseBoat (APK 0,3 s).
+  Oorzaak route thuisnetwerk ↔ Hostinger (afremmen of wifi; niet vast te stellen, Hostinger heeft geen toegangslog).
+  App: alleen connect/read-timeout ⇒ druppelende verbinding hangt eindeloos.
+- Akkoord WhatIf → HC55-spiegel `/srv/randomringtone-apk` via nginx `^~ /rrlog/apk/` (regressietest 207→208 probes,
+  0 regressies, 1 verwacht nieuw), `tools/sync-apk-mirror.sh` + `tools/publish-inapp.sh`; app v2.2.2: callTimeout
+  (check 10 s, download 90 s per bron), fallback icthorse.nl → HC55, Content-Length-controle, melding. BUG #89.
+  Commit 90ece78, 33/33 tests, smoke groen, DEBUG gepubliceerd (HorseAPK + icthorse.nl + spiegel).
+- Niet getest: de fallback zelf op een toestel (emulators hebben geen licentie ⇒ Instellingen/update niet bereikbaar);
+  de spiegel is wel live gemeten (200, juiste inhoud).

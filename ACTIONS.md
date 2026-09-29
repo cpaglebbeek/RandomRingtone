@@ -10,7 +10,8 @@
 - [x] v2.0.1 (141) gepubliceerd als DEBUG — voortgangsbalk + live ETA backup/restore
 - [x] v2.2.0 (143) "Stevie_Wonder"/"Superstition" gepubliceerd als DEBUG 29-09 (HorseAPK `…Stevie_Wonder_Superstition-release.apk` + icthorse.nl in-app, sha acafa4c2…) — scanbereik/opschonen, restore-fixes, contact op naam, YouTube-art
 - [x] v2.2.1 (144) "Sir_Duke" gepubliceerd als DEBUG 29-09 — BUG #88 (rechtenfout bij restore op Fairphone: contactenrecht/doelmappen vooraf uit backup, EACCES per bestand, bestanden vóór database)
-- [ ] **Fairphone/Fold (Christian):** v2.2.1 installeren → Backup → Herstellen uit cloud (slot 1 = geconsolideerd) → controleren: 5 actieve playlists (Joy/mam/marius/theo/shad), contacttoewijzingen, album art; playlist **shad is leeg** (inhoud nooit gelogd) → zelf vullen; thomas/algemeen/wa globaal staan UIT
+- [x] v2.2.2 (145) "Signed_Sealed_Delivered" DEBUG 29-09 — BUG #89 update-check/download hing (icthorse.nl-timeouts): harde timeouts + fallback HC55-spiegel `/rrlog/apk/`; publiceren voortaan via `tools/publish-inapp.sh`
+- [ ] **Fairphone/Fold (Christian):** v2.2.2 installeren (HorseAPK of in-app) → Backup → Herstellen uit cloud (slot 1 = geconsolideerd) → controleren: 5 actieve playlists (Joy/mam/marius/theo/shad), contacttoewijzingen, album art; playlist **shad is leeg** (inhoud nooit gelogd) → zelf vullen; thomas/algemeen/wa globaal staan UIT
 - [ ] Na geslaagd herstel: archief HC55 `/srv/randomringtone-backup-archief/backups-20260929/` mag weg (geconsolideerde kopie blijft in `geconsolideerd-20260929/`)
 - [ ] Bevinding (niet aangeraakt): `StorageManager.parseFileName` hasht `nameWithoutExtension`, `TrackIdResolver` hasht `name` (mét extensie) → scan-ids ≠ canonical ids (scan dedupt op bestandsnaam, dus geen dubbelingen, wel inconsistent)
 - [ ] Na E2E + test op de Fold: DEBUG-marker weghalen in `build.timestamp` (lokaal + icthorse.nl) = vrijgave; testlicenties verwijderen via `/rrlog/beheer/`

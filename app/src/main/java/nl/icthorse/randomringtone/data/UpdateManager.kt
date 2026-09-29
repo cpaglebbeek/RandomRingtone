@@ -43,31 +43,62 @@ class UpdateManager(private val context: Context) {
         private const val TAG = "UpdateManager"
         const val BASE_URL = "https://icthorse.nl/RandomRing/Apk/"
         private const val TIMESTAMP_URL = "${BASE_URL}build_info.php"
+
+        /** v2.2.2: publieke spiegel op HC55 (tools/sync-apk-mirror.sh) — fallback als icthorse.nl niet reageert. */
+        const val MIRROR_URL = "https://horsecloud55.ddns.net/rrlog/apk/"
+        private const val MIRROR_TIMESTAMP_URL = "${MIRROR_URL}build.timestamp"
+
+        /** Bronnen in volgorde: (label, versielijst-URL, APK-basis). */
+        val SOURCES = listOf(
+            Triple("icthorse.nl", TIMESTAMP_URL, BASE_URL),
+            Triple("HC55", MIRROR_TIMESTAMP_URL, MIRROR_URL)
+        )
     }
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+    // v2.2.2: harde plafonds (callTimeout) — readTimeout alleen begint na elk pakketje opnieuw, waardoor een
+    // druppelende verbinding de knop eindeloos liet draaien.
+    private val checkClient = OkHttpClient.Builder()
+        .connectTimeout(6, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .callTimeout(10, TimeUnit.SECONDS)
         .build()
 
+    private val downloadClient = OkHttpClient.Builder()
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
+        .build()
+
+    /** Bron waarvan de laatste geslaagde versielijst kwam (null = geen). */
+    var lastSource: String? = null
+        private set
+
+    private var preferredIndex = 0
+
+    private fun orderedSources() = SOURCES.indices.sortedBy { if (it == preferredIndex) -1 else it }.map { SOURCES[it] }
+
     suspend fun fetchVersions(): List<RemoteVersion> = withContext(Dispatchers.IO) {
-        try {
-            RemoteLogger.d(TAG, "Fetching build.timestamp...")
-            val request = Request.Builder().url(TIMESTAMP_URL).build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    RemoteLogger.w(TAG, "Fetch failed", mapOf("httpCode" to response.code.toString()))
-                    return@withContext emptyList()
+        for ((label, url, _) in orderedSources()) {
+            try {
+                RemoteLogger.d(TAG, "Fetching build.timestamp...", mapOf("source" to label))
+                val versions = checkClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        RemoteLogger.w(TAG, "Fetch failed", mapOf("source" to label, "httpCode" to response.code.toString()))
+                        null
+                    } else parseTimestamp(response.body?.string().orEmpty())
                 }
-                val body = response.body?.string() ?: return@withContext emptyList()
-                val versions = parseTimestamp(body)
-                RemoteLogger.i(TAG, "Versions fetched", mapOf("count" to versions.size.toString()))
-                versions
+                if (!versions.isNullOrEmpty()) {
+                    lastSource = label
+                    preferredIndex = SOURCES.indexOfFirst { it.first == label }
+                    RemoteLogger.i(TAG, "Versions fetched", mapOf("count" to versions.size.toString(), "source" to label))
+                    return@withContext versions
+                }
+            } catch (e: Exception) {
+                RemoteLogger.e(TAG, "Fetch error", mapOf("source" to label, "error" to (e.message ?: "unknown")))
             }
-        } catch (e: Exception) {
-            RemoteLogger.e(TAG, "Fetch error", mapOf("error" to (e.message ?: "unknown")))
-            emptyList()
         }
+        lastSource = null
+        emptyList()
     }
 
     private fun parseTimestamp(content: String): List<RemoteVersion> {
@@ -110,47 +141,60 @@ class UpdateManager(private val context: Context) {
             .sortedByDescending { it.build }
     }
 
+    /**
+     * Download met fallback: eerst de bron die de versielijst leverde, dan de andere. Elke poging heeft een hard
+     * plafond; een onvolledige download (minder bytes dan Content-Length) telt als mislukt. [onSource] meldt de bron.
+     */
     suspend fun downloadApk(
         version: RemoteVersion,
+        onSource: (String) -> Unit = {},
         onProgress: (bytesRead: Long, totalBytes: Long) -> Unit
     ): File? = withContext(Dispatchers.IO) {
-        try {
-            val url = BASE_URL + version.apkFilename
-            RemoteLogger.i(TAG, "Downloading APK", mapOf("url" to url))
-            val request = Request.Builder().url(url).build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    RemoteLogger.e(TAG, "Download failed", mapOf("httpCode" to response.code.toString()))
-                    return@withContext null
-                }
-                val body = response.body ?: return@withContext null
-                val totalBytes = body.contentLength()
-                val updateDir = File(context.cacheDir, "updates").apply { mkdirs() }
-                val apkFile = File(updateDir, version.apkFilename)
-
-                body.byteStream().use { input ->
-                    apkFile.outputStream().use { output ->
-                        val buffer = ByteArray(8192)
-                        var bytesRead = 0L
-                        var read: Int
-                        while (input.read(buffer).also { read = it } != -1) {
-                            output.write(buffer, 0, read)
-                            bytesRead += read
-                            onProgress(bytesRead, totalBytes)
+        val updateDir = File(context.cacheDir, "updates").apply { mkdirs() }
+        val apkFile = File(updateDir, version.apkFilename)
+        for ((label, _, base) in orderedSources()) {
+            val url = base + version.apkFilename
+            try {
+                onSource(label)
+                onProgress(0, -1)
+                RemoteLogger.i(TAG, "Downloading APK", mapOf("url" to url))
+                val ok = downloadClient.newCall(Request.Builder().url(url).build()).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        RemoteLogger.e(TAG, "Download failed", mapOf("url" to url, "httpCode" to response.code.toString()))
+                        return@use false
+                    }
+                    val body = response.body ?: return@use false
+                    val totalBytes = body.contentLength()
+                    var bytesRead = 0L
+                    body.byteStream().use { input ->
+                        apkFile.outputStream().use { output ->
+                            val buffer = ByteArray(8192)
+                            var read: Int
+                            while (input.read(buffer).also { read = it } != -1) {
+                                output.write(buffer, 0, read)
+                                bytesRead += read
+                                onProgress(bytesRead, totalBytes)
+                            }
                         }
                     }
+                    if (totalBytes > 0 && bytesRead != totalBytes) {
+                        RemoteLogger.e(TAG, "Download onvolledig", mapOf("url" to url, "read" to "$bytesRead", "total" to "$totalBytes"))
+                        false
+                    } else true
                 }
-
-                RemoteLogger.i(TAG, "Download complete", mapOf(
-                    "file" to apkFile.name,
-                    "size" to "${apkFile.length() / 1024}KB"
-                ))
-                apkFile
+                if (ok) {
+                    preferredIndex = SOURCES.indexOfFirst { it.first == label }
+                    RemoteLogger.i(TAG, "Download complete", mapOf(
+                        "file" to apkFile.name, "size" to "${apkFile.length() / 1024}KB", "source" to label
+                    ))
+                    return@withContext apkFile
+                }
+            } catch (e: Exception) {
+                RemoteLogger.e(TAG, "Download error", mapOf("url" to url, "error" to (e.message ?: "unknown")))
             }
-        } catch (e: Exception) {
-            RemoteLogger.e(TAG, "Download error", mapOf("error" to (e.message ?: "unknown")))
-            null
+            apkFile.delete()
         }
+        null
     }
 
     fun installApk(apkFile: File) {

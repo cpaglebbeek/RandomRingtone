@@ -72,6 +72,7 @@ fun SettingsScreen(
     var isDownloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableStateOf(0f) }
     var downloadingVersion by remember { mutableStateOf<RemoteVersion?>(null) }
+    var downloadSource by remember { mutableStateOf<String?>(null) }
 
     val phoneStatePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -774,8 +775,9 @@ fun SettingsScreen(
                             isCheckingUpdates = true
                             updateVersions = updateManager.fetchVersions()
                             isCheckingUpdates = false
+                            if (updateManager.lastSource == "HC55") scope.launch { snackbarHostState.showSnackbar("icthorse.nl reageert niet — versies via HC55") }
                             if (updateVersions.isEmpty()) {
-                                snackbarHostState.showSnackbar("Kon geen versie-informatie ophalen")
+                                snackbarHostState.showSnackbar("Kon geen versie-informatie ophalen (icthorse.nl en HC55 reageren niet)")
                             } else if (debugBuildEnabled) {
                                 showUpdateDialog = true
                             } else {
@@ -866,7 +868,7 @@ fun SettingsScreen(
                         AppBusyState.isBusy = true
                         downloadProgress = 0f
                         scope.launch {
-                            val apkFile = updateManager.downloadApk(version) { read, total ->
+                            val apkFile = updateManager.downloadApk(version, onSource = { downloadSource = it }) { read, total ->
                                 downloadProgress = if (total > 0) read.toFloat() / total else 0f
                             }
                             isDownloading = false
@@ -878,7 +880,7 @@ fun SettingsScreen(
                                     snackbarHostState.showSnackbar("APK gedownload: ${apkFile.name}")
                                 }
                             } else {
-                                snackbarHostState.showSnackbar("Download mislukt")
+                                snackbarHostState.showSnackbar("Download mislukt via icthorse.nl én HC55 — probeer later of via HorseAPK")
                             }
                         }
                     }
@@ -890,6 +892,7 @@ fun SettingsScreen(
             DownloadProgressDialog(
                 version = downloadingVersion!!,
                 progress = downloadProgress,
+                source = downloadSource,
                 onCancel = {
                     isDownloading = false
                     downloadingVersion = null
@@ -1373,6 +1376,7 @@ private fun UpdateDialog(
 private fun DownloadProgressDialog(
     version: RemoteVersion,
     progress: Float,
+    source: String? = null,
     onCancel: () -> Unit
 ) {
     AlertDialog(
@@ -1384,6 +1388,11 @@ private fun DownloadProgressDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text("v${version.version} (Build ${version.build})")
+                if (source == "HC55") Text(
+                    "icthorse.nl reageert niet — bezig via HC55",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 LinearProgressIndicator(
                     progress = { progress },
                     modifier = Modifier.fillMaxWidth()

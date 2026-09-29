@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.2.1",
-  "versionCode": 144,
+  "version": "2.2.2",
+  "versionCode": 145,
   "codename": "Stevie_Wonder",
-  "releaseName": "Sir_Duke",
+  "releaseName": "Signed_Sealed_Delivered",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-09-29",
   "status": "development",
-  "note": "v2.2.1 = restore: rechten/mappen vooraf uit de backup, bestanden vóór database, per-bestand tolerant (EACCES)"
+  "note": "v2.2.2 = in-app update: harde timeouts + fallback naar HC55-spiegel (/rrlog/apk/) als icthorse.nl niet reageert"
 }

@@ -285,6 +285,9 @@ class TrackResolver(
         val deezerTrack = track.toDeezerTrack()
 
         return if (playlist.contactUri != null) {
+            if (ContactMatcher.isPlaceholder(playlist.contactUri)) {
+                return ApplyResult(false, "Contact '${playlist.contactName ?: playlist.contactUri.removePrefix(ContactMatcher.NAME_PREFIX)}' niet gevonden — kies het contact opnieuw")
+            }
             if (context == null) return ApplyResult(false, "Geen context beschikbaar")
             val hasWriteContacts = androidx.core.content.ContextCompat.checkSelfPermission(
                 context, android.Manifest.permission.WRITE_CONTACTS

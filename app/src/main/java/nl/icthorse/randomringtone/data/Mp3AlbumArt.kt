@@ -14,7 +14,11 @@ import java.io.FileOutputStream
  *  - bestand bestaat niet / niet schrijfbaar
  *  - extensie != mp3
  *  - JPEG bytes < 1 KB (te klein voor zinvolle cover)
- *  - bestand begint al met "ID3" (bestaande v2-tag niet overschrijven)
+ *  - bestand heeft al een ingebedde cover
+ *
+ * v2.2.0: een bestaande ID3v2-tag ZONDER cover (Y2Mate levert die altijd) werd overgeslagen ⇒ YouTube-
+ * downloads kregen nooit art. Nu wordt zo'n tag vervangen; titel/artiest worden overgenomen als ze niet
+ * meegegeven zijn. De ID3v1-marker aan het eind blijft staan (alleen de v2-kop verandert).
  *
  * Verify-strategie: schrijf naar <file>.tmp, lees met MediaMetadataRetriever,
  * vervang origineel alleen bij succesvolle embeddedPicture-readback.
@@ -47,14 +51,33 @@ object Mp3AlbumArt {
         if (!file.exists() || !file.canWrite()) return false
         if (file.extension.lowercase() != "mp3") return false
         if (jpegBytes.size < MIN_JPEG_BYTES) return false
-        if (hasID3v2(file)) return false
 
-        val tag = buildId3v23Tag(title, artist, jpegBytes)
+        var skip = 0L
+        var t = title
+        var a = artist
+        if (hasID3v2(file)) {
+            if (verifyHasEmbeddedPicture(file)) return false
+            val header = ByteArray(10)
+            file.inputStream().use { if (it.read(header) != 10) return false }
+            skip = id3v2TotalSize(header)?.toLong() ?: return false
+            if (skip >= file.length()) return false
+            if (t.isNullOrBlank() || a.isNullOrBlank()) {
+                val (et, ea) = readTitleArtist(file)
+                if (t.isNullOrBlank()) t = et
+                if (a.isNullOrBlank()) a = ea
+            }
+        }
+
+        val tag = buildId3v23Tag(t, a, jpegBytes)
         val tmp = File(file.parentFile, "${file.name}.art.tmp")
         return try {
             FileOutputStream(tmp).use { out ->
                 out.write(tag)
-                file.inputStream().use { it.copyTo(out) }
+                file.inputStream().use { input ->
+                    var left = skip
+                    while (left > 0) { val n = input.skip(left); if (n <= 0) break; left -= n }
+                    input.copyTo(out)
+                }
             }
             if (!verifyHasEmbeddedPicture(tmp)) {
                 tmp.delete()
@@ -68,6 +91,36 @@ object Mp3AlbumArt {
         } catch (_: Exception) {
             try { tmp.delete() } catch (_: Exception) {}
             false
+        }
+    }
+
+    /**
+     * Totale lengte van een ID3v2-tag (kop + inhoud + evt. footer) uit de eerste 10 bytes; null als geen/ongeldige tag.
+     */
+    fun id3v2TotalSize(header: ByteArray): Int? {
+        if (header.size < 10) return null
+        if (header[0] != 'I'.code.toByte() || header[1] != 'D'.code.toByte() || header[2] != '3'.code.toByte()) return null
+        if (header[3].toInt() !in 2..4) return null
+        var size = 0
+        for (i in 6..9) {
+            val b = header[i].toInt() and 0xFF
+            if (b and 0x80 != 0) return null
+            size = (size shl 7) or b
+        }
+        val footer = if (header[3].toInt() == 4 && (header[5].toInt() and 0x10) != 0) 10 else 0
+        return 10 + size + footer
+    }
+
+    private fun readTitleArtist(file: File): Pair<String?, String?> {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(file.absolutePath)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) to
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+        } catch (_: Exception) {
+            null to null
+        } finally {
+            try { retriever.release() } catch (_: Exception) {}
         }
     }
 

@@ -221,7 +221,7 @@ fun YouTubeScreen(
                             detectedVideoTitle = result.title ?: detectedVideoTitle
                             // Fetch YouTube thumbnail als album art
                             result.videoId?.let { vid ->
-                                fetchYouTubeThumbnail(context, vid, result.file)
+                                fetchYouTubeThumbnail(context, vid, result.file, result.title)
                             }
                             showActionsDialog = true
                         } else {
@@ -320,6 +320,8 @@ fun YouTubeScreen(
                         AppBusyState.isBusy = false
                         if (result.success && result.file != null) {
                             lastDownloadedFile = result.file
+                            // Ook bij overschrijven de thumbnail als album art (ontbrak tot v2.2.0)
+                            fetchYouTubeThumbnail(context, videoId, result.file, result.title ?: title)
                             showActionsDialog = true
                         } else {
                             snackbarHostState.showSnackbar(
@@ -499,19 +501,21 @@ private val thumbClient = OkHttpClient.Builder()
     .build()
 
 /** Fetch YouTube thumbnail, sla op als album art cache file en embed in MP3 (APIC). */
-private suspend fun fetchYouTubeThumbnail(context: android.content.Context, videoId: String, audioFile: File) {
+private suspend fun fetchYouTubeThumbnail(context: android.content.Context, videoId: String, audioFile: File, title: String? = null) {
     withContext(Dispatchers.IO) {
         try {
-            val url = "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
-            val request = Request.Builder().url(url).build()
-            thumbClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext
-                val bytes = response.body?.bytes() ?: return@withContext
-                if (bytes.size < 1000) return@withContext // te klein, geen geldige afbeelding
+            // hqdefault bestaat bijna altijd; mqdefault als vangnet (v2.2.0)
+            val bytes = listOf("hqdefault", "mqdefault").firstNotNullOfOrNull { variant ->
+                try {
+                    thumbClient.newCall(Request.Builder().url("https://i.ytimg.com/vi/$videoId/$variant.jpg").build())
+                        .execute().use { r -> r.body?.bytes()?.takeIf { r.isSuccessful && it.size >= 1000 } }
+                } catch (_: Exception) { null }
+            } ?: return@withContext
+            run {
                 val artDir = File(context.cacheDir, "album_art").apply { mkdirs() }
                 val artFile = File(artDir, "${audioFile.nameWithoutExtension.hashCode()}.jpg")
                 artFile.outputStream().use { it.write(bytes) }
-                val embedded = Mp3AlbumArt.write(audioFile, bytes)
+                val embedded = Mp3AlbumArt.write(audioFile, bytes, title)
                 RemoteLogger.d("YouTubeScreen", "Thumbnail opgeslagen", mapOf(
                     "videoId" to videoId,
                     "size" to "${bytes.size / 1024}KB",

@@ -533,7 +533,8 @@ fun SettingsScreen(
                     downloadPath = ringtoneManager.storage.getDownloadDir().absolutePath
                     ringtonePath = ringtoneManager.storage.getRingtoneDir().absolutePath
                     diskUsage = ringtoneManager.storage.getDiskUsage()
-                    snackbarHostState.showSnackbar("Paden gereset naar standaard")
+                    LibraryRescan.requested = true
+                    snackbarHostState.showSnackbar("Paden gereset naar standaard — Bibliotheek scant opnieuw")
                 }
             },
             modifier = Modifier.fillMaxWidth()
@@ -570,6 +571,8 @@ fun SettingsScreen(
                         }
                         ringtoneManager.storage.setDownloadDir(newPath)
                         downloadPath = newPath
+                        LibraryRescan.requested = true
+                        snackbarHostState.showSnackbar("Map gewijzigd — Bibliotheek scant opnieuw en biedt opschonen aan")
                         diskUsage = ringtoneManager.storage.getDiskUsage()
                         isMovingFiles = false
                     }
@@ -606,6 +609,8 @@ fun SettingsScreen(
                         }
                         ringtoneManager.storage.setRingtoneDir(newPath)
                         ringtonePath = newPath
+                        LibraryRescan.requested = true
+                        snackbarHostState.showSnackbar("Map gewijzigd — Bibliotheek scant opnieuw en biedt opschonen aan")
                         diskUsage = ringtoneManager.storage.getDiskUsage()
                         isMovingFiles = false
                     }

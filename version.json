@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.1.0",
-  "versionCode": 142,
-  "codename": "Bob_Marley",
-  "releaseName": "Get_Up_Stand_Up",
+  "version": "2.2.0",
+  "versionCode": 143,
+  "codename": "Stevie_Wonder",
+  "releaseName": "Superstition",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-09-29",
   "status": "development",
-  "note": "v2.1.0 = rechten- en mappencontrole bij opstarten, vóór restore en vóór Bibliotheek (SetupCheck)"
+  "note": "v2.2.0 = scan alleen in ingestelde mappen + opschonen na scan/mapwijziging; cloud-restore met juiste mappen, instellingen en contact-op-naam; ringtones direct na restore; album art voor YouTube (ID3v2-bug) en tones"
 }

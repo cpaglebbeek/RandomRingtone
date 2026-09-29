@@ -160,12 +160,15 @@ class IctHorseBackupClient(private val context: Context) {
             val playlists = db.playlistDao().getAll()
             val playlistTracks = db.playlistTrackDao().getAll()
 
+            // v2.2.0: alle velden mee (markerType/subdir bepalen de restore-map; playedTrackIds de QUASI-cyclus)
             val trackBackups = tracks.map {
-                TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName)
+                TrackBackup(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName,
+                    it.id3Title, it.id3Artist, it.albumArtPath, it.markerType,
+                    BackupManager.inferSubdir(null, it.markerType, it.localPath))
             }
             val playlistBackups = playlists.map {
                 PlaylistBackup(it.id, it.name, it.channel.name, it.mode.name, it.schedule.name,
-                    it.contactUri, it.contactName, it.isActive, it.lastPlayedTrackId)
+                    it.contactUri, it.contactName, it.isActive, it.lastPlayedTrackId, it.playedTrackIds)
             }
             val ptBackups = playlistTracks.map {
                 PlaylistTrackBackup(it.playlistId, it.trackId, it.sortOrder)
@@ -180,6 +183,9 @@ class IctHorseBackupClient(private val context: Context) {
             File(tempDir, "saved_tracks.json").writeText(jsonEncoder.encodeToString(kotlinx.serialization.builtins.ListSerializer(TrackBackup.serializer()), trackBackups))
             File(tempDir, "playlists.json").writeText(jsonEncoder.encodeToString(kotlinx.serialization.builtins.ListSerializer(PlaylistBackup.serializer()), playlistBackups))
             File(tempDir, "playlist_tracks.json").writeText(jsonEncoder.encodeToString(kotlinx.serialization.builtins.ListSerializer(PlaylistTrackBackup.serializer()), ptBackups))
+            File(tempDir, "settings.json").writeText(jsonEncoder.encodeToString(SettingsBackupData.serializer(), SettingsBackupData(
+                downloadPath = storage.getDownloadDir().absolutePath, ringtonePath = storage.getRingtoneDir().absolutePath,
+                spotifyConverter = storage.getSpotifyConverter(), backupUri = storage.getBackupUri())))
 
             val meta = BackupMeta(
                 appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?",
@@ -212,6 +218,12 @@ class IctHorseBackupClient(private val context: Context) {
             onProgress(meter.progress(phaseText, phaseNo, 7))
             for (file in jsonFileNames) {
                 uploadFile(slot, File(tempDir, file), file, onBytes)
+            }
+            // settings.json is optioneel: een oudere backup_api die hem weigert mag de backup niet laten mislukken
+            try {
+                uploadFile(slot, File(tempDir, "settings.json"), "settings.json")
+            } catch (e: Exception) {
+                RemoteLogger.w("IctHorseBackup", "settings.json niet geüpload", mapOf("error" to (e.message ?: "?")))
             }
 
             // Phase 4+5: audio uploaden — voortgang per 64 KB via de tellende RequestBody
@@ -312,37 +324,59 @@ class IctHorseBackupClient(private val context: Context) {
             onProgress(meter.progress(phaseText, phaseNo, 5))
             val jsonDecoder = Json { ignoreUnknownKeys = true }
 
-            db.clearAllTables()
+            // v2.2.0: instellingen eerst — de mappen daaruit bepalen waar tracks en bestanden landen
+            if (listed.any { it.path == "settings.json" }) {
+                try {
+                    downloadFile(slot, "settings.json", File(tempDir, "settings.json"), src)
+                    RestoreSupport.applySettings(
+                        jsonDecoder.decodeFromString(SettingsBackupData.serializer(), File(tempDir, "settings.json").readText()),
+                        storage
+                    )
+                } catch (e: Exception) {
+                    RemoteLogger.w("IctHorseBackup", "settings.json niet toegepast", mapOf("error" to (e.message ?: "?")))
+                }
+            }
+            val downloadDir = storage.getDownloadDir()
+            val ringtoneDir = storage.getRingtoneDir()
 
             val tracksJson = File(tempDir, "saved_tracks.json").readText()
             val trackBackups = jsonDecoder.decodeFromString<List<TrackBackup>>(tracksJson)
-            val ringtoneDir = storage.getRingtoneDir()
+            val playlistsJson = File(tempDir, "playlists.json").readText()
+            val resolved = RestoreSupport.resolveContacts(context, jsonDecoder.decodeFromString<List<PlaylistBackup>>(playlistsJson))
+            val playlistBackups = resolved.playlists
+            val ptJson = File(tempDir, "playlist_tracks.json").readText()
+            val ptBackups = jsonDecoder.decodeFromString<List<PlaylistTrackBackup>>(ptJson)
+
+            db.clearAllTables()
+
+            // Was: alles naar ringtoneDir ⇒ downloads wezen na restore naar een niet-bestaand pad
             val tracks = trackBackups.map { tb ->
-                val newLocalPath = if (tb.localPath != null) {
-                    File(ringtoneDir, File(tb.localPath).name).absolutePath
-                } else null
-                SavedTrack(tb.deezerTrackId, tb.title, tb.artist, tb.previewUrl, newLocalPath, tb.playlistName)
+                val newLocalPath = tb.localPath?.let { lp ->
+                    val subdir = BackupManager.inferSubdir(tb.subdir, tb.markerType, lp)
+                    File(if (subdir == "ringtones") ringtoneDir else downloadDir, File(lp).name).absolutePath
+                }
+                SavedTrack(tb.deezerTrackId, tb.title, tb.artist, tb.previewUrl, newLocalPath, tb.playlistName,
+                    id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = tb.albumArtPath, markerType = tb.markerType)
             }
             db.savedTrackDao().insertAll(tracks)
 
-            val playlistsJson = File(tempDir, "playlists.json").readText()
-            val playlistBackups = jsonDecoder.decodeFromString<List<PlaylistBackup>>(playlistsJson)
             for (pb in playlistBackups) {
                 db.playlistDao().insert(
                     Playlist(pb.id, pb.name, Channel.valueOf(pb.channel), Mode.valueOf(pb.mode),
-                        Schedule.valueOf(pb.schedule), pb.contactUri, pb.contactName, pb.isActive, pb.lastPlayedTrackId)
+                        Schedule.valueOf(pb.schedule), pb.contactUri, pb.contactName, pb.isActive, pb.lastPlayedTrackId,
+                        pb.playedTrackIds)
                 )
             }
 
-            val ptJson = File(tempDir, "playlist_tracks.json").readText()
-            val ptBackups = jsonDecoder.decodeFromString<List<PlaylistTrackBackup>>(ptJson)
+            val trackIds = tracks.map { it.deezerTrackId }.toSet()
+            val playlistIds = playlistBackups.map { it.id }.toSet()
             for (pt in ptBackups) {
+                if (pt.trackId !in trackIds || pt.playlistId !in playlistIds) continue
                 db.playlistTrackDao().insert(PlaylistTrack(pt.playlistId, pt.trackId, pt.sortOrder))
             }
 
             // Phase 4: audio downloaden — voortgang per 64 KB
             var restoredFiles = 0
-            val downloadDir = storage.getDownloadDir()
             audioEntries.forEachIndexed { index, entry ->
                 phaseNo = 4
                 phaseText = "Bestanden downloaden (${index + 1}/${audioEntries.size})..."
@@ -352,12 +386,16 @@ class IctHorseBackupClient(private val context: Context) {
                 restoredFiles++
             }
 
+            // Bestanden staan er nu ⇒ ringtones van actieve belplaylists meteen zetten
+            val applyFailures = RestoreSupport.applyActiveCallPlaylists(context, db)
+
             onProgress(meter.progress("Klaar!", 5, 5).copy(percentage = 1f, etaSeconds = 0))
             tempDir.deleteRecursively()
 
             BackupResult(
                 success = true,
-                message = "Herstel van slot $slot geslaagd: ${trackBackups.size} tracks, ${playlistBackups.size} playlists, $restoredFiles bestanden",
+                message = "Herstel van slot $slot geslaagd: ${trackBackups.size} tracks, ${playlistBackups.size} playlists, $restoredFiles bestanden" +
+                    RestoreSupport.summary(resolved.unresolved, applyFailures),
                 trackCount = trackBackups.size,
                 playlistCount = playlistBackups.size,
                 fileCount = restoredFiles

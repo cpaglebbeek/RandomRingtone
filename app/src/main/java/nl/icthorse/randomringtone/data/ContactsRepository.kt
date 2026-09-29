@@ -88,6 +88,11 @@ class ContactsRepository(val context: Context) {
      */
     fun setContactRingtone(contactUri: String, ringtoneUri: Uri?): Boolean {
         RemoteLogger.input("Contacts", "setContactRingtone", mapOf("contactUri" to contactUri, "ringtoneUri" to (ringtoneUri?.toString() ?: "null")))
+        if (ContactMatcher.isPlaceholder(contactUri)) {
+            // "name:<naam>" uit een restore zonder gevonden contact — geen echte URI, niet opvragen
+            RemoteLogger.w("Contacts", "Contact niet gekoppeld (placeholder)", mapOf("contactUri" to contactUri))
+            return false
+        }
         return try {
             val values = ContentValues().apply {
                 put(

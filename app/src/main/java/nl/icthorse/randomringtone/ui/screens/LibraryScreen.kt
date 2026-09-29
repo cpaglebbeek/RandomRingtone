@@ -97,6 +97,9 @@ fun LibraryScreen(
     // Delete dialoog state
     var showDeleteDialog by remember { mutableStateOf<LibraryItem?>(null) }
 
+    // Opschoon-dialoog na scan (v2.2.0)
+    var staleTracks by remember { mutableStateOf<List<SavedTrack>>(emptyList()) }
+
     // === SINGLE POINT OF TRUTH: refresh uit DB, split op cached markerType ===
     fun refresh() {
         scope.launch {
@@ -198,7 +201,6 @@ fun LibraryScreen(
                         appendLine("Geen audiobestanden gevonden.\n")
                         appendLine(fmtDir("APP DOWNLOADS", result.downloadInfo))
                         appendLine(fmtDir("APP RINGTONES", result.ringtoneInfo))
-                        appendLine(fmtDir("SYSTEEM DOWNLOADS", result.systemDownloadInfo))
                         if (result.usedMediaStore) {
                             appendLine("\nMEDIASTORE FALLBACK:")
                             if (result.mediaStoreCount > 0)
@@ -216,16 +218,32 @@ fun LibraryScreen(
                         }
                     }
                 } else {
-                    // Bouw dedup-set op basis van bestandsnaam (voorkomt dubbelen door pad-variaties)
-                    val knownFileNames = db.savedTrackDao().getAll()
+                    // Bouw dedup-set op basis van bestandsnaam (voorkomt dubbelen door pad-variaties).
+                    // v2.2.0: alleen records BINNEN de ingestelde mappen tellen; een record met dezelfde naam
+                    // erbuiten (oude map, systeem-Downloads) wordt naar het gevonden bestand omgezet — houdt
+                    // zijn id en dus zijn playlist-koppelingen.
+                    val scopeDirs = ringtoneManager.storage.libraryScopeDirs()
+                    val allTracksNow = db.savedTrackDao().getAll()
+                    val inScope = { t: SavedTrack -> LibraryScope.isInDirs(t.localPath, scopeDirs) && File(t.localPath!!).exists() }
+                    val knownFileNames = allTracksNow.filter(inScope)
                         .mapNotNull { it.localPath?.let { lp -> File(lp).name } }
                         .toMutableSet()
+                    val outOfScopeByName = allTracksNow.filterNot(inScope)
+                        .filter { !it.localPath.isNullOrBlank() }
+                        .groupBy { File(it.localPath!!).name }
 
                     var added = 0
+                    var relinked = 0
                     for (sf in scanned) {
                         if (sf.localPath.isNotBlank()) {
                             val fileName = File(sf.localPath).name
                             // Dedup op bestandsnaam (vangt /data/user/0/ vs /data/data/ symlink verschil)
+                            if (fileName in knownFileNames) continue
+                            outOfScopeByName[fileName]?.firstOrNull()?.let { old ->
+                                db.savedTrackDao().insert(old.copy(localPath = sf.localPath))
+                                knownFileNames.add(fileName)
+                                relinked++
+                            }
                             if (fileName in knownFileNames) continue
                             val byPath = db.savedTrackDao().getByLocalPath(sf.localPath)
                             if (byPath != null) continue
@@ -245,7 +263,8 @@ fun LibraryScreen(
                                 )
                             )
                             added++
-                        } else if (byId.localPath != null && !File(byId.localPath).exists()) {
+                        } else if (byId.localPath.isNullOrBlank() || !File(byId.localPath).exists() ||
+                            !LibraryScope.isInDirs(byId.localPath, scopeDirs)) {
                             db.savedTrackDao().insert(byId.copy(localPath = sf.localPath))
                             added++
                         }
@@ -254,22 +273,15 @@ fun LibraryScreen(
                     val markerCount = scanned.count { it.source == "marker" }
                     val msg = buildString {
                         append("$added nieuw van ${scanned.size} bestanden")
+                        if (relinked > 0) append(", $relinked naar ingestelde map omgezet")
                         if (markerCount > 0) append(" ($markerCount via marker)")
                         if (msCount > 0) append(" ($msCount via MediaStore)")
                     }
                     snackbarHostState.showSnackbar(msg)
                 }
-                // Orphan cleanup: verwijder DB tracks waarvan het bestand niet meer bestaat
-                var removed = 0
-                for (track in db.savedTrackDao().getAll()) {
-                    val lp = track.localPath
-                    if (lp != null && lp.isNotBlank() && !File(lp).exists()) {
-                        db.savedTrackDao().delete(track)
-                        db.playlistTrackDao().removeByTrackId(track.deezerTrackId)
-                        removed++
-                    }
-                }
-                if (removed > 0) snackbarHostState.showSnackbar("$removed verwijderde bestanden opgeruimd uit bibliotheek")
+                // v2.2.0: alles wat niet (meer) in de ingestelde mappen staat → na bevestiging weg
+                // (was: stil alleen verdwenen bestanden; items uit systeem-Downloads bleven eeuwig staan)
+                staleTracks = ringtoneManager.storage.findStaleTracks(db)
 
                 refresh()
             } catch (e: Exception) {
@@ -283,6 +295,40 @@ fun LibraryScreen(
 
     LaunchedEffect(pendingScan) {
         if (pendingScan) { pendingScan = false; doScan() }
+    }
+    // Mappen gewijzigd in Instellingen ⇒ opnieuw scannen + opschonen aanbieden
+    LaunchedEffect(LibraryRescan.requested) {
+        if (LibraryRescan.requested) { LibraryRescan.requested = false; doScan() }
+    }
+
+    if (staleTracks.isNotEmpty()) {
+        val toRemove = staleTracks
+        AlertDialog(
+            onDismissRequest = { staleTracks = emptyList() },
+            title = { Text("Opschonen") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text("${toRemove.size} items staan niet (meer) in de ingestelde mappen — uit bibliotheek en playlists verwijderen?")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(LibraryScope.summarize(toRemove), style = MaterialTheme.typography.bodySmall)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("De bestanden zelf blijven staan.", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    staleTracks = emptyList()
+                    scope.launch {
+                        ringtoneManager.storage.removeTracks(db, toRemove)
+                        refresh()
+                        snackbarHostState.showSnackbar("${toRemove.size} items uit bibliotheek verwijderd")
+                    }
+                }) { Text("Verwijderen") }
+            },
+            dismissButton = {
+                TextButton(onClick = { staleTracks = emptyList() }) { Text("Laten staan") }
+            }
+        )
     }
     LaunchedEffect(Unit) { refresh() }
 
@@ -652,4 +698,9 @@ private fun formatFileSize(bytes: Long): String = when {
     bytes < 1024 -> "$bytes B"
     bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0)
     else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
+}
+
+/** Instellingen zet dit na een mapwijziging; Bibliotheek scant dan opnieuw en biedt opschonen aan (v2.2.0). */
+object LibraryRescan {
+    var requested by mutableStateOf(false)
 }

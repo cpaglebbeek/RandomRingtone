@@ -370,7 +370,6 @@ class StorageManager(private val context: Context) {
         val files: List<ScannedFile>,
         val downloadInfo: DirInfo,
         val ringtoneInfo: DirInfo,
-        val systemDownloadInfo: DirInfo,
         val mediaStoreCount: Int = 0,
         val usedMediaStore: Boolean = false,
         val markerScanCount: Int = 0,
@@ -392,7 +391,8 @@ class StorageManager(private val context: Context) {
 
         val rtDir = getRingtoneDir()
         val dlDir = getDownloadDir()
-        val sysDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        // v2.2.0: alleen de ingestelde mappen — systeem-Downloads en device-brede vondsten horen er niet bij
+        val scopeDirs = configuredDirPaths(dlDir, rtDir)
 
         fun scanDir(dir: File, source: String): DirInfo {
             val exists = dir.exists() && dir.isDirectory
@@ -417,7 +417,6 @@ class StorageManager(private val context: Context) {
 
         val rtInfo = scanDir(rtDir, "ringtone")
         val dlInfo = scanDir(dlDir, "download")
-        val sysInfo = scanDir(sysDir, "system_download")
 
         // === MARKER INJECTIE ===
         // Injecteer "RandomRingtone track" marker in alle gevonden bestanden
@@ -436,7 +435,7 @@ class StorageManager(private val context: Context) {
         var usedMediaStore = false
         if (results.isEmpty()) {
             usedMediaStore = true
-            mediaStoreCount = scanViaMediaStore(results, seen)
+            mediaStoreCount = scanViaMediaStore(results, seen, scopeDirs)
         }
 
         // === MARKER SCAN (heavy fallback) ===
@@ -446,7 +445,7 @@ class StorageManager(private val context: Context) {
         var markerScanFilesChecked = 0
         var markerScanBudgetHit = false
         if (results.isEmpty()) {
-            val markerResult = scanAllMediaByMarker(results, seen)
+            val markerResult = scanAllMediaByMarker(results, seen, scopeDirs)
             markerScanCount = markerResult.added
             markerScanFilesChecked = markerResult.filesChecked
             markerScanBudgetHit = markerResult.budgetHit
@@ -467,7 +466,6 @@ class StorageManager(private val context: Context) {
             files = finalResults,
             downloadInfo = dlInfo,
             ringtoneInfo = rtInfo,
-            systemDownloadInfo = sysInfo,
             mediaStoreCount = mediaStoreCount,
             usedMediaStore = usedMediaStore,
             markerScanCount = markerScanCount,
@@ -476,13 +474,36 @@ class StorageManager(private val context: Context) {
         )
     }
 
+    /** Absolute én canonieke paden van de ingestelde mappen (symlinks als /sdcard worden zo ook herkend). */
+    private fun configuredDirPaths(vararg dirs: File): List<String> =
+        dirs.flatMap { d -> listOfNotNull(d.absolutePath, runCatching { d.canonicalPath }.getOrNull()) }.distinct()
+
+    /** Ingestelde download- + tones-map (voor opschoning in Bibliotheek). */
+    suspend fun libraryScopeDirs(): List<String> = configuredDirPaths(getDownloadDir(), getRingtoneDir())
+
+    /**
+     * Tracks die niet (meer) in de ingestelde mappen staan — geen pad, pad erbuiten of bestand weg.
+     */
+    suspend fun findStaleTracks(db: RingtoneDatabase): List<SavedTrack> = withContext(Dispatchers.IO) {
+        val dirs = libraryScopeDirs()
+        LibraryScope.findStale(db.savedTrackDao().getAll(), dirs) { File(it).exists() }
+    }
+
+    /** Verwijder tracks uit bibliotheek én playlists (bestanden blijven staan). */
+    suspend fun removeTracks(db: RingtoneDatabase, tracks: List<SavedTrack>) = withContext(Dispatchers.IO) {
+        for (t in tracks) {
+            db.playlistTrackDao().removeByTrackId(t.deezerTrackId)
+            db.savedTrackDao().delete(t)
+        }
+    }
+
     private data class MarkerScanResult(val added: Int, val filesChecked: Int, val budgetHit: Boolean)
 
     /**
      * Fallback scan via MediaStore — vindt audiobestanden die File.listFiles() mist
      * door scoped storage restricties op Android 11+.
      */
-    private fun scanViaMediaStore(results: MutableList<ScannedFile>, seen: MutableSet<Long>): Int {
+    private fun scanViaMediaStore(results: MutableList<ScannedFile>, seen: MutableSet<Long>, scopeDirs: List<String>): Int {
         var count = 0
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
@@ -525,7 +546,8 @@ class StorageManager(private val context: Context) {
                 while (cursor.moveToNext()) {
                     val displayName = cursor.getString(nameCol) ?: continue
                     val filePath = if (dataCol >= 0) cursor.getString(dataCol) else null
-                    val file = if (filePath != null) File(filePath) else File(displayName)
+                    if (!LibraryScope.isInDirs(filePath, scopeDirs)) continue
+                    val file = File(filePath!!)
 
                     val parsed = parseFileName(file) ?: continue
                     if (parsed.trackId in seen) continue
@@ -554,7 +576,7 @@ class StorageManager(private val context: Context) {
      * Heavy fallback — alleen aanroepen als snellere methodes niets opleveren.
      * Budget-gelimiteerd op MAX_MARKER_SCAN_FILES (2000) om UI-blok te voorkomen.
      */
-    private fun scanAllMediaByMarker(results: MutableList<ScannedFile>, seen: MutableSet<Long>): MarkerScanResult {
+    private fun scanAllMediaByMarker(results: MutableList<ScannedFile>, seen: MutableSet<Long>, scopeDirs: List<String>): MarkerScanResult {
         val MAX_MARKER_SCAN_FILES = 2000
         var added = 0
         var filesChecked = 0
@@ -595,6 +617,7 @@ class StorageManager(private val context: Context) {
                     }
                     val filePath = if (dataCol >= 0) cursor.getString(dataCol) else null
                     if (filePath == null) continue
+                    if (!LibraryScope.isInDirs(filePath, scopeDirs)) continue
                     val file = File(filePath)
                     if (!file.exists()) continue
 

@@ -426,6 +426,15 @@ class BackupManager(private val context: Context) {
                 selection.includesTrack(fakeSavedTrack)
             }
 
+            // Settings eerst (v2.2.0): de mappen daaruit bepalen waar tracks en bestanden landen
+            if (selection.settings) {
+                backupDir.findFile("settings.json")?.let { sf ->
+                    try {
+                        RestoreSupport.applySettings(json.decodeFromString<SettingsBackupData>(readSafFile(sf)), storage)
+                    } catch (_: Exception) {}
+                }
+            }
+
             // Insert tracks — kies bestemming per track op basis van subdir (Fix B)
             val ringtoneDir = storage.getRingtoneDir()
             val downloadDir = storage.getDownloadDir()
@@ -442,7 +451,8 @@ class BackupManager(private val context: Context) {
             db.savedTrackDao().insertAll(tracks)
 
             // Insert playlists (gefilterd op selection)
-            val filteredPlaylists = playlistBackups.filter { selection.includesPlaylist(it.id) }
+            val resolved = RestoreSupport.resolveContacts(context, playlistBackups.filter { selection.includesPlaylist(it.id) })
+            val filteredPlaylists = resolved.playlists
             for (pb in filteredPlaylists) {
                 db.playlistDao().insert(
                     Playlist(
@@ -463,26 +473,6 @@ class BackupManager(private val context: Context) {
             val filteredPt = ptBackups.filter { it.playlistId in playlistIdsInDb && it.trackId in trackIdsInDb }
             for (pt in filteredPt) {
                 db.playlistTrackDao().insert(PlaylistTrack(pt.playlistId, pt.trackId, pt.sortOrder))
-            }
-
-            // Settings restoren als geselecteerd + aanwezig in backup
-            if (selection.settings) {
-                backupDir.findFile("settings.json")?.let { sf ->
-                    try {
-                        @Serializable
-                        data class SettingsBackup(
-                            val downloadPath: String? = null,
-                            val ringtonePath: String? = null,
-                            val spotifyConverter: String = StorageManager.DEFAULT_SPOTIFY_CONVERTER,
-                            val backupUri: String? = null
-                        )
-                        val s = json.decodeFromString<SettingsBackup>(readSafFile(sf))
-                        if (s.downloadPath != null) storage.setDownloadDir(s.downloadPath)
-                        if (s.ringtonePath != null) storage.setRingtoneDir(s.ringtonePath)
-                        storage.setSpotifyConverter(s.spotifyConverter)
-                        if (s.backupUri != null) storage.setBackupUri(s.backupUri)
-                    } catch (_: Exception) {}
-                }
             }
 
             // Phase 4: Copy files back — gefilterd op selection
@@ -521,11 +511,13 @@ class BackupManager(private val context: Context) {
                 restoredFiles++
             }
 
+            val applyFailures = RestoreSupport.applyActiveCallPlaylists(context, db)
             onProgress(meter.progress("Klaar!", totalRestoreFiles, totalRestoreFiles).copy(percentage = 1f, etaSeconds = 0))
 
             BackupResult(
                 success = true,
-                message = "Herstel geslaagd: ${trackBackups.size} tracks, ${playlistBackups.size} playlists, $restoredFiles bestanden",
+                message = "Herstel geslaagd: ${trackBackups.size} tracks, ${playlistBackups.size} playlists, $restoredFiles bestanden" +
+                    RestoreSupport.summary(resolved.unresolved, applyFailures),
                 trackCount = trackBackups.size,
                 playlistCount = playlistBackups.size,
                 fileCount = restoredFiles
@@ -738,6 +730,14 @@ class BackupManager(private val context: Context) {
             val playlistsFile = File(dir, "playlists.json")
             if (!tracksFile.exists() && !playlistsFile.exists()) return@withContext false
 
+            // Herstel instellingen eerst (v2.2.0) — bepalen de doelmappen hieronder
+            val settingsFile = File(dir, "settings.json")
+            if (settingsFile.exists()) {
+                try {
+                    RestoreSupport.applySettings(json.decodeFromString<SettingsBackupData>(settingsFile.readText()), storage)
+                } catch (_: Exception) {}
+            }
+
             // Herstel tracks — herschrijf localPath naar huidige downloadDir/ringtoneDir (Fix C)
             if (tracksFile.exists()) {
                 val trackBackups = json.decodeFromString<List<TrackBackup>>(tracksFile.readText())
@@ -758,7 +758,9 @@ class BackupManager(private val context: Context) {
 
             // Herstel playlists
             if (playlistsFile.exists()) {
-                val playlistBackups = json.decodeFromString<List<PlaylistBackup>>(playlistsFile.readText())
+                val playlistBackups = RestoreSupport.resolveContacts(
+                    context, json.decodeFromString<List<PlaylistBackup>>(playlistsFile.readText())
+                ).playlists
                 for (pb in playlistBackups) {
                     db.playlistDao().insert(
                         Playlist(
@@ -781,23 +783,6 @@ class BackupManager(private val context: Context) {
                 for (pt in ptBackups) {
                     db.playlistTrackDao().insert(PlaylistTrack(pt.playlistId, pt.trackId, pt.sortOrder))
                 }
-            }
-
-            // Herstel instellingen
-            val settingsFile = File(dir, "settings.json")
-            if (settingsFile.exists()) {
-                @Serializable
-                data class SettingsBackup(
-                    val downloadPath: String? = null,
-                    val ringtonePath: String? = null,
-                    val spotifyConverter: String = StorageManager.DEFAULT_SPOTIFY_CONVERTER,
-                    val backupUri: String? = null
-                )
-                val settings = json.decodeFromString<SettingsBackup>(settingsFile.readText())
-                if (settings.downloadPath != null) storage.setDownloadDir(settings.downloadPath)
-                if (settings.ringtonePath != null) storage.setRingtoneDir(settings.ringtonePath)
-                storage.setSpotifyConverter(settings.spotifyConverter)
-                if (settings.backupUri != null) storage.setBackupUri(settings.backupUri)
             }
 
             true

@@ -150,7 +150,9 @@ data class BackupResult(
     val message: String,
     val trackCount: Int = 0,
     val playlistCount: Int = 0,
-    val fileCount: Int = 0
+    val fileCount: Int = 0,
+    /** v2.2.3: bestanden die alleen met toestemming van de gebruiker vervangen kunnen worden (MediaStore). */
+    val pendingOverwrites: List<PendingOverwrite> = emptyList()
 )
 
 class BackupManager(private val context: Context) {
@@ -446,7 +448,7 @@ class BackupManager(private val context: Context) {
                     File(destDir, fileName).absolutePath
                 } else null
                 SavedTrack(tb.deezerTrackId, tb.title, tb.artist, tb.previewUrl, newLocalPath, tb.playlistName,
-                    id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = tb.albumArtPath, markerType = tb.markerType)
+                    id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = null, markerType = tb.markerType)
             }
             db.savedTrackDao().insertAll(tracks)
 
@@ -522,6 +524,7 @@ class BackupManager(private val context: Context) {
             }
 
             val applyFailures = RestoreSupport.applyActiveCallPlaylists(context, db)
+            Mp3TagReader.enrichAll(context, db)   // v2.2.3: album art meteen
             onProgress(meter.progress("Klaar!", totalRestoreFiles, totalRestoreFiles).copy(percentage = 1f, etaSeconds = 0))
 
             BackupResult(
@@ -622,7 +625,7 @@ class BackupManager(private val context: Context) {
             // Insert tracks (REPLACE bij conflict)
             val tracks = export.tracks.map {
                 SavedTrack(it.deezerTrackId, it.title, it.artist, it.previewUrl, it.localPath, it.playlistName,
-                    id3Title = it.id3Title, id3Artist = it.id3Artist, albumArtPath = it.albumArtPath, markerType = it.markerType)
+                    id3Title = it.id3Title, id3Artist = it.id3Artist, albumArtPath = null, markerType = it.markerType)
             }
             db.savedTrackDao().insertAll(tracks)
 
@@ -774,7 +777,7 @@ class BackupManager(private val context: Context) {
                         File(destDir, fileName).absolutePath
                     } else null
                     SavedTrack(tb.deezerTrackId, tb.title, tb.artist, tb.previewUrl, newLocalPath, tb.playlistName,
-                        id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = tb.albumArtPath, markerType = tb.markerType)
+                        id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = null, markerType = tb.markerType)
                 }
                 db.savedTrackDao().insertAll(tracks)
             }

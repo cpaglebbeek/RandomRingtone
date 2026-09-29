@@ -375,6 +375,8 @@ class IctHorseBackupClient(private val context: Context) {
             var restoredFiles = 0
             var skippedSame = 0
             val fileFailures = mutableListOf<String>()
+            val pending = mutableListOf<PendingOverwrite>()
+            ForeignFileWriter.pendingDir(context).deleteRecursively()
             var firstError: String? = null
             audioEntries.forEachIndexed { index, entry ->
                 phaseNo = 3
@@ -388,9 +390,19 @@ class IctHorseBackupClient(private val context: Context) {
                         TargetAction.WRITE -> { downloadFile(slot, entry.path, dest, src, onBytes); restoredFiles++ }
                     }
                 } catch (e: Exception) {
-                    fileFailures.add(dest.name)
-                    if (firstError == null) firstError = e.message
-                    RemoteLogger.w("Restore", "Bestand niet teruggezet", mapOf("file" to dest.absolutePath, "error" to (e.message ?: "?")))
+                    // v2.2.3: bestand van een eerdere installatie ⇒ nieuwe inhoud klaarzetten; de UI vraagt daarna
+                    // via MediaStore één keer toestemming om ze te vervangen (ForeignFileWriter)
+                    val temp = File(ForeignFileWriter.pendingDir(context), "${index}_${dest.name}")
+                    val parked = dest.exists() && runCatching { downloadFile(slot, entry.path, temp, src, onBytes) }.isSuccess
+                    if (parked) {
+                        pending.add(PendingOverwrite(dest.absolutePath, temp.absolutePath))
+                        restoredFiles++
+                    } else {
+                        fileFailures.add(dest.name)
+                        if (firstError == null) firstError = e.message
+                    }
+                    RemoteLogger.w("Restore", if (parked) "Bestand wacht op toestemming" else "Bestand niet teruggezet",
+                        mapOf("file" to dest.absolutePath, "error" to (e.message ?: "?")))
                 }
             }
             if (audioEntries.isNotEmpty() && restoredFiles == 0) {
@@ -415,7 +427,7 @@ class IctHorseBackupClient(private val context: Context) {
                     File(if (subdir == "ringtones") ringtoneDir else downloadDir, File(lp).name).absolutePath
                 }
                 SavedTrack(tb.deezerTrackId, tb.title, tb.artist, tb.previewUrl, newLocalPath, tb.playlistName,
-                    id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = tb.albumArtPath, markerType = tb.markerType)
+                    id3Title = tb.id3Title, id3Artist = tb.id3Artist, albumArtPath = null, markerType = tb.markerType)
             }
             db.savedTrackDao().insertAll(tracks)
 
@@ -437,6 +449,11 @@ class IctHorseBackupClient(private val context: Context) {
             // Bestanden staan er nu ⇒ ringtones van actieve belplaylists meteen zetten
             val applyFailures = RestoreSupport.applyActiveCallPlaylists(context, db)
 
+            // v2.2.3: album art + ID3 meteen lezen (teruggezette tracks hebben nog geen art-cache)
+            phaseText = "Album art lezen..."
+            onProgress(meter.progress(phaseText, 5, 5))
+            Mp3TagReader.enrichAll(context, db)
+
             onProgress(meter.progress("Klaar!", 5, 5).copy(percentage = 1f, etaSeconds = 0))
             tempDir.deleteRecursively()
 
@@ -444,10 +461,12 @@ class IctHorseBackupClient(private val context: Context) {
                 success = true,
                 message = "Herstel van slot $slot geslaagd: ${trackBackups.size} tracks, ${playlistBackups.size} playlists, $restoredFiles bestanden" +
                     (if (skippedSame > 0) " ($skippedSame stonden er al)" else "") +
-                    RestoreSupport.summary(resolved.unresolved, applyFailures, fileFailures),
+                    RestoreSupport.summary(resolved.unresolved, applyFailures, fileFailures) +
+                    (if (pending.isNotEmpty()) "\n${pending.size} bestand(en) van een eerdere installatie wachten op je toestemming" else ""),
                 trackCount = trackBackups.size,
                 playlistCount = playlistBackups.size,
-                fileCount = restoredFiles
+                fileCount = restoredFiles,
+                pendingOverwrites = pending
             ).also { RestoreSupport.logResult("cloud", true, it.message, fileFailures) }
         } catch (e: Exception) {
             BackupResult(false, "iCt Horse herstel mislukt: ${e.message}").also { RestoreSupport.logResult("cloud", false, it.message) }

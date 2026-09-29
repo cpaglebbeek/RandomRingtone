@@ -127,3 +127,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 143 | 2.2.0 | Stevie_Wonder | Superstition | 2026-09-29 | Nee (DEBUG) |
 | 144 | 2.2.1 | Stevie_Wonder | Sir_Duke | 2026-09-29 | Nee (DEBUG) |
 | 145 | 2.2.2 | Stevie_Wonder | Signed_Sealed_Delivered | 2026-09-29 | Nee (DEBUG) |
+| 146 | 2.2.3 | Stevie_Wonder | Isnt_She_Lovely | 2026-09-29 | Nee (DEBUG) |

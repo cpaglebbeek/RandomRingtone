@@ -43,6 +43,7 @@ fun BackupScreen(
     val ictHorseClient = remember { IctHorseBackupClient(context) }
     val setupGate = rememberSetupGate(ringtoneManager.storage, db)
     SetupGateDialog(setupGate, ringtoneManager.storage, onOpenStorageSettings)
+    val restoreFinisher = rememberRestoreFinisher(db)
 
     var selectedProvider by remember { mutableStateOf(BackupProvider.ICT_HORSE) }
     var backupUri by remember { mutableStateOf("") }
@@ -139,7 +140,7 @@ fun BackupScreen(
                     val result = ictHorseClient.restore(slot, db, storage, onProgress, sourceDeviceId = offer.deviceId)
                     isProcessing = false
                     AppBusyState.isBusy = false
-                    snackbarHostState.showSnackbar(result.message)
+                    restoreFinisher.finish(result) { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
                 }
             }
         }
@@ -159,7 +160,7 @@ fun BackupScreen(
                     isProcessing = false
                     AppBusyState.isBusy = false
                     if (result.success) refreshSlots()
-                    snackbarHostState.showSnackbar(result.message)
+                    restoreFinisher.finish(result) { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
                 }
             }
         }
@@ -625,7 +626,7 @@ fun BackupScreen(
                             if (result.success) {
                                 safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
                             }
-                            snackbarHostState.showSnackbar(result.message)
+                            restoreFinisher.finish(result) { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
                         }
                     }
                 }

@@ -122,8 +122,10 @@ fun LibraryScreen(
                 db.savedTrackDao().updateMarkerType(track.deezerTrackId, marker)
             }
 
-            // Stap 2: Enrich ID3 alleen voor tracks zonder ID3 data (niet elke keer alles)
-            if (uncached.isNotEmpty()) Mp3TagReader.enrichAll(context, db)
+            // Stap 2: Enrich ID3/cover alleen voor tracks die het nodig hebben (Mp3TagReader.needsEnrich) — v2.2.3:
+            // niet meer alleen als er markers ontbraken, anders kregen teruggezette tracks nooit album art
+            val enriched = Mp3TagReader.enrichAll(context, db)
+            if (enriched > 0) RemoteLogger.i("Library", "Album art/ID3 gelezen", mapOf("tracks" to enriched.toString()))
 
             // Stap 2b: Dedup — verwijder DB entries met duplicate bestandsnamen (houdt oudste).
             // v2.2.0: bij gelijke naam wint het record binnen de ingestelde mappen (anders zou opschonen
@@ -167,7 +169,7 @@ fun LibraryScreen(
                         artist = track.id3Artist?.takeIf { it.isNotBlank() } ?: track.artist,
                         sizeFormatted = if (file.exists()) formatFileSize(file.length()) else "niet op schijf",
                         isScanned = true,
-                        albumArtPath = track.albumArtPath,
+                        albumArtPath = track.albumArtPath?.takeIf { it.isNotEmpty() },
                         isTrimmed = track.markerType == "trimmed"
                     )
                 }
@@ -240,6 +242,7 @@ fun LibraryScreen(
 
                     var added = 0
                     var relinked = 0
+                    val addedNames = mutableListOf<String>()
                     for (sf in scanned) {
                         if (sf.localPath.isNotBlank()) {
                             val fileName = File(sf.localPath).name
@@ -269,10 +272,12 @@ fun LibraryScreen(
                                 )
                             )
                             added++
+                            addedNames.add(File(sf.localPath).name)
                         } else if (byId.localPath.isNullOrBlank() || !File(byId.localPath).exists() ||
                             !LibraryScope.isInDirs(byId.localPath, scopeDirs)) {
                             db.savedTrackDao().insert(byId.copy(localPath = sf.localPath))
                             added++
+                            addedNames.add(File(sf.localPath).name)
                         }
                     }
                     val msCount = scanned.count { it.source == "mediastore" }
@@ -283,11 +288,14 @@ fun LibraryScreen(
                         if (markerCount > 0) append(" ($markerCount via marker)")
                         if (msCount > 0) append(" ($msCount via MediaStore)")
                     }
+                    RemoteLogger.i("Library", "Scan", mapOf("files" to scanned.size.toString(), "added" to added.toString(),
+                        "relinked" to relinked.toString(), "added_names" to addedNames.take(30).joinToString(" | ")))
                     snackbarHostState.showSnackbar(msg)
                 }
                 // v2.2.0: alles wat niet (meer) in de ingestelde mappen staat → na bevestiging weg
                 // (was: stil alleen verdwenen bestanden; items uit systeem-Downloads bleven eeuwig staan)
                 staleTracks = ringtoneManager.storage.findStaleTracks(db)
+                if (staleTracks.isNotEmpty()) RemoteLogger.i("Library", "Opschonen voorgesteld", mapOf("stale" to staleTracks.size.toString()))
 
                 refresh()
             } catch (e: Exception) {

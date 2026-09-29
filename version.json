@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.2.2",
-  "versionCode": 145,
+  "version": "2.2.3",
+  "versionCode": 146,
   "codename": "Stevie_Wonder",
-  "releaseName": "Signed_Sealed_Delivered",
+  "releaseName": "Isnt_She_Lovely",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-09-29",
   "status": "development",
-  "note": "v2.2.2 = in-app update: harde timeouts + fallback naar HC55-spiegel (/rrlog/apk/) als icthorse.nl niet reageert"
+  "note": "v2.2.3 = album art direct na restore, bestanden van eerdere installatie vervangen via Android-toestemming (MediaStore), rescan + scan-logging"
 }

@@ -33,6 +33,7 @@ fun RestoreOfferHost(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val client = remember { IctHorseBackupClient(context) }
+    val restoreFinisher = rememberRestoreFinisher(db)
     var offers by remember { mutableStateOf<List<BackupOffer>>(emptyList()) }
     var dismissed by remember { mutableStateOf(false) }
     var restoring by remember { mutableStateOf(false) }
@@ -89,8 +90,11 @@ fun RestoreOfferHost(
                                                 onProgress = { p -> progress = p }, sourceDeviceId = o.deviceId)
                                             AppBusyState.isBusy = false
                                             restoring = false
-                                            dismissed = true
-                                            snackbarHostState.showSnackbar(result.message)
+                                            // pas sluiten na de toestemmingsvraag (anders gaat het resultaat verloren)
+                                            restoreFinisher.finish(result) { msg ->
+                                                dismissed = true
+                                                scope.launch { snackbarHostState.showSnackbar(msg) }
+                                            }
                                             } }
                                         }
                                     }) { Text("Deze terugzetten") }

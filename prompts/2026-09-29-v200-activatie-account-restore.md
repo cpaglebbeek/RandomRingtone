@@ -1,8 +1,9 @@
 ---
 date: 2026-09-29
 repo: RandomRingtone
-status: pending
-resume: "verder met randomringtone — HorseAPK v1.2.1 op Fold+Fairphone, beheer-login testen, E2E magic link, daarna v2.0.0 vrijgeven (DEBUG weg) + Spotify-sleutels"
+status: done
+resume: ""
+# opgevolgd door 2026-09-29-backup-consolidatie-v220.md
 ---
 
 # Sessie 2026-09-29 — v2.0.0: Spotify-bron (ISRC→Deezer), activatie via magic link + HorseAPK, account-restore

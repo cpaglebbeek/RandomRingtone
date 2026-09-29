@@ -1,3 +1,10 @@
+---
+date: 2026-09-29
+repo: RandomRingtone
+status: pending
+resume: "verder met randomringtone — v2.2.1 Sir_Duke (DEBUG) LIVE. EERST vragen: is de restore op de Fairphone 6 (2a7d66dd, Fold-backup) nu gelukt, contactenrecht toegestaan? Resultaat staat in app.log (Restore/Resultaat cloud). Daarna: shad-playlist vullen, archief HC55 backups-20260929 opruimen na bevestiging. Nog open uit 29-09: E2E magic link, ProjectGrant Fairphone, DEBUG-marker weg (vrijgave), Spotify-sleutels, accounts overige toestellen."
+---
+
 # 2026-09-29 — Backup-consolidatie Fold + v2.2.0 "Stevie_Wonder" / "Superstition"
 
 ## Vraag (gebruiker)

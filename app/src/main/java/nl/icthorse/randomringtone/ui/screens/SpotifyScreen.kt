@@ -60,7 +60,7 @@ fun SpotifyScreen(
     var useDirectApi by remember { mutableStateOf(false) }
 
     // Direct API state
-    val spotMateClient = remember { SpotMateDirectClient() }
+    val spotifyPreviewClient = remember { SpotifyPreviewClient(context) }
     var isDirectDownloading by remember { mutableStateOf(false) }
     var directDownloadPhase by remember { mutableStateOf("") }
     var directDownloadProgress by remember { mutableFloatStateOf(0f) }
@@ -88,14 +88,14 @@ fun SpotifyScreen(
     var showOverwriteDialog by remember { mutableStateOf(false) }
     var pendingOverwriteUrl by remember { mutableStateOf<String?>(null) }
     var pendingOverwriteFile by remember { mutableStateOf<File?>(null) }
-    var pendingOverwriteTrackInfo by remember { mutableStateOf<SpotMateDirectClient.TrackInfo?>(null) }
+    var pendingOverwriteTrackInfo by remember { mutableStateOf<SpotifyPreviewClient.TrackInfo?>(null) }
     // Voor WebView converter flow
     var pendingConverterSource by remember { mutableStateOf<File?>(null) }
     var pendingConverterDest by remember { mutableStateOf<File?>(null) }
 
     // Track bevestiging state — vergelijk SpotMate metadata met Spotify pagina
     var showConfirmTrackDialog by remember { mutableStateOf(false) }
-    var confirmTrackInfo by remember { mutableStateOf<SpotMateDirectClient.TrackInfo?>(null) }
+    var confirmTrackInfo by remember { mutableStateOf<SpotifyPreviewClient.TrackInfo?>(null) }
     var confirmTrackUrl by remember { mutableStateOf<String?>(null) }
     var confirmSpotifyTitle by remember { mutableStateOf("") }
     var confirmSpotifyArtist by remember { mutableStateOf("") }
@@ -301,7 +301,7 @@ fun SpotifyScreen(
                         scope.launch {
                             directDownloadPhase = "Track info ophalen..."
                             directDownloadProgress = 0.1f
-                            val trackInfo = spotMateClient.fetchTrackInfo(trackUrl)
+                            val trackInfo = spotifyPreviewClient.fetchTrackInfo(trackUrl)
                             isDirectDownloading = false
                             AppBusyState.isBusy = false
                             if (trackInfo != null) {
@@ -312,7 +312,7 @@ fun SpotifyScreen(
                                 showConfirmTrackDialog = true
                             } else {
                                 snackbarHostState.showSnackbar(
-                                    "Track info ophalen mislukt — probeer WebView converter"
+                                    spotifyPreviewClient.lastError ?: "Track info ophalen mislukt — probeer WebView converter"
                                 )
                             }
                         }
@@ -329,7 +329,7 @@ fun SpotifyScreen(
                     }
                 },
                 icon = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
-                text = { Text(if (useDirectApi) "Direct downloaden" else "Download MP3") },
+                text = { Text(if (useDirectApi) "Preview downloaden" else "Download MP3") },
                 containerColor = MaterialTheme.colorScheme.primary
             )
         }
@@ -470,7 +470,7 @@ fun SpotifyScreen(
                     // === FASE 2: daadwerkelijk downloaden ===
                     isDirectDownloading = true
                     scope.launch {
-                        val result = spotMateClient.downloadTrack(
+                        val result = spotifyPreviewClient.downloadTrack(
                             spotifyUrl = trackUrl,
                             destDir = ringtoneManager.storage.getDownloadDir(),
                             onProgress = { phase, progress ->
@@ -556,7 +556,7 @@ fun SpotifyScreen(
                         isDirectDownloading = true
                         AppBusyState.isBusy = true
                         scope.launch {
-                            val result = spotMateClient.downloadTrack(
+                            val result = spotifyPreviewClient.downloadTrack(
                                 spotifyUrl = url,
                                 destDir = ringtoneManager.storage.getDownloadDir(),
                                 onProgress = { phase, progress ->

@@ -23,7 +23,11 @@ data class BackupMeta(
     val playlistTrackCount: Int,
     val downloadFileCount: Int,
     val ringtoneFileCount: Int,
-    val selection: BackupSelectionMeta? = null   // null = full (oude backups)
+    val selection: BackupSelectionMeta? = null,   // null = full (oude backups)
+    // Door backup_api v3 gezet bij `complete` (null = oude backup, niet nageteld)
+    val complete: Boolean? = null,
+    val expectedAudioCount: Int? = null,
+    val serverAudioCount: Int? = null
 )
 
 /** Wat zit er in deze backup? */

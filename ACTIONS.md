@@ -1,40 +1,28 @@
 # Openstaande Acties — RandomRingtone
 
-> Laatst bijgewerkt: 2026-06-01 — over-en-uit na SpotMate-debug-loop + Cronet-revert; volgende sessie start met v2.0.0 Spotify Web API
+> Laatst bijgewerkt: 2026-09-29 — v2.0.0 "Tina_Turner" / "The_Best" gebouwd (release-ondertekend) + backend v1.1.0 + backup_api v3 + HorseAPK v1.2.0 live
 
-## Hoogste prio — v2.0.0 "Tina_Turner" / "The_Best" (Spotify Web API)
+## Hoogste prio — afronden v2.0.0
 
-Bug #81 SpotMate Direct API is **structureel onhaalbaar** via OkHttp én via Cronet. Cloudflare doet JA3 TLS-fingerprint + UA-string-match. **Nieuwe richting:** Spotify Web API direct (Client Credentials → 30s preview_url).
+- [ ] **E2E-goedkeuring** (Christian): magic link uit de testmail openen → *Licentie toevoegen* → code overtypen in HorseAPK
+  (testaanvragen: `E2E-test (Claude)` = `e2e0000000000001`, `Emulator Test Claude` = `628d5ac1ace1c76e` op redroid)
+- [ ] Na E2E: testlicenties verwijderen via `/rrlog/beheer/`, APK publiceren (HorseAPK + icthorse.nl/RandomRing/Apk)
+- [ ] **Spotify Client ID + Secret** (developer.spotify.com → app `RandomRingtone`, Web API) → ClaudeSecrets
+  `secrets/randomringtone/logger.env` (`SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`) → `/root/randomringtone-logger/.env` →
+  `systemctl restart randomringtone-logger`. Tot dan geeft de Spotify-bron 503 ("zet bron op WebView").
+- [ ] Overige gelicenseerde toestellen (Marius, Joy, Joyce, Thomas, Theo) krijgen een e-mail/account via `/rrlog/beheer/`
+  zodra bekend; ze claimen hun token automatisch bij de eerste start van v2.0.0.
 
-### Voorbereiding (gebruiker)
+## Architectuur v2.0.0 (samenvatting)
 
-- [ ] **Spotify Developer Dashboard** openen: https://developer.spotify.com/dashboard → Log in → Accept Developer Terms → Create app `RandomRingtone` met:
-  - App description: vrij
-  - Website: leeg of `https://icthorse.nl`
-  - Redirect URI: `https://localhost/callback` (verplicht maar ongebruikt)
-  - API/SDKs: **Web API**
-- [ ] **Settings** → kopieer **Client ID** + klik "View client secret" → kopieer **Client secret**
-- [ ] Plak beide aan Claude (NIET in chat in PUBLIC channels — repo is PUBLIC AGPL)
-
-### Implementatie (Claude, nieuwe sessie)
-
-- [ ] `local.properties` (in `.gitignore`): `SPOTIFY_CLIENT_ID=...` + `SPOTIFY_CLIENT_SECRET=...`
-- [ ] `app/build.gradle.kts`: BuildConfig-injection van Client ID + Secret uit local.properties
-- [ ] `SpotifyWebApiClient.kt`: Client Credentials OAuth flow → `/v1/tracks/{id}` → metadata + `preview_url`
-- [ ] Token-cache met expiry-handling (TTL ~1 uur)
-- [ ] Vervang `SpotMateDirectClient` in `SpotifyScreen.kt` (verwijder Direct-API knop voor SpotMate, voeg toe voor Web API)
-- [ ] Foutgeval: tracks zonder `preview_url` (~5-10%) → snackbar "geen Spotify preview beschikbaar — gebruik WebView converter"
-- [ ] Versie bump v2.0.0 build 140 "Tina_Turner" / "The_Best" (oranje +1.0.0 architectonisch nieuwe download-bron, ook al is preview-only)
-- [ ] BUGLIST #81 → FIXED met RCA Spotify Web API
-- [ ] Build + install via ADB + smoke-test
-- [ ] Commit + push
-
-### Scope-bewustzijn (vooraf bespreken indien onduidelijk)
-
-- Spotify Web API geeft **alleen 30s preview MP3** (geen volle track)
-- Voor ringtone-use-case is dat fit-for-purpose (ringtones typisch 5-30s)
-- Voor wie een volle track wilde: WebView Converter blijft als secundair pad
-- ~5-10% van tracks heeft geen `preview_url` (zeldzame edge case)
+- **Licentie-activatie:** app → `POST /rrlog/license/request` → mail met magic link naar
+  `cglebbeek+randomringtone.activation.request@gmail.com` → toekennen/afwijzen na **HorseAPK-goedkeuring** (PORTAL_API §7).
+- **Beheer:** `https://horsecloud55.ddns.net/rrlog/beheer/` (login via HorseAPK, geen Basic Auth). Oud beheer op
+  icthorse.nl/beheer/RandomRing had sinds juni geen `api.php` meer.
+- **Account = e-mailadres** in `icthorse.nl/randomringtone/private/devices/<hash>.json` (403); publieke `lics/` ongewijzigd.
+- **Toestel-token** (sha256 op de server) voor backup_api v3 + Spotify-bron; oude gedeelde backup-key alleen nog voor
+  toestellen zonder token.
+- **Restore op nieuwe telefoon:** zelfde e-mailadres ⇒ `backup_api ?action=offers` + `&source=` ⇒ aanbod bij eerste start.
 
 ## v1.11.0 feature-test geparkeerd
 
@@ -55,6 +43,7 @@ Eigen Spotify→MP3 relay op HC55:3801 is **PARKED**. Service draait (`systemctl
 - [ ] `randomringtone-release.jks.backup` uit git-history
 - [ ] Signing key roteren
 - [ ] `build.gradle.kts` wachtwoord uit code naar `local.properties`
+- [ ] Gedeelde backup-key (`IctHorseBackupClient.API_KEY`, staat in deze PUBLIEKE repo) uitzetten in `backup_api.php` zodra alle toestellen een toestel-token hebben (v2.0.0+); daarna key roteren
 
 ## HC55-cleanup (na v2.0.0 stable)
 

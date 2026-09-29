@@ -59,4 +59,10 @@ resume: "verder met randomringtone — HorseAPK v1.2.1 op Fold+Fairphone, beheer
   WhatIf). `TransferMeter` (glijdend venster 8 s, per 64 KB), `TransferProgress` in alle 5 plekken; cloud-restore had
   geen balk. 6 tests, smoke groen, gepubliceerd als DEBUG (HorseAPK + icthorse.nl). Niet visueel getest met een echte
   backup (emulators hebben geen licentie).
+- **v2.1.0 "Bob_Marley" / "Get_Up_Stand_Up" (142):** rechten- en mappencontrole bij opstarten, vóór restore en vóór
+  Bibliotheek (akkoord WhatIf). `SetupRules` (8 tests) + `SetupCheck` + `SetupGate`. Gepubliceerd als DEBUG. Dialoog niet
+  visueel getest (emulators zonder licentie).
+- **Livelog stuk (backend v1.1.2):** regressie uit v1.1.0 — `r.use()` in de routers gold voor alle paden ⇒ CSP
+  `script-src 'self'` op het dashboard blokkeerde de inline scripts. Middleware nu per pad + `isolation.test.js`.
+  Links beheer ↔ livelog. Mijn meet-POST schreef 300 testregels in app.log → verwijderd (backup `app.log.bak-20260929-testregels`).
 

@@ -44,12 +44,7 @@ fun BackupScreen(
     var selectedProvider by remember { mutableStateOf(BackupProvider.ICT_HORSE) }
     var backupUri by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
-    var progressPhase by remember { mutableStateOf("") }
-    var progressCurrent by remember { mutableIntStateOf(0) }
-    var progressTotal by remember { mutableIntStateOf(0) }
-    var progressPct by remember { mutableStateOf(0f) }
-    var progressBps by remember { mutableStateOf(0L) }
-    var progressEta by remember { mutableIntStateOf(-1) }
+    var progress by remember { mutableStateOf<BackupProgress?>(null) }
 
     // Slot state (iCt Horse)
     var slots by remember { mutableStateOf<List<SlotInfo>>(emptyList()) }
@@ -112,19 +107,13 @@ fun BackupScreen(
     }
 
     // Progress handler
-    val onProgress: (BackupProgress) -> Unit = { p ->
-        progressPhase = p.phase
-        progressCurrent = p.current
-        progressTotal = p.total
-        progressPct = p.percentage
-        progressBps = p.bytesPerSecond
-        progressEta = p.etaSeconds
-    }
+    val onProgress: (BackupProgress) -> Unit = { p -> progress = p }
 
     // Backup uitvoeren voor gekozen slot
     fun doBackup(slot: Int) {
         scope.launch {
             isProcessing = true
+            progress = null
             AppBusyState.isBusy = true
             val result = ictHorseClient.backup(slot, db, storage, backupManager, onProgress)
             isProcessing = false
@@ -138,6 +127,7 @@ fun BackupScreen(
     fun doRestoreFrom(offer: BackupOffer, slot: Int) {
         scope.launch {
             isProcessing = true
+            progress = null
             AppBusyState.isBusy = true
             val result = ictHorseClient.restore(slot, db, storage, onProgress, sourceDeviceId = offer.deviceId)
             isProcessing = false
@@ -150,6 +140,7 @@ fun BackupScreen(
     fun doRestore(slot: Int) {
         scope.launch {
             isProcessing = true
+            progress = null
             AppBusyState.isBusy = true
             val result = ictHorseClient.restore(slot, db, storage, onProgress)
             isProcessing = false
@@ -345,34 +336,7 @@ fun BackupScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(progressPhase, style = MaterialTheme.typography.bodyMedium, maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                    LinearProgressIndicator(
-                        progress = { if (progressPct > 0f) progressPct else if (progressTotal > 0) progressCurrent.toFloat() / progressTotal else 0f },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        val pctText = "${(progressPct * 100).toInt()}%"
-                        val fileText = "$progressCurrent / $progressTotal"
-                        Text("$pctText  ($fileText)", style = MaterialTheme.typography.labelSmall)
-                        val speedText = if (progressBps > 0) {
-                            val mbps = progressBps / (1024.0 * 1024.0)
-                            if (mbps >= 1.0) "%.1f MB/s".format(mbps) else "%.0f KB/s".format(progressBps / 1024.0)
-                        } else ""
-                        val etaText = when {
-                            progressEta > 60 -> "${progressEta / 60}m ${progressEta % 60}s"
-                            progressEta > 0 -> "${progressEta}s"
-                            progressEta == 0 -> "<1s"
-                            else -> ""
-                        }
-                        Text(
-                            listOf(speedText, if (etaText.isNotEmpty()) "ETA $etaText" else "").filter { it.isNotEmpty() }.joinToString(" — "),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                TransferProgress(progress, Modifier.padding(16.dp))
             }
         }
 
@@ -609,6 +573,7 @@ fun BackupScreen(
                 showBackupSelector = false
                 scope.launch {
                     isProcessing = true
+                    progress = null
                     AppBusyState.isBusy = true
                     val result = backupManager.backup(Uri.parse(backupUri), db, storage, onProgress, selection)
                     isProcessing = false
@@ -633,6 +598,7 @@ fun BackupScreen(
                 showRestoreSelector = false
                 scope.launch {
                     isProcessing = true
+                    progress = null
                     AppBusyState.isBusy = true
                     val result = backupManager.restore(Uri.parse(backupUri), db, storage, onProgress, selection)
                     isProcessing = false

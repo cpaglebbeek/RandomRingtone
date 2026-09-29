@@ -140,8 +140,9 @@ data class BackupProgress(
     val percentage: Float = 0f,     // 0.0 - 1.0 overall
     val bytesCopied: Long = 0,
     val totalBytes: Long = 0,
-    val bytesPerSecond: Long = 0,   // huidige kopieersnelheid (EMA)
-    val etaSeconds: Int = -1        // geschatte resterende tijd (-1 = onbekend)
+    val bytesPerSecond: Long = 0,   // snelheid over een glijdend venster (TransferMeter)
+    val etaSeconds: Int = -1,       // geschatte resterende tijd (-1 = onbekend)
+    val elapsedSeconds: Int = 0
 )
 
 data class BackupResult(
@@ -222,16 +223,16 @@ class BackupManager(private val context: Context) {
             val totalBytes = allFiles.sumOf { it.length() }
             val totalFileCount = allFiles.size
 
-            // Speed tracker: EMA (exponential moving average) van bytes/sec
-            var bytesPerSecond = 0L
-            var bytesCopied = 0L
+            // Voortgang + live ETA per byte (glijdend venster), ook binnen een groot bestand
+            val meter = TransferMeter(totalBytes)
             var copiedFiles = 0
+            var phaseText = ""
 
             fun reportProgress(phase: String) {
-                val pct = if (totalBytes > 0) bytesCopied.toFloat() / totalBytes else copiedFiles.toFloat() / totalFileCount.coerceAtLeast(1)
-                val eta = if (bytesPerSecond > 0) ((totalBytes - bytesCopied) / bytesPerSecond).toInt() else -1
-                onProgress(BackupProgress(phase, copiedFiles, totalFileCount, pct, bytesCopied, totalBytes, bytesPerSecond, eta))
+                phaseText = phase
+                onProgress(meter.progress(phase, copiedFiles, totalFileCount))
             }
+            val onBytes: (Long) -> Unit = { n -> if (meter.add(n)) onProgress(meter.progress(phaseText, copiedFiles, totalFileCount)) }
 
             // Phase 1: Export database (gefilterd op selection)
             reportProgress("Database exporteren...")
@@ -273,32 +274,16 @@ class BackupManager(private val context: Context) {
             // Phase 3: Copy download files
             val dlSafDir = getOrCreateSubDir(backupDir, "downloads")
             for (file in downloadFiles) {
-                val fileSize = file.length()
-                val fileStart = System.currentTimeMillis()
                 reportProgress("Downloads: ${file.name}")
-                copyFileToSaf(file, dlSafDir)
-                val fileTimeMs = System.currentTimeMillis() - fileStart
-                if (fileTimeMs > 0) {
-                    val fileBps = fileSize * 1000 / fileTimeMs
-                    bytesPerSecond = if (bytesPerSecond == 0L) fileBps else (0.3 * fileBps + 0.7 * bytesPerSecond).toLong()
-                }
-                bytesCopied += fileSize
+                copyFileToSaf(file, dlSafDir, onBytes)
                 copiedFiles++
             }
 
             // Phase 4: Copy ringtone files
             val rtSafDir = getOrCreateSubDir(backupDir, "ringtones")
             for (file in ringtoneFiles) {
-                val fileSize = file.length()
-                val fileStart = System.currentTimeMillis()
                 reportProgress("Ringtones: ${file.name}")
-                copyFileToSaf(file, rtSafDir)
-                val fileTimeMs = System.currentTimeMillis() - fileStart
-                if (fileTimeMs > 0) {
-                    val fileBps = fileSize * 1000 / fileTimeMs
-                    bytesPerSecond = if (bytesPerSecond == 0L) fileBps else (0.3 * fileBps + 0.7 * bytesPerSecond).toLong()
-                }
-                bytesCopied += fileSize
+                copyFileToSaf(file, rtSafDir, onBytes)
                 copiedFiles++
             }
 
@@ -526,28 +511,17 @@ class BackupManager(private val context: Context) {
             }
 
             val totalRestoreFiles = allSafFiles.size
-            val totalRestoreBytes = allSafFiles.sumOf { it.first.length() }
-            var restBps = 0L
-            var restBytesCopied = 0L
+            val meter = TransferMeter(allSafFiles.sumOf { it.first.length() })
             var restoredFiles = 0
 
             for ((safFile, destFile) in allSafFiles) {
-                val fileSize = safFile.length()
-                val fileStart = System.currentTimeMillis()
-                val pct = if (totalRestoreBytes > 0) restBytesCopied.toFloat() / totalRestoreBytes else restoredFiles.toFloat() / totalRestoreFiles.coerceAtLeast(1)
-                val eta = if (restBps > 0) ((totalRestoreBytes - restBytesCopied) / restBps).toInt() else -1
-                onProgress(BackupProgress("Herstellen: ${safFile.name}", restoredFiles, totalRestoreFiles, pct, restBytesCopied, totalRestoreBytes, restBps, eta))
-                copyFileFromSaf(safFile, destFile)
-                val fileTimeMs = System.currentTimeMillis() - fileStart
-                if (fileTimeMs > 0) {
-                    val fileBps = fileSize * 1000 / fileTimeMs
-                    restBps = if (restBps == 0L) fileBps else (0.3 * fileBps + 0.7 * restBps).toLong()
-                }
-                restBytesCopied += fileSize
+                val phase = "Herstellen: ${safFile.name}"
+                onProgress(meter.progress(phase, restoredFiles, totalRestoreFiles))
+                copyFileFromSaf(safFile, destFile) { n -> if (meter.add(n)) onProgress(meter.progress(phase, restoredFiles, totalRestoreFiles)) }
                 restoredFiles++
             }
 
-            onProgress(BackupProgress("Klaar!", totalRestoreFiles, totalRestoreFiles, 1f, restBytesCopied, totalRestoreBytes, restBps, 0))
+            onProgress(meter.progress("Klaar!", totalRestoreFiles, totalRestoreFiles).copy(percentage = 1f, etaSeconds = 0))
 
             BackupResult(
                 success = true,
@@ -869,19 +843,19 @@ class BackupManager(private val context: Context) {
             ?: throw Exception("Kan map '$name' niet aanmaken")
     }
 
-    private fun copyFileToSaf(sourceFile: File, destDir: DocumentFile) {
+    private fun copyFileToSaf(sourceFile: File, destDir: DocumentFile, onBytes: (Long) -> Unit = {}) {
         destDir.findFile(sourceFile.name)?.delete()
         val destFile = destDir.createFile("audio/mpeg", sourceFile.name)
             ?: throw Exception("Kan ${sourceFile.name} niet aanmaken in backup")
         context.contentResolver.openOutputStream(destFile.uri)?.use { os ->
-            sourceFile.inputStream().use { input -> input.copyTo(os) }
+            sourceFile.inputStream().use { input -> input.copyCounting(os, onBytes) }
         }
     }
 
-    private fun copyFileFromSaf(safFile: DocumentFile, destFile: File) {
+    private fun copyFileFromSaf(safFile: DocumentFile, destFile: File, onBytes: (Long) -> Unit = {}) {
         destFile.parentFile?.mkdirs()
         context.contentResolver.openInputStream(safFile.uri)?.use { input ->
-            destFile.outputStream().use { os -> input.copyTo(os) }
+            destFile.outputStream().use { os -> input.copyCounting(os, onBytes) }
         }
     }
 }

@@ -187,52 +187,38 @@ class IctHorseBackupClient(private val context: Context) {
             ))
 
             // Phase 3: Upload JSON files
-            onProgress(BackupProgress("Database uploaden...", 3, 7))
             val jsonFileNames = listOf("backup_meta.json", "saved_tracks.json", "playlists.json", "playlist_tracks.json")
-            for (file in jsonFileNames) {
-                uploadFile(slot, File(tempDir, file), file)
-            }
-
-            // Phase 4+5: Upload audio files met per-file progress
             val allUploads = downloadFiles.map { "downloads/${it.name}" to it } +
                     ringtoneFiles.map { "ringtones/${it.name}" to it }
-            val totalUploadBytes = allUploads.sumOf { it.second.length() }
-            var uploadedBytes = 0L
-            var uploadedFiles = 0
-            var uploadBps = 0L
+            // Eén meter over alles wat over de lijn gaat (JSON + audio + meta opnieuw) ⇒ ETA per byte, live
+            val meter = TransferMeter(jsonFileNames.sumOf { File(tempDir, it).length() } + allUploads.sumOf { it.second.length() } +
+                File(tempDir, "backup_meta.json").length())
+            var phaseText = "Database uploaden..."
+            var phaseNo = 3
+            val onBytes: (Long) -> Unit = { n -> if (meter.add(n)) onProgress(meter.progress(phaseText, phaseNo, 7)) }
+            onProgress(meter.progress(phaseText, phaseNo, 7))
+            for (file in jsonFileNames) {
+                uploadFile(slot, File(tempDir, file), file, onBytes)
+            }
 
+            // Phase 4+5: audio uploaden — voortgang per 64 KB via de tellende RequestBody
+            var uploadedFiles = 0
             allUploads.forEachIndexed { index, (remotePath, file) ->
                 val isDownload = remotePath.startsWith("downloads/")
-                val phase = if (isDownload) 4 else 5
-                val pct = if (totalUploadBytes > 0) uploadedBytes.toFloat() / totalUploadBytes else 0f
-                val eta = if (uploadBps > 0) ((totalUploadBytes - uploadedBytes) / uploadBps).toInt() else -1
-                onProgress(BackupProgress(
-                    phase = "${if (isDownload) "Downloads" else "Ringtones"} uploaden (${index + 1}/${allUploads.size})...",
-                    current = phase,
-                    total = 7,
-                    percentage = pct,
-                    bytesPerSecond = uploadBps,
-                    etaSeconds = eta
-                ))
-
-                val startTime = System.currentTimeMillis()
-                uploadFile(slot, file, remotePath)
-                val elapsed = System.currentTimeMillis() - startTime
-
-                uploadedBytes += file.length()
+                phaseNo = if (isDownload) 4 else 5
+                phaseText = "${if (isDownload) "Downloads" else "Ringtones"} uploaden (${index + 1}/${allUploads.size})..."
+                onProgress(meter.progress(phaseText, phaseNo, 7))
+                uploadFile(slot, file, remotePath, onBytes)
                 uploadedFiles++
-                if (elapsed > 0) {
-                    val fileBps = file.length() * 1000 / elapsed
-                    uploadBps = if (uploadBps == 0L) fileBps else (0.3 * fileBps + 0.7 * uploadBps).toLong()
-                }
             }
 
             // Phase 6: Re-upload meta met finale counts
-            onProgress(BackupProgress("Metadata bijwerken...", 6, 7))
-            uploadFile(slot, File(tempDir, "backup_meta.json"), "backup_meta.json")
+            phaseText = "Metadata bijwerken..."; phaseNo = 6
+            onProgress(meter.progress(phaseText, phaseNo, 7))
+            uploadFile(slot, File(tempDir, "backup_meta.json"), "backup_meta.json", onBytes)
 
             // Phase 7: Complete
-            onProgress(BackupProgress("Afronden...", 7, 7))
+            onProgress(meter.progress("Afronden...", 7, 7))
             val completeResponse = post("$BASE_URL?action=complete&slot=$slot")
             val completeBody = completeResponse.body?.string() ?: "{}"
             completeResponse.close()
@@ -285,20 +271,32 @@ class IctHorseBackupClient(private val context: Context) {
                 return@withContext BackupResult(false, "Lijst ophalen mislukt: HTTP ${listResponse.code}")
             }
 
+            val jsonDecoderList = Json { ignoreUnknownKeys = true }
+            val listed = jsonDecoderList.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(listBody)["files"]
+                ?.let { jsonDecoderList.decodeFromString<List<FileEntry>>(it.toString()) } ?: emptyList()
+            val jsonFiles = listOf("saved_tracks.json", "playlists.json", "playlist_tracks.json")
+            val audioEntries = listed.filter { e -> audioExtensions.any { e.path.endsWith(".$it") } &&
+                (e.path.startsWith("downloads/") || e.path.startsWith("ringtones/")) }
+            // Totaal uit de serverlijst (grootte per bestand) ⇒ echte balk + live ETA
+            val meter = TransferMeter(listed.filter { it.path in jsonFiles }.sumOf { it.size } + audioEntries.sumOf { it.size })
+            var phaseText = "Database downloaden..."
+            var phaseNo = 2
+            val onBytes: (Long) -> Unit = { n -> if (meter.add(n)) onProgress(meter.progress(phaseText, phaseNo, 5)) }
+
             // Phase 2: Download JSON files to temp
-            onProgress(BackupProgress("Database downloaden...", 2, 5))
+            onProgress(meter.progress(phaseText, phaseNo, 5))
             val tempDir = File(context.cacheDir, "ict_restore_temp").apply {
                 deleteRecursively()
                 mkdirs()
             }
 
-            val jsonFiles = listOf("saved_tracks.json", "playlists.json", "playlist_tracks.json")
             for (file in jsonFiles) {
-                downloadFile(slot, file, File(tempDir, file), src)
+                downloadFile(slot, file, File(tempDir, file), src, onBytes)
             }
 
             // Phase 3: Restore database
-            onProgress(BackupProgress("Database herstellen...", 3, 5))
+            phaseText = "Database herstellen..."; phaseNo = 3
+            onProgress(meter.progress(phaseText, phaseNo, 5))
             val jsonDecoder = Json { ignoreUnknownKeys = true }
 
             db.clearAllTables()
@@ -329,28 +327,19 @@ class IctHorseBackupClient(private val context: Context) {
                 db.playlistTrackDao().insert(PlaylistTrack(pt.playlistId, pt.trackId, pt.sortOrder))
             }
 
-            // Phase 4: Download MP3 files
-            onProgress(BackupProgress("Bestanden downloaden...", 4, 5))
+            // Phase 4: audio downloaden — voortgang per 64 KB
             var restoredFiles = 0
-
-            val listMap = jsonDecoder.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(listBody)
-            val filesArray = listMap["files"]?.let {
-                jsonDecoder.decodeFromString<List<FileEntry>>(it.toString())
-            } ?: emptyList()
-
             val downloadDir = storage.getDownloadDir()
-            for (entry in filesArray) {
-                val isAudio = audioExtensions.any { entry.path.endsWith(".$it") }
-                if (entry.path.startsWith("downloads/") && isAudio) {
-                    downloadFile(slot, entry.path, File(downloadDir, File(entry.path).name), src)
-                    restoredFiles++
-                } else if (entry.path.startsWith("ringtones/") && isAudio) {
-                    downloadFile(slot, entry.path, File(ringtoneDir, File(entry.path).name), src)
-                    restoredFiles++
-                }
+            audioEntries.forEachIndexed { index, entry ->
+                phaseNo = 4
+                phaseText = "Bestanden downloaden (${index + 1}/${audioEntries.size})..."
+                onProgress(meter.progress(phaseText, phaseNo, 5))
+                val dir = if (entry.path.startsWith("downloads/")) downloadDir else ringtoneDir
+                downloadFile(slot, entry.path, File(dir, File(entry.path).name), src, onBytes)
+                restoredFiles++
             }
 
-            onProgress(BackupProgress("Klaar!", 5, 5))
+            onProgress(meter.progress("Klaar!", 5, 5).copy(percentage = 1f, etaSeconds = 0))
             tempDir.deleteRecursively()
 
             BackupResult(
@@ -383,11 +372,11 @@ class IctHorseBackupClient(private val context: Context) {
         return client.newCall(request).execute()
     }
 
-    private fun uploadFile(slot: Int, file: File, remotePath: String) {
+    private fun uploadFile(slot: Int, file: File, remotePath: String, onBytes: (Long) -> Unit = {}) {
         val body = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("path", remotePath)
-            .addFormDataPart("file", file.name, file.asRequestBody("application/octet-stream".toMediaType()))
+            .addFormDataPart("file", file.name, CountingFileBody(file, onBytes))
             .build()
 
         val request = baseRequest()
@@ -402,7 +391,7 @@ class IctHorseBackupClient(private val context: Context) {
         response.close()
     }
 
-    private fun downloadFile(slot: Int, remotePath: String, destFile: File, src: String = "") {
+    private fun downloadFile(slot: Int, remotePath: String, destFile: File, src: String = "", onBytes: (Long) -> Unit = {}) {
         val request = baseRequest()
             .url("$BASE_URL?action=download&slot=$slot&file=${enc(remotePath)}$src")
             .get()
@@ -417,10 +406,27 @@ class IctHorseBackupClient(private val context: Context) {
         destFile.parentFile?.mkdirs()
         response.body?.byteStream()?.use { input ->
             destFile.outputStream().use { output ->
-                input.copyTo(output)
+                input.copyCounting(output, onBytes)
             }
         }
         response.close()
+    }
+}
+
+/** Multipart-bestandsdeel dat per 64 KB meldt hoeveel er de lijn op is gegaan (live upload-voortgang). */
+private class CountingFileBody(private val file: File, private val onBytes: (Long) -> Unit) : RequestBody() {
+    override fun contentType() = "application/octet-stream".toMediaType()
+    override fun contentLength() = file.length()
+    override fun writeTo(sink: okio.BufferedSink) {
+        file.inputStream().use { input ->
+            val buf = ByteArray(64 * 1024)
+            while (true) {
+                val n = input.read(buf)
+                if (n < 0) break
+                sink.write(buf, 0, n)
+                onBytes(n.toLong())
+            }
+        }
     }
 }
 

@@ -7,7 +7,7 @@ plugins {
 }
 
 val appCodename = "Tina_Turner"
-val appReleaseName = "The_Best"
+val appReleaseName = "Private_Dancer"
 
 android {
     namespace = "nl.icthorse.randomringtone"
@@ -32,13 +32,13 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 140
-        versionName = "2.0.0"
+        versionCode = 141
+        versionName = "2.0.1"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"$appCodename\"")
         buildConfigField("String", "RELEASE_NAME", "\"$appReleaseName\"")
-        buildConfigField("int", "BUILD_NUMBER", "140")
+        buildConfigField("int", "BUILD_NUMBER", "141")
         buildConfigField("String", "BUILD_STATUS", "\"DEBUG\"")  // DEBUG of STABLE
     }
 
@@ -88,6 +88,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.icons.extended)
+    testImplementation("junit:junit:4.13.2")
     implementation(libs.activity.compose)
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.viewmodel.compose)

@@ -2,7 +2,7 @@
 date: 2026-09-29
 repo: RandomRingtone
 status: pending
-resume: "verder met randomringtone — E2E-goedkeuring magic link (2 testaanvragen), daarna APK v2.0.0 publiceren + Spotify-sleutels"
+resume: "verder met randomringtone — HorseAPK v1.2.1 op Fold+Fairphone, beheer-login testen, E2E magic link, daarna v2.0.0 vrijgeven (DEBUG weg) + Spotify-sleutels"
 ---
 
 # Sessie 2026-09-29 — v2.0.0: Spotify-bron (ISRC→Deezer), activatie via magic link + HorseAPK, account-restore
@@ -42,3 +42,14 @@ resume: "verder met randomringtone — E2E-goedkeuring magic link (2 testaanvrag
 - Spotify Client ID/Secret aanmaken → backend `.env` (tot dan 503).
 - Losse bevindingen (niet aangeraakt): `sites-enabled/horsecloud.bak.20260917-pre-asisgate` wordt door nginx geladen;
   HorseAPK-bootstrap op icthorse.nl staat nog op v0.2.3; Android 16-emulator (5584) staat RUNNING_LOCKED.
+
+## Vervolg (zelfde sessie, 02:00–02:20 UTC)
+- **Gepubliceerd als DEBUG** (akkoord): HorseAPK `RandomRingtone-v2.0.0-Tina_Turner_The_Best-release.apk` (regex staat één
+  codename-segment toe) + icthorse.nl in-app (`build.timestamp` via `build_info.php`). Vrijgave = DEBUG-marker weg.
+- **Beheer-login kwam niet binnen:** (1) Fairphone hangt in HorseAPK aan `cglebbeek+residio@`, backend vroeg alleen
+  `cglebbeek@` (Fold) → backend **v1.1.1** met `ADMIN_EMAILS` + keuzeveld "Goedkeuren op" (akkoord A). (2) HorseAPK-app:
+  na ~290 s bleef de app "ontgrendeld" maar elk verzoek gaf "Ontgrendel HorseAPK eerst" (Fairphone vast), en een
+  inlogverzoek bij open app gaf geen melding/scherm (Fold) → **HorseAPK v1.2.1-LimeWire** gepubliceerd + gewekt.
+- 429 = HorseAPK-rem (5 startverzoeken per e-mail per 5 min), geen bug.
+- Parallelle sessie (HetznerHealth) herstartte om 01:57:45 de HorseAPK-portal en voegde een dienstsleutel toe — niet aangeraakt.
+

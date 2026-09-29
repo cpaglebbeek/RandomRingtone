@@ -34,3 +34,15 @@ Keuze (a)/(b) niet beantwoord → (b) gekozen: 5 playlists van 29-09 actief, tho
 ## Open
 - Christian: v2.2.0 op de Fold → Herstellen uit cloud → controleren; shad vullen.
 - Niet getest op toestel: herstel met echte data, opschoondialoog, contactkoppeling.
+
+## Vervolg — "permissie rechten foutmelding bij restore" → v2.2.1 "Sir_Duke" (144)
+- Meting (app.log): het was de **Fairphone 6** (`2a7d66dd`, v2.2.0) die de Fold-backup terugzette. `readContacts=false`
+  ⇒ 5 contactplaylists uitgezet; restore stopte 0,5 s later (fout niet gelogd); daarna `missing_files` ⇒ database was al
+  gewist. Oorzaken: (1) SetupCheck keek naar het huidige toestel i.p.v. de backup; (2) schrijven naar `Download/RandomRing`
+  faalde — vrijwel zeker bestanden van een eerdere installatie (Fairphone draaide vannacht v1.8.9) ⇒ EACCES; exacte tekst
+  niet ontvangen; (3) `clearAllTables` vóór de bestanden.
+- Akkoord WhatIf → v2.2.1: `restorePlan` (cloud + SAF) ⇒ contacten/telefoon/doelmappen vooraf; per bestand
+  zelfde grootte ⇒ overslaan, anders weghalen + schrijven, fout ⇒ overslaan + melden; cloud eerst bestanden dan database,
+  0 geschreven ⇒ afbreken zonder DB-wijziging; resultaat naar RemoteLogger. BUG #88, 7 tests (33/33), smoke groen,
+  commit 25bc546, gepubliceerd als DEBUG (HorseAPK, 2 toestellen gewekt + icthorse.nl).
+- Open: Christian herstelt opnieuw op de Fairphone met v2.2.1 (contactenrecht toestaan).

@@ -1,6 +1,6 @@
 # Openstaande Acties — RandomRingtone
 
-> Laatst bijgewerkt: 2026-09-29 — v2.2.0 gebouwd; v2.0.0 "Tina_Turner" / "The_Best" gebouwd (release-ondertekend) + backend v1.1.0 + backup_api v3 + HorseAPK v1.2.0 live
+> Laatst bijgewerkt: 2026-09-29 — v2.2.0 gepubliceerd (DEBUG) + cloud-backup Fold geconsolideerd; v2.0.0 "Tina_Turner" / "The_Best" gebouwd (release-ondertekend) + backend v1.1.0 + backup_api v3 + HorseAPK v1.2.0 live
 
 ## Hoogste prio — afronden v2.0.0
 
@@ -8,7 +8,10 @@
   (testaanvragen: `E2E-test (Claude)` = `e2e0000000000001`, `Emulator Test Claude` = `628d5ac1ace1c76e` op redroid)
 - [x] APK v2.0.0 gepubliceerd 2026-09-29 als **DEBUG**: HorseAPK (`RandomRingtone-v2.0.0-Tina_Turner_The_Best-release.apk`, sha 3f3a24f5…) + icthorse.nl/RandomRing/Apk (in-app, alleen zichtbaar met 'Old build'-schuif)
 - [x] v2.0.1 (141) gepubliceerd als DEBUG — voortgangsbalk + live ETA backup/restore
-- [ ] v2.2.0 (143) "Stevie_Wonder"/"Superstition" gebouwd + smoke groen (emulator-5554 + redroid) — scanbereik/opschonen, restore-fixes (mappen, settings, contact op naam, ringtones direct), YouTube-art; **nog publiceren** (build.timestamp + HorseAPK + icthorse.nl) en op de Fold testen met de geconsolideerde cloud-backup
+- [x] v2.2.0 (143) "Stevie_Wonder"/"Superstition" gepubliceerd als DEBUG 29-09 (HorseAPK `…Stevie_Wonder_Superstition-release.apk` + icthorse.nl in-app, sha acafa4c2…) — scanbereik/opschonen, restore-fixes, contact op naam, YouTube-art
+- [ ] **Fold (Christian):** v2.2.0 installeren → Backup → Herstellen uit cloud (slot 1 = geconsolideerd) → controleren: 5 actieve playlists (Joy/mam/marius/theo/shad), contacttoewijzingen, album art; playlist **shad is leeg** (inhoud nooit gelogd) → zelf vullen; thomas/algemeen/wa globaal staan UIT
+- [ ] Na geslaagd herstel: archief HC55 `/srv/randomringtone-backup-archief/backups-20260929/` mag weg (geconsolideerde kopie blijft in `geconsolideerd-20260929/`)
+- [ ] Bevinding (niet aangeraakt): `StorageManager.parseFileName` hasht `nameWithoutExtension`, `TrackIdResolver` hasht `name` (mét extensie) → scan-ids ≠ canonical ids (scan dedupt op bestandsnaam, dus geen dubbelingen, wel inconsistent)
 - [ ] Na E2E + test op de Fold: DEBUG-marker weghalen in `build.timestamp` (lokaal + icthorse.nl) = vrijgave; testlicenties verwijderen via `/rrlog/beheer/`
 - [ ] **Spotify Client ID + Secret** (developer.spotify.com → app `RandomRingtone`, Web API) → ClaudeSecrets
   `secrets/randomringtone/logger.env` (`SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`) → `/root/randomringtone-logger/.env` →

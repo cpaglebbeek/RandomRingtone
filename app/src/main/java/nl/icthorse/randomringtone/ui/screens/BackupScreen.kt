@@ -33,13 +33,16 @@ private enum class BackupProvider(val label: String) {
 fun BackupScreen(
     ringtoneManager: AppRingtoneManager,
     db: RingtoneDatabase,
-    snackbarHostState: SnackbarHostState
+    snackbarHostState: SnackbarHostState,
+    onOpenStorageSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val storage = ringtoneManager.storage
     val backupManager = remember { BackupManager(context) }
     val ictHorseClient = remember { IctHorseBackupClient(context) }
+    val setupGate = rememberSetupGate(ringtoneManager.storage, db)
+    SetupGateDialog(setupGate, ringtoneManager.storage, onOpenStorageSettings)
 
     var selectedProvider by remember { mutableStateOf(BackupProvider.ICT_HORSE) }
     var backupUri by remember { mutableStateOf("") }
@@ -126,27 +129,37 @@ fun BackupScreen(
     // Restore van een ander toestel van hetzelfde account
     fun doRestoreFrom(offer: BackupOffer, slot: Int) {
         scope.launch {
-            isProcessing = true
-            progress = null
-            AppBusyState.isBusy = true
-            val result = ictHorseClient.restore(slot, db, storage, onProgress, sourceDeviceId = offer.deviceId)
-            isProcessing = false
-            AppBusyState.isBusy = false
-            snackbarHostState.showSnackbar(result.message)
+            val need = ictHorseClient.slotSizeBytes(slot, offer.deviceId)
+            setupGate.check(CheckScope.RESTORE, need) {
+                scope.launch {
+                    isProcessing = true
+                    progress = null
+                    AppBusyState.isBusy = true
+                    val result = ictHorseClient.restore(slot, db, storage, onProgress, sourceDeviceId = offer.deviceId)
+                    isProcessing = false
+                    AppBusyState.isBusy = false
+                    snackbarHostState.showSnackbar(result.message)
+                }
+            }
         }
     }
 
-    // Restore uitvoeren voor gekozen slot
+    // Restore uitvoeren voor gekozen slot (eerst rechten/mappen/ruimte controleren)
     fun doRestore(slot: Int) {
         scope.launch {
-            isProcessing = true
-            progress = null
-            AppBusyState.isBusy = true
-            val result = ictHorseClient.restore(slot, db, storage, onProgress)
-            isProcessing = false
-            AppBusyState.isBusy = false
-            if (result.success) refreshSlots()
-            snackbarHostState.showSnackbar(result.message)
+            val need = ictHorseClient.slotSizeBytes(slot)
+            setupGate.check(CheckScope.RESTORE, need) {
+                scope.launch {
+                    isProcessing = true
+                    progress = null
+                    AppBusyState.isBusy = true
+                    val result = ictHorseClient.restore(slot, db, storage, onProgress)
+                    isProcessing = false
+                    AppBusyState.isBusy = false
+                    if (result.success) refreshSlots()
+                    snackbarHostState.showSnackbar(result.message)
+                }
+            }
         }
     }
 
@@ -597,16 +610,21 @@ fun BackupScreen(
             onConfirm = { selection ->
                 showRestoreSelector = false
                 scope.launch {
-                    isProcessing = true
-                    progress = null
-                    AppBusyState.isBusy = true
-                    val result = backupManager.restore(Uri.parse(backupUri), db, storage, onProgress, selection)
-                    isProcessing = false
-                    AppBusyState.isBusy = false
-                    if (result.success) {
-                        safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+                    val need = backupManager.backupSizeBytes(Uri.parse(backupUri))
+                    setupGate.check(CheckScope.RESTORE, need, restoreUsesLocalFolder = true) {
+                        scope.launch {
+                            isProcessing = true
+                            progress = null
+                            AppBusyState.isBusy = true
+                            val result = backupManager.restore(Uri.parse(backupUri), db, storage, onProgress, selection)
+                            isProcessing = false
+                            AppBusyState.isBusy = false
+                            if (result.success) {
+                                safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
+                            }
+                            snackbarHostState.showSnackbar(result.message)
+                        }
                     }
-                    snackbarHostState.showSnackbar(result.message)
                 }
             }
         )

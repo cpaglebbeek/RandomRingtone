@@ -79,8 +79,22 @@ fun RandomRingtoneApp() {
         return
     }
 
+    // v2.1.0: rechten + mappen controleren bij opstarten, vóór restore en vóór de Bibliotheek
+    val setupGate = nl.icthorse.randomringtone.ui.screens.rememberSetupGate(ringtoneManager.storage, db)
+    val openStorageSettings: () -> Unit = {
+        selectedTab = 6
+        navController.navigate("settings") {
+            popUpTo("spotify") { inclusive = false }
+            launchSingleTop = true
+        }
+    }
+    nl.icthorse.randomringtone.ui.screens.SetupGateDialog(setupGate, ringtoneManager.storage, openStorageSettings)
+    LaunchedEffect(licenseChecked && licenseStatus.active) {
+        if (licenseChecked && licenseStatus.active) setupGate.check(nl.icthorse.randomringtone.data.CheckScope.STARTUP)
+    }
+
     // v2.0.0: toestel-token (backup/restore + Spotify-bron) en aanbod om een backup van een ander toestel terug te zetten
-    RestoreOfferHost(licenseManager, db, ringtoneManager, snackbarHostState, licenseChecked && licenseStatus.active)
+    RestoreOfferHost(licenseManager, db, ringtoneManager, snackbarHostState, licenseChecked && licenseStatus.active, setupGate)
 
     // Auto-restore bij startup als DB leeg is + auto-backup bestaat
     LaunchedEffect(Unit) {
@@ -161,13 +175,19 @@ fun RandomRingtoneApp() {
                         enabled = !AppBusyState.isBusy,
                         onClick = {
                             RemoteLogger.trigger("Navigation", "Tab tapped: $label (index=$index)")
-                            selectedTab = index
-                            // Pop editor van back stack als die er op zit
-                            navController.popBackStack("editor", inclusive = true)
-                            navController.navigate(route) {
-                                popUpTo("spotify") { inclusive = false }
-                                launchSingleTop = true
+                            val go = {
+                                selectedTab = index
+                                // Pop editor van back stack als die er op zit
+                                navController.popBackStack("editor", inclusive = true)
+                                navController.navigate(route) {
+                                    popUpTo("spotify") { inclusive = false }
+                                    launchSingleTop = true
+                                }
                             }
+                            // Bibliotheek: eerst rechten/mappen/ontbrekende bestanden controleren
+                            if (route == "library" && selectedTab != index) {
+                                setupGate.check(nl.icthorse.randomringtone.data.CheckScope.LIBRARY) { go() }
+                            } else go()
                         }
                     )
                 }
@@ -270,7 +290,8 @@ fun RandomRingtoneApp() {
                 BackupScreen(
                     ringtoneManager = ringtoneManager,
                     db = db,
-                    snackbarHostState = snackbarHostState
+                    snackbarHostState = snackbarHostState,
+                    onOpenStorageSettings = openStorageSettings
                 )
             }
             composable("settings") {

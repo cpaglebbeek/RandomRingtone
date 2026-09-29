@@ -12,6 +12,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -50,6 +51,18 @@ class IctHorseBackupClient(private val context: Context) {
             .apply { licenseManager.deviceToken?.let { addHeader("X-Device-Token", it) } }
 
     private fun enc(v: String): String = java.net.URLEncoder.encode(v, "UTF-8")
+
+    /** Totale grootte van een slot (eigen of van [sourceDeviceId]) volgens de serverlijst; null = onbekend. */
+    suspend fun slotSizeBytes(slot: Int, sourceDeviceId: String? = null): Long? = withContext(Dispatchers.IO) {
+        val src = sourceDeviceId?.takeIf { it.isNotBlank() && it != deviceId }?.let { "&source=${enc(it)}" } ?: ""
+        runCatching {
+            get("$BASE_URL?action=list&slot=$slot$src").use { r ->
+                if (!r.isSuccessful) return@use null
+                val files = json.parseToJsonElement(r.body?.string() ?: "{}").jsonObject["files"]?.jsonArray ?: return@use null
+                files.sumOf { it.jsonObject["size"]?.jsonPrimitive?.longOrNull ?: 0L }
+            }
+        }.getOrNull()
+    }
 
     // ── Aanbod: backups van andere toestellen van hetzelfde account ─────
     suspend fun getOffers(): List<BackupOffer> = withContext(Dispatchers.IO) {

@@ -843,6 +843,14 @@ class BackupManager(private val context: Context) {
             ?: throw Exception("Kan map '$name' niet aanmaken")
     }
 
+    /** Grootte van de audio in de lokale backup (voor de ruimtecontrole vóór restore); null = onbekend. */
+    suspend fun backupSizeBytes(backupUri: Uri): Long? = withContext(Dispatchers.IO) {
+        runCatching {
+            val dir = DocumentFile.fromTreeUri(context, backupUri)?.findFile("RandomRingtone_Backup") ?: return@runCatching null
+            listOf("downloads", "ringtones").sumOf { sub -> dir.findFile(sub)?.listFiles()?.sumOf { it.length() } ?: 0L }
+        }.getOrNull()
+    }
+
     private fun copyFileToSaf(sourceFile: File, destDir: DocumentFile, onBytes: (Long) -> Unit = {}) {
         destDir.findFile(sourceFile.name)?.delete()
         val destFile = destDir.createFile("audio/mpeg", sourceFile.name)

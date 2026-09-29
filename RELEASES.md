@@ -123,3 +123,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 139 | 1.12.2 | Aretha_Franklin | Natural_Woman | 2026-06-01 | Nee (revert-marker, geen APK; Cronet teruggerold) |
 | 140 | 2.0.0 | Tina_Turner | The_Best | 2026-09-29 | Nee (release-ondertekend; Spotify-bron actief zodra backend-sleutels er zijn) |
 | 141 | 2.0.1 | Tina_Turner | Private_Dancer | 2026-09-29 | Nee (DEBUG) |
+| 142 | 2.1.0 | Bob_Marley | Get_Up_Stand_Up | 2026-09-29 | Nee (DEBUG) |

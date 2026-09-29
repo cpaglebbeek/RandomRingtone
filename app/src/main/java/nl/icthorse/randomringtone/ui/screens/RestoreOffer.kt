@@ -27,7 +27,8 @@ fun RestoreOfferHost(
     db: RingtoneDatabase,
     ringtoneManager: AppRingtoneManager,
     snackbarHostState: SnackbarHostState,
-    licensed: Boolean
+    licensed: Boolean,
+    setupGate: SetupGate
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -79,6 +80,8 @@ fun RestoreOfferHost(
                                     }
                                     TextButton(onClick = {
                                         scope.launch {
+                                            val need = client.slotSizeBytes(s.slot, o.deviceId)
+                                            setupGate.check(nl.icthorse.randomringtone.data.CheckScope.RESTORE, need) { scope.launch {
                                             restoring = true
                                             AppBusyState.isBusy = true
                                             val result = client.restore(s.slot, db, ringtoneManager.storage,
@@ -87,6 +90,7 @@ fun RestoreOfferHost(
                                             restoring = false
                                             dismissed = true
                                             snackbarHostState.showSnackbar(result.message)
+                                            } }
                                         }
                                     }) { Text("Deze terugzetten") }
                                 }

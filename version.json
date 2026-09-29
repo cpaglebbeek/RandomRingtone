@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.2.3",
-  "versionCode": 146,
-  "codename": "Stevie_Wonder",
-  "releaseName": "Isnt_She_Lovely",
+  "version": "2.3.0",
+  "versionCode": 147,
+  "codename": "Elton_John",
+  "releaseName": "Rocket_Man",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-09-29",
   "status": "development",
-  "note": "v2.2.3 = album art direct na restore, bestanden van eerdere installatie vervangen via Android-toestemming (MediaStore), rescan + scan-logging"
+  "note": "v2.3.0 = bronnen & downloadmethodes: Spotify-embed zonder sleutels + Deezer-match, YouTube op toestel (NewPipeExtractor), Spotify volledig via YouTube, gekaapte/dode converters weg, methodetest in Instellingen"
 }

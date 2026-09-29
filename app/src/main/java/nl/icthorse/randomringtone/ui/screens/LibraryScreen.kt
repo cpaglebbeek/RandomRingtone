@@ -116,7 +116,12 @@ fun LibraryScreen(
                         Mp3Marker.isTrimmed(file) -> "trimmed"
                         else -> "track"
                     }
-                    "m4a", "aac" -> "trimmed"
+                    // v2.3.0: YouTube/Spotify-volledig op het toestel levert M4A — marker bepaalt de soort
+                    "m4a", "aac" -> when {
+                        Mp3Marker.isYouTube(file) -> "youtube"
+                        Mp3Marker.hasMarker(file) && !Mp3Marker.isTrimmed(file) -> "track"
+                        else -> "trimmed"
+                    }
                     else -> "track"
                 }
                 db.savedTrackDao().updateMarkerType(track.deezerTrackId, marker)

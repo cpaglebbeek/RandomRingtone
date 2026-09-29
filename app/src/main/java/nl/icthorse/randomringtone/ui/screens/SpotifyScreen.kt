@@ -58,6 +58,7 @@ fun SpotifyScreen(
     var converterUrl by remember { mutableStateOf("") }
     var converterName by remember { mutableStateOf("") }
     var useDirectApi by remember { mutableStateOf(false) }
+    var spotifyMethod by remember { mutableStateOf(nl.icthorse.randomringtone.data.SpotifyMethod.PREVIEW) }
 
     // Direct API state
     val spotifyPreviewClient = remember { SpotifyPreviewClient(context) }
@@ -106,7 +107,8 @@ fun SpotifyScreen(
         val converter = SpotifyConverter.findById(converterId)
         converterUrl = converter.url
         converterName = converter.name
-        useDirectApi = ringtoneManager.storage.isDirectApiEnabled()
+        spotifyMethod = ringtoneManager.storage.getSpotifyMethod()
+        useDirectApi = spotifyMethod != nl.icthorse.randomringtone.data.SpotifyMethod.CONVERTER
     }
 
     // Download completion receiver
@@ -301,7 +303,8 @@ fun SpotifyScreen(
                         scope.launch {
                             directDownloadPhase = "Track info ophalen..."
                             directDownloadProgress = 0.1f
-                            val trackInfo = spotifyPreviewClient.fetchTrackInfo(trackUrl)
+                            val trackInfo = if (spotifyMethod == nl.icthorse.randomringtone.data.SpotifyMethod.BACKEND)
+                                spotifyPreviewClient.fetchTrackInfo(trackUrl) else spotifyPreviewClient.fetchTrackInfoEmbed(trackUrl)
                             isDirectDownloading = false
                             AppBusyState.isBusy = false
                             if (trackInfo != null) {
@@ -329,7 +332,11 @@ fun SpotifyScreen(
                     }
                 },
                 icon = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
-                text = { Text(if (useDirectApi) "Preview downloaden" else "Download MP3") },
+                text = { Text(when (spotifyMethod) {
+                    nl.icthorse.randomringtone.data.SpotifyMethod.FULL -> "Volledig nummer downloaden"
+                    nl.icthorse.randomringtone.data.SpotifyMethod.CONVERTER -> "Download via converter"
+                    else -> "Preview downloaden"
+                }) },
                 containerColor = MaterialTheme.colorScheme.primary
             )
         }
@@ -438,7 +445,7 @@ fun SpotifyScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                "SpotMate vindt:",
+                                "Gevonden:",
                                 style = MaterialTheme.typography.labelSmall
                             )
                             Text(
@@ -470,14 +477,11 @@ fun SpotifyScreen(
                     // === FASE 2: daadwerkelijk downloaden ===
                     isDirectDownloading = true
                     scope.launch {
-                        val result = spotifyPreviewClient.downloadTrack(
-                            spotifyUrl = trackUrl,
-                            destDir = ringtoneManager.storage.getDownloadDir(),
-                            onProgress = { phase, progress ->
-                                directDownloadPhase = phase
-                                directDownloadProgress = progress
-                            }
-                        )
+                        val result = runSpotifyDownload(spotifyPreviewClient, spotifyMethod, trackUrl,
+                            ringtoneManager.storage.getDownloadDir(), false) { phase, progress ->
+                            directDownloadPhase = phase
+                            directDownloadProgress = progress
+                        }
                         isDirectDownloading = false
                         if (result.fileExists && result.file != null) {
                             pendingOverwriteUrl = trackUrl
@@ -556,15 +560,11 @@ fun SpotifyScreen(
                         isDirectDownloading = true
                         AppBusyState.isBusy = true
                         scope.launch {
-                            val result = spotifyPreviewClient.downloadTrack(
-                                spotifyUrl = url,
-                                destDir = ringtoneManager.storage.getDownloadDir(),
-                                onProgress = { phase, progress ->
-                                    directDownloadPhase = phase
-                                    directDownloadProgress = progress
-                                },
-                                forceOverwrite = true
-                            )
+                            val result = runSpotifyDownload(spotifyPreviewClient, spotifyMethod, url,
+                                ringtoneManager.storage.getDownloadDir(), true) { phase, progress ->
+                                directDownloadPhase = phase
+                                directDownloadProgress = progress
+                            }
                             isDirectDownloading = false
                             AppBusyState.isBusy = false
                             if (result.success && result.file != null) {
@@ -863,4 +863,18 @@ private fun extractSpotifyArt(context: android.content.Context, audioFile: File)
         artFile.absolutePath
     } catch (_: Exception) { null }
     finally { try { retriever.release() } catch (_: Exception) {} }
+}
+
+/** v2.3.0: één downloadpad per Spotify-methode. */
+private suspend fun runSpotifyDownload(
+    client: nl.icthorse.randomringtone.data.SpotifyPreviewClient,
+    method: nl.icthorse.randomringtone.data.SpotifyMethod,
+    url: String,
+    destDir: java.io.File,
+    force: Boolean,
+    onProgress: (String, Float) -> Unit
+): nl.icthorse.randomringtone.data.SpotifyPreviewClient.DownloadResult = when (method) {
+    nl.icthorse.randomringtone.data.SpotifyMethod.FULL -> client.downloadFull(url, destDir, onProgress, force)
+    else -> client.downloadTrack(url, destDir, onProgress, force,
+        useBackend = method == nl.icthorse.randomringtone.data.SpotifyMethod.BACKEND)
 }

@@ -36,6 +36,8 @@ class StorageManager(private val context: Context) {
         private val KEY_SPOTIFY_CONVERTER = stringPreferencesKey("spotify_converter")
         private val KEY_BACKUP_URI = stringPreferencesKey("backup_uri")
         private val KEY_DIRECT_API = booleanPreferencesKey("use_direct_api")
+        private val KEY_SPOTIFY_METHOD = stringPreferencesKey("spotify_method")
+        private val KEY_YOUTUBE_METHOD = stringPreferencesKey("youtube_method")
         private val KEY_DEBUG_LOGGING = booleanPreferencesKey("debug_logging")
         private val KEY_LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
         private val KEY_INSTALL_APK_ALLOWED = booleanPreferencesKey("install_apk_allowed")
@@ -47,7 +49,7 @@ class StorageManager(private val context: Context) {
         private const val DEFAULT_RINGTONE_SUBFOLDER = "Music/RandomRingtone/Ringtones"
 
         // Standaard Spotify converter
-        const val DEFAULT_SPOTIFY_CONVERTER = "spotifydown"
+        const val DEFAULT_SPOTIFY_CONVERTER = "spotidown"
     }
 
     // --- Standaard paden ---
@@ -151,7 +153,27 @@ class StorageManager(private val context: Context) {
         val saved = context.settingsStore.data.map { prefs ->
             prefs[KEY_SPOTIFY_CONVERTER]
         }.first()
-        return saved ?: DEFAULT_SPOTIFY_CONVERTER
+        // v2.3.0: verwijderde (dode/gekaapte) converters ⇒ standaard
+        return saved?.takeIf { id -> SpotifyConverter.ALL.any { it.id == id } } ?: DEFAULT_SPOTIFY_CONVERTER
+    }
+
+    /** v2.3.0: Spotify-methode — zie [SpotifyMethod]. Oude "use_direct_api" wordt niet overgenomen (backend zonder sleutels = 503). */
+    suspend fun getSpotifyMethod(): SpotifyMethod {
+        val saved = context.settingsStore.data.map { it[KEY_SPOTIFY_METHOD] }.first()
+        return SpotifyMethod.entries.find { it.id == saved } ?: SpotifyMethod.PREVIEW
+    }
+
+    suspend fun setSpotifyMethod(m: SpotifyMethod) {
+        context.settingsStore.edit { it[KEY_SPOTIFY_METHOD] = m.id }
+    }
+
+    suspend fun getYouTubeMethod(): YouTubeMethod {
+        val saved = context.settingsStore.data.map { it[KEY_YOUTUBE_METHOD] }.first()
+        return YouTubeMethod.entries.find { it.id == saved } ?: YouTubeMethod.DEVICE
+    }
+
+    suspend fun setYouTubeMethod(m: YouTubeMethod) {
+        context.settingsStore.edit { it[KEY_YOUTUBE_METHOD] = m.id }
     }
 
     suspend fun setSpotifyConverter(converterId: String) {
@@ -729,22 +751,39 @@ data class SpotifyConverter(
     val url: String
 ) {
     companion object {
+        // v2.3.0 (gemeten 29-09): verwijderd — dood: spotifydown (→ open.spotify.com), soundloaders, spotify-downloader;
+        // GEKAAPT: spotifydownload.org (gokspam), keepvid.to (porno); SpotiFlyer is een losse app, geen converter.
+        // Overgebleven sites hebben een Cloudflare-controle (werkt in de WebView, handmatig).
         val ALL = listOf(
-            SpotifyConverter("spotifydown", "SpotifyDown", "Online", "https://spotifydown.com"),
-            SpotifyConverter("spotifymate", "SpotifyMate", "Online", "https://spotifymate.com"),
-            SpotifyConverter("soundloaders", "Soundloaders", "Online", "https://soundloaders.com"),
-            SpotifyConverter("spotify-downloader", "Spotify-downloader", "Online", "https://spotify-downloader.com"),
-            SpotifyConverter("spotisongdownloader", "SpotiSongDownloader", "Online", "https://spotisongdownloader.com"),
-            SpotifyConverter("spotifydownload", "Spotifydownload", "Online", "https://spotifydownload.org"),
-            SpotifyConverter("spotidown", "Spotidown", "Online", "https://spotidown.app"),
-            SpotifyConverter("keepvid", "KEEPVID", "Online", "https://keepvid.to"),
-            SpotifyConverter("spotmate", "SpotMate", "Online", "https://spotmate.online/en1"),
-            SpotifyConverter("spotiflyer", "SpotiFlyer", "Android", "https://github.com/Shabinder/SpotiFlyer")
+            SpotifyConverter("spotidown", "SpotiDown", "Website", "https://spotidown.app/en7"),
+            SpotifyConverter("spotmate", "SpotMate", "Website", "https://spotmate.online/en1"),
+            SpotifyConverter("spotimate", "SpotiMate", "Website", "https://spotimate.io/"),
+            SpotifyConverter("spotisongdownloader", "SpotiSongDownloader", "Website", "https://spotisongdownloader.com/en3/")
         )
 
         fun findById(id: String): SpotifyConverter =
             ALL.find { it.id == id } ?: ALL.first()
     }
+}
+
+/** v2.3.0: hoe een Spotify-link een audiobestand wordt. */
+enum class SpotifyMethod(val id: String, val label: String, val detail: String) {
+    PREVIEW("preview", "Preview (Spotify-embed + Deezer)",
+        "30 seconden, geen sleutels nodig. Titel/duur uit de openbare Spotify-embed, audio van Deezer (128 kbps) of anders Spotify's eigen preview."),
+    FULL("full", "Volledig nummer (via YouTube, op toestel)",
+        "Zoekt artiest + titel op YouTube, kiest de video met dezelfde duur en downloadt de audio (M4A ~128 kbps) met je eigen internetverbinding."),
+    BACKEND("backend", "Preview via backend (Spotify Web API + ISRC)",
+        "Exacte ISRC-match via de RandomRingtone-server. Werkt alleen als daar Spotify-sleutels staan."),
+    CONVERTER("converter", "Converter-website (handmatig)",
+        "Opent een externe converter-site in de app; jij plakt de link en downloadt zelf. Sites wisselen vaak.")
+}
+
+/** v2.3.0: hoe een YouTube-video een audiobestand wordt. */
+enum class YouTubeMethod(val id: String, val label: String, val detail: String) {
+    DEVICE("device", "Op toestel (NewPipeExtractor)",
+        "Haalt de audio (M4A ~128 kbps) rechtstreeks van YouTube met je eigen verbinding. Geen tussenpartij."),
+    Y2MATE("y2mate", "Y2Mate (externe converter)",
+        "Via de Y2Mate-API (MP3). Wordt vaak geblokkeerd of verhuist; valt ook in als 'Op toestel' faalt.")
 }
 
 data class DiskUsage(

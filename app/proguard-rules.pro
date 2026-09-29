@@ -23,3 +23,13 @@
 -keep @androidx.room.Entity class *
 -keep class nl.icthorse.randomringtone.data.*Dao { *; }
 -keep class nl.icthorse.randomringtone.data.*Dao_Impl { *; }
+
+# NewPipeExtractor (v2.3.0) — Rhino (JS-ontcijfering) en jsoup gebruiken reflectie
+-keep class org.schabi.newpipe.extractor.** { *; }
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.ClassFileWriter
+-dontwarn org.mozilla.javascript.**
+-dontwarn org.jsoup.**
+-dontwarn javax.script.**
+-dontwarn java.beans.**
+-dontwarn com.google.re2j.**

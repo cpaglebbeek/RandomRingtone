@@ -6,8 +6,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0"
 }
 
-val appCodename = "Stevie_Wonder"
-val appReleaseName = "Isnt_She_Lovely"
+val appCodename = "Elton_John"
+val appReleaseName = "Rocket_Man"
 
 android {
     namespace = "nl.icthorse.randomringtone"
@@ -32,8 +32,8 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 146
-        versionName = "2.2.3"
+        versionCode = 147
+        versionName = "2.3.0"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"$appCodename\"")
@@ -69,6 +69,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true   // NewPipeExtractor (java.nio/java.time op oudere Android)
     }
 
     kotlinOptions {
@@ -89,6 +90,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.icons.extended)
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")   // SpotifyPreviewClient.parseEmbed in JVM-tests
     implementation(libs.activity.compose)
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.viewmodel.compose)
@@ -114,4 +116,8 @@ dependencies {
     // Core
     implementation(libs.core.ktx)
     implementation(libs.datastore.preferences)
+
+    // v2.3.0: YouTube zoeken + audio-extractie op het toestel (eigen IP) — GPL-3.0
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 }

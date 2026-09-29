@@ -48,6 +48,8 @@ fun YouTubeScreen(
     val scope = rememberCoroutineScope()
 
     val y2MateClient = remember { Y2MateClient() }
+    var youtubeMethod by remember { mutableStateOf(nl.icthorse.randomringtone.data.YouTubeMethod.DEVICE) }
+    LaunchedEffect(Unit) { youtubeMethod = ringtoneManager.storage.getYouTubeMethod() }
 
     // WebView state
     var webView by remember { mutableStateOf<WebView?>(null) }
@@ -200,15 +202,11 @@ fun YouTubeScreen(
                     isDownloading = true
                     AppBusyState.isBusy = true
                     scope.launch {
-                        val result = y2MateClient.downloadTrack(
-                            videoId = videoId,
-                            destDir = ringtoneManager.storage.getDownloadDir(),
-                            videoTitle = detectedVideoTitle.ifBlank { null },
-                            onProgress = { phase, progress ->
-                                downloadPhase = phase
-                                downloadProgress = progress
-                            }
-                        )
+                        val result = downloadYouTube(y2MateClient, youtubeMethod, videoId,
+                            ringtoneManager.storage.getDownloadDir(), detectedVideoTitle.ifBlank { null }, false) { phase, progress ->
+                            downloadPhase = phase
+                            downloadProgress = progress
+                        }
                         isDownloading = false
                         AppBusyState.isBusy = false
                         if (result.fileExists && result.file != null) {
@@ -220,7 +218,7 @@ fun YouTubeScreen(
                             lastDownloadedFile = result.file
                             detectedVideoTitle = result.title ?: detectedVideoTitle
                             // Fetch YouTube thumbnail als album art
-                            result.videoId?.let { vid ->
+                            result.videoId?.takeIf { result.file.extension.equals("mp3", true) }?.let { vid ->
                                 fetchYouTubeThumbnail(context, vid, result.file, result.title)
                             }
                             showActionsDialog = true
@@ -306,22 +304,18 @@ fun YouTubeScreen(
                     isDownloading = true
                     AppBusyState.isBusy = true
                     scope.launch {
-                        val result = y2MateClient.downloadTrack(
-                            videoId = videoId,
-                            destDir = ringtoneManager.storage.getDownloadDir(),
-                            videoTitle = title,
-                            onProgress = { phase, progress ->
-                                downloadPhase = phase
-                                downloadProgress = progress
-                            },
-                            forceOverwrite = true
-                        )
+                        val result = downloadYouTube(y2MateClient, youtubeMethod, videoId,
+                            ringtoneManager.storage.getDownloadDir(), title, true) { phase, progress ->
+                            downloadPhase = phase
+                            downloadProgress = progress
+                        }
                         isDownloading = false
                         AppBusyState.isBusy = false
                         if (result.success && result.file != null) {
                             lastDownloadedFile = result.file
                             // Ook bij overschrijven de thumbnail als album art (ontbrak tot v2.2.0)
-                            fetchYouTubeThumbnail(context, videoId, result.file, result.title ?: title)
+                            if (result.file.extension.equals("mp3", true))
+                                fetchYouTubeThumbnail(context, videoId, result.file, result.title ?: title)
                             showActionsDialog = true
                         } else {
                             snackbarHostState.showSnackbar(
@@ -532,4 +526,29 @@ private suspend fun fetchYouTubeThumbnail(context: android.content.Context, vide
 private fun getYouTubeArtPath(context: android.content.Context, audioFile: File): String? {
     val artFile = File(File(context.cacheDir, "album_art"), "${audioFile.nameWithoutExtension.hashCode()}.jpg")
     return if (artFile.exists() && artFile.length() > 1000) artFile.absolutePath else null
+}
+
+/**
+ * v2.3.0: YouTube-download volgens de gekozen methode. "Op toestel" (NewPipeExtractor, M4A) valt bij een fout
+ * automatisch terug op Y2Mate (MP3); "bestaat al" wordt niet als fout gezien.
+ */
+private suspend fun downloadYouTube(
+    y2mate: Y2MateClient,
+    method: nl.icthorse.randomringtone.data.YouTubeMethod,
+    videoId: String,
+    destDir: File,
+    title: String?,
+    force: Boolean,
+    onProgress: (String, Float) -> Unit
+): Y2MateClient.DownloadResult {
+    if (method == nl.icthorse.randomringtone.data.YouTubeMethod.DEVICE) {
+        val r = nl.icthorse.randomringtone.data.YouTubeOnDevice.downloadAudio(videoId, destDir, prefix = "youtube_mp3_",
+            baseName = title, displayTitle = title, forceOverwrite = force, onProgress = onProgress)
+        if (r.success || r.fileExists) return Y2MateClient.DownloadResult(r.success, r.file, r.title, r.error, r.fileExists, r.videoId)
+        RemoteLogger.w("YouTube", "Op toestel mislukt — terugval Y2Mate", mapOf("videoId" to videoId, "error" to (r.error ?: "")))
+        onProgress("Op toestel mislukt — via Y2Mate...", 0f)
+        val y = y2mate.downloadTrack(videoId = videoId, destDir = destDir, videoTitle = title, onProgress = onProgress, forceOverwrite = force)
+        return if (y.success || y.fileExists) y else y.copy(error = "Op toestel: ${r.error}\nY2Mate: ${y.error}")
+    }
+    return y2mate.downloadTrack(videoId = videoId, destDir = destDir, videoTitle = title, onProgress = onProgress, forceOverwrite = force)
 }

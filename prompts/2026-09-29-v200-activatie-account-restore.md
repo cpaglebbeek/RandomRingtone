@@ -52,4 +52,7 @@ resume: "verder met randomringtone — HorseAPK v1.2.1 op Fold+Fairphone, beheer
   inlogverzoek bij open app gaf geen melding/scherm (Fold) → **HorseAPK v1.2.1-LimeWire** gepubliceerd + gewekt.
 - 429 = HorseAPK-rem (5 startverzoeken per e-mail per 5 min), geen bug.
 - Parallelle sessie (HetznerHealth) herstartte om 01:57:45 de HorseAPK-portal en voegde een dienstsleutel toe — niet aangeraakt.
+- **RandomRingtone niet zichtbaar in HorseAPK (Fairphone):** `cglebbeek+residio@` heeft geen `ProjectGrant` voor
+  RandomRingtone (Fold = beheerder, ziet alles). Toekennen via HorseAPK-beheer op de Fold (icoon AdminPanelSettings in de
+  bovenbalk) — of op verzoek ("ken toe") server-side. **Open.**
 

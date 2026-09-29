@@ -55,4 +55,8 @@ resume: "verder met randomringtone — HorseAPK v1.2.1 op Fold+Fairphone, beheer
 - **RandomRingtone niet zichtbaar in HorseAPK (Fairphone):** `cglebbeek+residio@` heeft geen `ProjectGrant` voor
   RandomRingtone (Fold = beheerder, ziet alles). Toekennen via HorseAPK-beheer op de Fold (icoon AdminPanelSettings in de
   bovenbalk) — of op verzoek ("ken toe") server-side. **Open.**
+- **v2.0.1 "Private_Dancer" (build 141):** "bouw voortgangsbar voor backup en restore met live (her)berekende eta" (akkoord
+  WhatIf). `TransferMeter` (glijdend venster 8 s, per 64 KB), `TransferProgress` in alle 5 plekken; cloud-restore had
+  geen balk. 6 tests, smoke groen, gepubliceerd als DEBUG (HorseAPK + icthorse.nl). Niet visueel getest met een echte
+  backup (emulators hebben geen licentie).
 

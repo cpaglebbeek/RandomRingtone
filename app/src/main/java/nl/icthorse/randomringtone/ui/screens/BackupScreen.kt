@@ -53,6 +53,9 @@ fun BackupScreen(
 
     // Slot state (iCt Horse)
     var slots by remember { mutableStateOf<List<SlotInfo>>(emptyList()) }
+    // v2.0.0: backups van andere toestellen van hetzelfde account
+    var offers by remember { mutableStateOf<List<BackupOffer>>(emptyList()) }
+    var offerToRestore by remember { mutableStateOf<Pair<BackupOffer, SlotInfo>?>(null) }
     var showSlotBackupDialog by remember { mutableStateOf(false) }
     var showSlotRestoreDialog by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
@@ -78,6 +81,7 @@ fun BackupScreen(
     LaunchedEffect(selectedProvider) {
         if (selectedProvider == BackupProvider.ICT_HORSE) {
             slots = try { ictHorseClient.getSlotStatus() } catch (_: Exception) { emptyList() }
+            offers = ictHorseClient.getOffers()
         } else if (backupUri.isNotBlank()) {
             safBackupMeta = backupManager.readBackupInfo(Uri.parse(backupUri))
         } else {
@@ -126,6 +130,18 @@ fun BackupScreen(
             isProcessing = false
             AppBusyState.isBusy = false
             if (result.success) refreshSlots()
+            snackbarHostState.showSnackbar(result.message)
+        }
+    }
+
+    // Restore van een ander toestel van hetzelfde account
+    fun doRestoreFrom(offer: BackupOffer, slot: Int) {
+        scope.launch {
+            isProcessing = true
+            AppBusyState.isBusy = true
+            val result = ictHorseClient.restore(slot, db, storage, onProgress, sourceDeviceId = offer.deviceId)
+            isProcessing = false
+            AppBusyState.isBusy = false
             snackbarHostState.showSnackbar(result.message)
         }
     }
@@ -192,6 +208,44 @@ fun BackupScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+            }
+
+            // === Backups van andere toestellen (zelfde account) ===
+            if (offers.isNotEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Van je andere toestellen", style = MaterialTheme.typography.titleMedium)
+                        offers.forEach { o ->
+                            o.slots.forEach { sl ->
+                                val m = sl.meta
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(listOf(o.name, o.model).filter { it.isNotBlank() }.joinToString(" · "),
+                                            style = MaterialTheme.typography.bodyMedium)
+                                        Text("${m?.backupDate ?: "?"} · ${m?.trackCount ?: 0} tracks" +
+                                            if (m?.complete == false) " · onvolledig" else "",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (m?.complete == false) MaterialTheme.colorScheme.error
+                                                else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    TextButton(enabled = !isProcessing, onClick = { offerToRestore = o to sl }) {
+                                        Text("Terugzetten")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            offerToRestore?.let { (o, sl) ->
+                AlertDialog(
+                    onDismissRequest = { offerToRestore = null },
+                    title = { Text("Backup terugzetten?") },
+                    text = { Text("De huidige tracks en playlists op dit toestel worden vervangen door de backup van " +
+                        "${o.name.ifBlank { o.deviceId }} (${sl.meta?.backupDate ?: "?"}).") },
+                    confirmButton = { TextButton(onClick = { offerToRestore = null; doRestoreFrom(o, sl.slot) }) { Text("Terugzetten") } },
+                    dismissButton = { TextButton(onClick = { offerToRestore = null }) { Text("Annuleren") } }
+                )
             }
 
             // === Slot overzicht ===

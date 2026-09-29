@@ -5,6 +5,13 @@ import android.provider.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -33,10 +40,45 @@ class IctHorseBackupClient(private val context: Context) {
     private val deviceId: String
         get() = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
 
+    private val licenseManager by lazy { LicenseManager(context) }
+
+    // v2.0.0: toestel-token (backup_api v3). De gedeelde sleutel werkt server-side alleen nog voor toestellen zonder token.
     private fun baseRequest(): Request.Builder =
         Request.Builder()
             .addHeader("X-Api-Key", API_KEY)
             .addHeader("X-Device-Id", deviceId)
+            .apply { licenseManager.deviceToken?.let { addHeader("X-Device-Token", it) } }
+
+    private fun enc(v: String): String = java.net.URLEncoder.encode(v, "UTF-8")
+
+    // ── Aanbod: backups van andere toestellen van hetzelfde account ─────
+    suspend fun getOffers(): List<BackupOffer> = withContext(Dispatchers.IO) {
+        if (licenseManager.deviceToken == null) return@withContext emptyList()
+        try {
+            val response = get("$BASE_URL?action=offers")
+            val body = response.body?.string() ?: "{}"
+            response.close()
+            if (!response.isSuccessful) return@withContext emptyList()
+            val root = json.parseToJsonElement(body).jsonObject
+            val offers = root["offers"]?.jsonArray ?: return@withContext emptyList()
+            offers.map { o ->
+                val obj = o.jsonObject
+                BackupOffer(
+                    deviceId = obj["deviceId"]?.jsonPrimitive?.content ?: "",
+                    name = obj["name"]?.jsonPrimitive?.contentOrNull ?: "",
+                    model = obj["model"]?.jsonPrimitive?.contentOrNull ?: "",
+                    slots = (obj["slots"]?.jsonArray ?: JsonArray(emptyList())).map { sl ->
+                        val so = sl.jsonObject
+                        SlotInfo(slot = so["slot"]?.jsonPrimitive?.intOrNull ?: 0, exists = true,
+                            meta = so["meta"]?.let { json.decodeFromJsonElement(BackupMeta.serializer(), it) })
+                    }
+                )
+            }.filter { it.deviceId.isNotBlank() && it.slots.isNotEmpty() }
+        } catch (e: Exception) {
+            RemoteLogger.e("IctHorseBackup", "Aanbod ophalen mislukt", mapOf("error" to (e.message ?: "unknown")))
+            emptyList()
+        }
+    }
 
     // ── Status: ophalen van beide slots ─────────────────────────────
 
@@ -192,9 +234,17 @@ class IctHorseBackupClient(private val context: Context) {
             // Phase 7: Complete
             onProgress(BackupProgress("Afronden...", 7, 7))
             val completeResponse = post("$BASE_URL?action=complete&slot=$slot")
+            val completeBody = completeResponse.body?.string() ?: "{}"
             completeResponse.close()
 
             tempDir.deleteRecursively()
+            // backup_api v3 telt de audiobestanden na; onvolledig = mislukt (was stil "geslaagd", zie backup 22-05)
+            val completeJson = try { json.parseToJsonElement(completeBody).jsonObject } catch (_: Exception) { null }
+            if (completeJson?.get("complete")?.jsonPrimitive?.booleanOrNull == false) {
+                val missing = completeJson["missing"]?.jsonPrimitive?.intOrNull ?: 0
+                RemoteLogger.e("IctHorseBackup", "Backup onvolledig", mapOf("slot" to slot.toString(), "missing" to missing.toString()))
+                return@withContext BackupResult(false, "Backup slot $slot ONVOLLEDIG: $missing audiobestanden ontbreken op de server — probeer opnieuw")
+            }
 
             RemoteLogger.i("IctHorseBackup", "Backup voltooid", mapOf(
                 "slot" to slot.toString(),
@@ -221,12 +271,15 @@ class IctHorseBackupClient(private val context: Context) {
         slot: Int,
         db: RingtoneDatabase,
         storage: StorageManager,
-        onProgress: (BackupProgress) -> Unit
+        onProgress: (BackupProgress) -> Unit,
+        sourceDeviceId: String? = null
     ): BackupResult = withContext(Dispatchers.IO) {
+        // Backup van een ander toestel van hetzelfde account (alleen met token; server controleert het account)
+        val src = sourceDeviceId?.takeIf { it.isNotBlank() && it != deviceId }?.let { "&source=${enc(it)}" } ?: ""
         try {
             // Phase 1: Get file list
             onProgress(BackupProgress("Bestandslijst ophalen (slot $slot)...", 1, 5))
-            val listResponse = get("$BASE_URL?action=list&slot=$slot")
+            val listResponse = get("$BASE_URL?action=list&slot=$slot$src")
             val listBody = listResponse.body?.string() ?: "{}"
             if (!listResponse.isSuccessful) {
                 return@withContext BackupResult(false, "Lijst ophalen mislukt: HTTP ${listResponse.code}")
@@ -241,7 +294,7 @@ class IctHorseBackupClient(private val context: Context) {
 
             val jsonFiles = listOf("saved_tracks.json", "playlists.json", "playlist_tracks.json")
             for (file in jsonFiles) {
-                downloadFile(slot, file, File(tempDir, file))
+                downloadFile(slot, file, File(tempDir, file), src)
             }
 
             // Phase 3: Restore database
@@ -289,10 +342,10 @@ class IctHorseBackupClient(private val context: Context) {
             for (entry in filesArray) {
                 val isAudio = audioExtensions.any { entry.path.endsWith(".$it") }
                 if (entry.path.startsWith("downloads/") && isAudio) {
-                    downloadFile(slot, entry.path, File(downloadDir, File(entry.path).name))
+                    downloadFile(slot, entry.path, File(downloadDir, File(entry.path).name), src)
                     restoredFiles++
                 } else if (entry.path.startsWith("ringtones/") && isAudio) {
-                    downloadFile(slot, entry.path, File(ringtoneDir, File(entry.path).name))
+                    downloadFile(slot, entry.path, File(ringtoneDir, File(entry.path).name), src)
                     restoredFiles++
                 }
             }
@@ -349,9 +402,9 @@ class IctHorseBackupClient(private val context: Context) {
         response.close()
     }
 
-    private fun downloadFile(slot: Int, remotePath: String, destFile: File) {
+    private fun downloadFile(slot: Int, remotePath: String, destFile: File, src: String = "") {
         val request = baseRequest()
-            .url("$BASE_URL?action=download&slot=$slot&file=$remotePath")
+            .url("$BASE_URL?action=download&slot=$slot&file=${enc(remotePath)}$src")
             .get()
             .build()
 
@@ -370,6 +423,13 @@ class IctHorseBackupClient(private val context: Context) {
         response.close()
     }
 }
+
+data class BackupOffer(
+    val deviceId: String,
+    val name: String,
+    val model: String,
+    val slots: List<SlotInfo>
+)
 
 data class SlotInfo(
     val slot: Int,

@@ -75,9 +75,12 @@ fun RandomRingtoneApp() {
 
     // Blocking screen als niet gelicenseerd
     if (licenseChecked && !licenseStatus.active) {
-        LicenseBlockScreen(licenseStatus, licenseManager)
+        LicenseActivationScreen(licenseStatus, licenseManager, onRecheck = { licenseStatus = licenseManager.checkLicense() })
         return
     }
+
+    // v2.0.0: toestel-token (backup/restore + Spotify-bron) en aanbod om een backup van een ander toestel terug te zetten
+    RestoreOfferHost(licenseManager, db, ringtoneManager, snackbarHostState, licenseChecked && licenseStatus.active)
 
     // Auto-restore bij startup als DB leeg is + auto-backup bestaat
     LaunchedEffect(Unit) {
@@ -304,65 +307,5 @@ fun RandomRingtoneApp() {
                 TextButton(onClick = { pendingUpdate = null }) { Text("Later") }
             }
         )
-    }
-}
-
-@Composable
-private fun LicenseBlockScreen(
-    status: LicenseManager.LicenseStatus,
-    licenseManager: LicenseManager
-) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(32.dp)
-        ) {
-            Icon(Icons.Default.Lock, contentDescription = null,
-                modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.error)
-            Text("Geen geldige licentie", style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.error)
-            Text(status.message.ifBlank { "Deze app vereist een geldige licentie." },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Device ID:", style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(licenseManager.deviceHash, style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace)
-                    if (status.error != null) {
-                        Text("Fout: ${status.error}", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-            val ctx = LocalContext.current
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    val clip = android.content.ClipData.newPlainText("Device ID", licenseManager.deviceHash)
-                    (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-                        .setPrimaryClip(clip)
-                }) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Kopieer ID")
-                }
-                OutlinedButton(onClick = {
-                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
-                        data = android.net.Uri.parse("mailto:RandomRingtone@icthorse.nl")
-                        putExtra(android.content.Intent.EXTRA_SUBJECT, "RandomRingtone Licentie aanvraag")
-                        putExtra(android.content.Intent.EXTRA_TEXT, "Device ID: ${licenseManager.deviceHash}\nApp versie: v${BuildConfig.VERSION_NAME}")
-                    }
-                    ctx.startActivity(android.content.Intent.createChooser(intent, "Verstuur via..."))
-                }) {
-                    Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Mail ID")
-                }
-            }
-            Text("Neem contact op met iCt Horse voor een licentie.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
     }
 }

@@ -2,11 +2,14 @@ package nl.icthorse.randomringtone.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import android.provider.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -14,6 +17,10 @@ import java.util.concurrent.TimeUnit
  * Device-hash-based license manager.
  * Controleert licentie bij icthorse.nl/Apps/Android/RandomRing/lics/{deviceHash}.json
  * Met 72-uur grace period voor offline gebruik.
+ *
+ * v2.0.0: activatie-aanvraag via de backend (mail met magic link naar beheer, goedkeuring via HorseAPK) en een
+ * per-toestel-token (backup/restore, Spotify-bron). Token staat in een eigen prefs-bestand dat buiten Android-backups
+ * blijft (res/xml/backup_rules.xml, data_extraction_rules.xml).
  */
 class LicenseManager(private val context: Context) {
 
@@ -22,7 +29,21 @@ class LicenseManager(private val context: Context) {
         private const val GRACE_PERIOD_MS = 72 * 60 * 60 * 1000L  // 72 uur
         private const val PREFS_NAME = "randomringtone_license"
         private const val INFINITE_EXPIRY = 4000000000000L
+        const val BACKEND_BASE = "https://horsecloud55.ddns.net/rrlog"
+        private const val AUTH_PREFS = "rr_device_auth"
+        private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
     }
+
+    /** Openstaande activatie-aanvraag (bewaard tot toegekend/afgewezen/verlopen). */
+    data class PendingActivation(
+        val requestId: String,
+        val pollToken: String,
+        val sentAt: Long,
+        val name: String,
+        val email: String
+    )
+
+    enum class TokenState { OK, NEEDS_ACTIVATION, NO_LICENSE, ERROR }
 
     data class LicenseStatus(
         val active: Boolean = false,
@@ -41,6 +62,9 @@ class LicenseManager(private val context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val authPrefs: SharedPreferences =
+        context.getSharedPreferences(AUTH_PREFS, Context.MODE_PRIVATE)
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -214,5 +238,134 @@ class LicenseManager(private val context: Context) {
             .putString("message", status.message)
             .putLong("lastCheck", status.lastCheck)
             .apply()
+    }
+
+    // ── Toestel-token ───────────────────────────────────────────────────
+
+    val deviceToken: String?
+        get() = authPrefs.getString("deviceToken", null)?.takeIf { it.isNotBlank() }
+
+    private fun storeToken(token: String) {
+        authPrefs.edit().putString("deviceToken", token).putLong("tokenStoredAt", System.currentTimeMillis()).apply()
+    }
+
+    /**
+     * Zorgt dat een gelicenseerd toestel een token heeft. Toestellen die al vóór v2.0.0 een licentie hadden claimen
+     * het token één keer; bestaat er server-side al een token (bv. na herinstallatie) dan is een nieuwe
+     * activatie-aanvraag nodig.
+     */
+    suspend fun ensureDeviceToken(): TokenState = withContext(Dispatchers.IO) {
+        if (deviceToken != null) return@withContext TokenState.OK
+        try {
+            val body = JSONObject().put("deviceHash", deviceHash).toString().toRequestBody(JSON_TYPE)
+            client.newCall(Request.Builder().url("$BACKEND_BASE/license/claim").post(body).build()).execute().use { r ->
+                val text = r.body?.string() ?: "{}"
+                when (r.code) {
+                    200 -> {
+                        val token = JSONObject(text).optString("deviceToken", "")
+                        if (token.isBlank()) return@withContext TokenState.ERROR
+                        storeToken(token)
+                        RemoteLogger.output("LicenseManager", "Toestel-token geclaimd", emptyMap())
+                        TokenState.OK
+                    }
+                    409 -> TokenState.NEEDS_ACTIVATION
+                    403 -> TokenState.NO_LICENSE
+                    else -> TokenState.ERROR
+                }
+            }
+        } catch (e: Exception) {
+            RemoteLogger.w("LicenseManager", "Token claimen mislukt", mapOf("error" to (e.message ?: "?")))
+            TokenState.ERROR
+        }
+    }
+
+    // ── Activatie-aanvraag ───────────────────────────────────────────────
+
+    fun pendingActivation(): PendingActivation? {
+        val id = authPrefs.getString("reqId", null) ?: return null
+        val poll = authPrefs.getString("reqPoll", null) ?: return null
+        return PendingActivation(id, poll, authPrefs.getLong("reqSentAt", 0), authPrefs.getString("reqName", "") ?: "",
+            authPrefs.getString("reqEmail", "") ?: "")
+    }
+
+    fun clearPendingActivation() {
+        authPrefs.edit().remove("reqId").remove("reqPoll").remove("reqSentAt").remove("reqName").remove("reqEmail").apply()
+    }
+
+    /** Alles wat met een aanvraag meegaat — getoond aan de gebruiker vóór versturen. */
+    fun collectDeviceInfo(accountPicked: Boolean): LinkedHashMap<String, String> {
+        val out = LinkedHashMap<String, String>()
+        out["manufacturer"] = Build.MANUFACTURER ?: ""
+        out["brand"] = Build.BRAND ?: ""
+        out["model"] = Build.MODEL ?: ""
+        out["device"] = Build.DEVICE ?: ""
+        out["product"] = Build.PRODUCT ?: ""
+        out["androidRelease"] = Build.VERSION.RELEASE ?: ""
+        out["sdkInt"] = Build.VERSION.SDK_INT.toString()
+        out["appVersion"] = nl.icthorse.randomringtone.BuildConfig.VERSION_NAME
+        out["appVersionCode"] = nl.icthorse.randomringtone.BuildConfig.VERSION_CODE.toString()
+        out["locale"] = java.util.Locale.getDefault().toLanguageTag()
+        out["timezone"] = java.util.TimeZone.getDefault().id
+        val dm = context.resources.displayMetrics
+        out["screen"] = "${dm.widthPixels}x${dm.heightPixels}"
+        out["density"] = "${dm.densityDpi} dpi"
+        out["installer"] = try {
+            val pm = context.packageManager
+            (if (Build.VERSION.SDK_INT >= 30) pm.getInstallSourceInfo(context.packageName).installingPackageName
+            else @Suppress("DEPRECATION") pm.getInstallerPackageName(context.packageName)) ?: "sideload"
+        } catch (_: Exception) { "onbekend" }
+        out["firstInstall"] = try {
+            val t = context.packageManager.getPackageInfo(context.packageName, 0).firstInstallTime
+            java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT).format(java.util.Date(t))
+        } catch (_: Exception) { "" }
+        out["accountPicked"] = if (accountPicked) "ja (Android-accountkiezer)" else "nee (zelf ingetypt)"
+        return out
+    }
+
+    /** Verstuurt de aanvraag; de backend mailt de beheerder een magic link. → null bij succes, anders foutmelding. */
+    suspend fun sendActivationRequest(name: String, email: String, note: String, accountPicked: Boolean): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val device = JSONObject()
+                collectDeviceInfo(accountPicked).forEach { (k, v) -> device.put(k, v) }
+                val payload = JSONObject().put("deviceHash", deviceHash).put("name", name.trim())
+                    .put("email", email.trim()).put("note", note.trim()).put("device", device)
+                val req = Request.Builder().url("$BACKEND_BASE/license/request")
+                    .post(payload.toString().toRequestBody(JSON_TYPE)).build()
+                client.newCall(req).execute().use { r ->
+                    val json = JSONObject(r.body?.string() ?: "{}")
+                    if (r.code != 201) return@withContext json.optString("error", "Versturen mislukt (HTTP ${r.code})")
+                    authPrefs.edit().putString("reqId", json.getString("requestId"))
+                        .putString("reqPoll", json.getString("pollToken")).putLong("reqSentAt", System.currentTimeMillis())
+                        .putString("reqName", name.trim()).putString("reqEmail", email.trim()).apply()
+                    RemoteLogger.output("LicenseManager", "Activatie-aanvraag verstuurd", emptyMap())
+                    null
+                }
+            } catch (e: Exception) {
+                "Geen verbinding met de server (${e.message ?: "?"})"
+            }
+        }
+
+    /** Status van de openstaande aanvraag: pending | granted | rejected | expired | superseded | unknown. */
+    suspend fun pollActivation(): String = withContext(Dispatchers.IO) {
+        val p = pendingActivation() ?: return@withContext "none"
+        try {
+            val body = JSONObject().put("pollToken", p.pollToken).toString().toRequestBody(JSON_TYPE)
+            val req = Request.Builder().url("$BACKEND_BASE/license/request/${p.requestId}/status").post(body).build()
+            client.newCall(req).execute().use { r ->
+                if (r.code == 404) { clearPendingActivation(); return@withContext "expired" }
+                if (!r.isSuccessful) return@withContext "unknown"
+                val json = JSONObject(r.body?.string() ?: "{}")
+                val token = json.optString("deviceToken", "")
+                if (token.isNotBlank()) storeToken(token)
+                val status = json.optString("status", "unknown")
+                if (status == "granted" || status == "rejected" || status == "expired" || status == "superseded") {
+                    if (status != "granted" || deviceToken != null) clearPendingActivation()
+                }
+                status
+            }
+        } catch (_: Exception) {
+            "unknown"
+        }
     }
 }

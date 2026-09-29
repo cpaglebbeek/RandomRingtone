@@ -710,14 +710,14 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Directe download (SpotMate API)",
+                        text = "Spotify-bron: Web API + Deezer (ISRC)",
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Text(
                         text = if (directApiEnabled)
-                            "MP3 wordt automatisch gedownload zonder converter-site"
+                            "30-seconden-preview via Spotify-ISRC → Deezer (exacte match)"
                         else
-                            "Handmatig via converter WebView",
+                            "Volledige track handmatig via de WebView-converter",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -729,8 +729,8 @@ fun SettingsScreen(
                         scope.launch {
                             ringtoneManager.storage.setDirectApiEnabled(enabled)
                             snackbarHostState.showSnackbar(
-                                if (enabled) "Directe API download ingeschakeld"
-                                else "WebView converter ingeschakeld"
+                                if (enabled) "Spotify-bron: Web API + Deezer"
+                                else "Spotify-bron: WebView-converter"
                             )
                         }
                     }
@@ -901,6 +901,27 @@ fun SettingsScreen(
         val licenseManager = remember { nl.icthorse.randomringtone.data.LicenseManager(context) }
         var licStatus by remember { mutableStateOf(licenseManager.getCachedStatus()) }
         LaunchedEffect(Unit) { licStatus = licenseManager.checkLicense() }
+        var tokenState by remember { mutableStateOf<nl.icthorse.randomringtone.data.LicenseManager.TokenState?>(null) }
+        var showReactivate by remember { mutableStateOf(false) }
+        if (showReactivate) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { showReactivate = false },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    Column {
+                        TextButton(onClick = { showReactivate = false }) { Text("Sluiten") }
+                        LicenseActivationScreen(licStatus.copy(message = "Vraag een nieuwe koppeling aan voor cloud-backup."),
+                            licenseManager, onRecheck = {
+                                if (licenseManager.deviceToken != null) {
+                                    tokenState = nl.icthorse.randomringtone.data.LicenseManager.TokenState.OK
+                                    showReactivate = false
+                                }
+                            })
+                    }
+                }
+            }
+        }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
@@ -912,6 +933,11 @@ fun SettingsScreen(
                 if (licStatus.customerId.isNotBlank()) InfoRow("Klant-ID", licStatus.customerId)
                 InfoRow("Verloopt", if (licStatus.isInfinite) "Oneindig" else if (licStatus.expiry > 0)
                     java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(java.util.Date(licStatus.expiry)) else "-")
+                InfoRow("Cloud-koppeling", when {
+                    licenseManager.deviceToken != null -> "gekoppeld (toestel-token)"
+                    tokenState == nl.icthorse.randomringtone.data.LicenseManager.TokenState.NEEDS_ACTIVATION -> "opnieuw activeren nodig"
+                    else -> "nog niet gekoppeld"
+                })
                 if (licStatus.lastCheck > 0) InfoRow("Laatste check",
                     java.text.SimpleDateFormat("dd-MM HH:mm", java.util.Locale.getDefault()).format(java.util.Date(licStatus.lastCheck)))
 
@@ -928,17 +954,25 @@ fun SettingsScreen(
                         Text("Kopieer ID")
                     }
                     OutlinedButton(onClick = {
-                        val intent = Intent(Intent.ACTION_SENDTO).apply {
-                            data = Uri.parse("mailto:RandomRingtone@icthorse.nl")
-                            putExtra(Intent.EXTRA_SUBJECT, "RandomRingtone Licentie aanvraag")
-                            putExtra(Intent.EXTRA_TEXT, "Device ID: ${licStatus.deviceHash}\nApp versie: v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME}")
+                        scope.launch {
+                            val st = licenseManager.ensureDeviceToken()
+                            tokenState = st
+                            snackbarHostState.showSnackbar(when (st) {
+                                nl.icthorse.randomringtone.data.LicenseManager.TokenState.OK -> "Cloud-koppeling in orde"
+                                nl.icthorse.randomringtone.data.LicenseManager.TokenState.NEEDS_ACTIVATION -> "Opnieuw activeren nodig voor cloud-backup"
+                                nl.icthorse.randomringtone.data.LicenseManager.TokenState.NO_LICENSE -> "Geen geldige licentie"
+                                else -> "Server niet bereikbaar"
+                            })
                         }
-                        context.startActivity(Intent.createChooser(intent, "Verstuur via..."))
                     }) {
-                        Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Mail ID")
+                        Text("Controleer koppeling")
                     }
+                }
+                if (tokenState == nl.icthorse.randomringtone.data.LicenseManager.TokenState.NEEDS_ACTIVATION) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(onClick = { showReactivate = true }) { Text("Opnieuw activeren") }
                 }
             }
         }

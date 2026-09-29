@@ -125,3 +125,4 @@ Thema releasenamen: **Nummer van de artiest (buildnaam)**
 | 141 | 2.0.1 | Tina_Turner | Private_Dancer | 2026-09-29 | Nee (DEBUG) |
 | 142 | 2.1.0 | Bob_Marley | Get_Up_Stand_Up | 2026-09-29 | Nee (DEBUG) |
 | 143 | 2.2.0 | Stevie_Wonder | Superstition | 2026-09-29 | Nee (DEBUG) |
+| 144 | 2.2.1 | Stevie_Wonder | Sir_Duke | 2026-09-29 | Nee (DEBUG) |

@@ -130,7 +130,8 @@ fun BackupScreen(
     fun doRestoreFrom(offer: BackupOffer, slot: Int) {
         scope.launch {
             val need = ictHorseClient.slotSizeBytes(slot, offer.deviceId)
-            setupGate.check(CheckScope.RESTORE, need) {
+            val plan = ictHorseClient.restorePlan(slot, offer.deviceId)
+            setupGate.check(CheckScope.RESTORE, need, restoreTarget = plan) {
                 scope.launch {
                     isProcessing = true
                     progress = null
@@ -148,7 +149,8 @@ fun BackupScreen(
     fun doRestore(slot: Int) {
         scope.launch {
             val need = ictHorseClient.slotSizeBytes(slot)
-            setupGate.check(CheckScope.RESTORE, need) {
+            val plan = ictHorseClient.restorePlan(slot)
+            setupGate.check(CheckScope.RESTORE, need, restoreTarget = plan) {
                 scope.launch {
                     isProcessing = true
                     progress = null
@@ -611,7 +613,8 @@ fun BackupScreen(
                 showRestoreSelector = false
                 scope.launch {
                     val need = backupManager.backupSizeBytes(Uri.parse(backupUri))
-                    setupGate.check(CheckScope.RESTORE, need, restoreUsesLocalFolder = true) {
+                    val plan = backupManager.restorePlan(Uri.parse(backupUri), selection)
+                    setupGate.check(CheckScope.RESTORE, need, restoreUsesLocalFolder = true, restoreTarget = plan) {
                         scope.launch {
                             isProcessing = true
                             progress = null

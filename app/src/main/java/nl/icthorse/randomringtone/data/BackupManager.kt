@@ -503,12 +503,22 @@ class BackupManager(private val context: Context) {
             val totalRestoreFiles = allSafFiles.size
             val meter = TransferMeter(allSafFiles.sumOf { it.first.length() })
             var restoredFiles = 0
+            val fileFailures = mutableListOf<String>()
 
+            // v2.2.1: per bestand — zelfde grootte ⇒ overslaan, anders weghalen + schrijven; fout ⇒ noteren en doorgaan
             for ((safFile, destFile) in allSafFiles) {
                 val phase = "Herstellen: ${safFile.name}"
                 onProgress(meter.progress(phase, restoredFiles, totalRestoreFiles))
-                copyFileFromSaf(safFile, destFile) { n -> if (meter.add(n)) onProgress(meter.progress(phase, restoredFiles, totalRestoreFiles)) }
-                restoredFiles++
+                try {
+                    when (RestoreSupport.prepareTarget(destFile, safFile.length())) {
+                        TargetAction.SKIP_SAME -> meter.add(safFile.length())
+                        TargetAction.WRITE -> copyFileFromSaf(safFile, destFile) { n -> if (meter.add(n)) onProgress(meter.progress(phase, restoredFiles, totalRestoreFiles)) }
+                    }
+                    restoredFiles++
+                } catch (e: Exception) {
+                    fileFailures.add(destFile.name)
+                    RemoteLogger.w("Restore", "Bestand niet teruggezet", mapOf("file" to destFile.absolutePath, "error" to (e.message ?: "?")))
+                }
             }
 
             val applyFailures = RestoreSupport.applyActiveCallPlaylists(context, db)
@@ -517,14 +527,27 @@ class BackupManager(private val context: Context) {
             BackupResult(
                 success = true,
                 message = "Herstel geslaagd: ${trackBackups.size} tracks, ${playlistBackups.size} playlists, $restoredFiles bestanden" +
-                    RestoreSupport.summary(resolved.unresolved, applyFailures),
+                    RestoreSupport.summary(resolved.unresolved, applyFailures, fileFailures),
                 trackCount = trackBackups.size,
                 playlistCount = playlistBackups.size,
                 fileCount = restoredFiles
-            )
+            ).also { RestoreSupport.logResult("lokaal", true, it.message, fileFailures) }
         } catch (e: Exception) {
-            BackupResult(false, "Herstel mislukt: ${e.message}")
+            BackupResult(false, "Herstel mislukt: ${e.message}").also { RestoreSupport.logResult("lokaal", false, it.message) }
         }
+    }
+
+    /** v2.2.1: rechten/mappen die deze (selectieve) restore nodig heeft, uit de backup gelezen. */
+    suspend fun restorePlan(backupUri: Uri, selection: BackupSelection = BackupSelection.FULL): RestoreTarget? = withContext(Dispatchers.IO) {
+        try {
+            val backupDir = DocumentFile.fromTreeUri(context, backupUri)?.findFile("RandomRingtone_Backup") ?: return@withContext null
+            val playlists = backupDir.findFile("playlists.json")
+                ?.let { json.decodeFromString<List<PlaylistBackup>>(readSafFile(it)) }.orEmpty()
+                .filter { selection.includesPlaylist(it.id) }
+            val settings = if (selection.settings) backupDir.findFile("settings.json")
+                ?.let { runCatching { json.decodeFromString(SettingsBackupData.serializer(), readSafFile(it)) }.getOrNull() } else null
+            RestoreSupport.planFrom(playlists, settings)
+        } catch (_: Exception) { null }
     }
 
     /**
@@ -848,7 +871,7 @@ class BackupManager(private val context: Context) {
     private fun copyFileFromSaf(safFile: DocumentFile, destFile: File, onBytes: (Long) -> Unit = {}) {
         destFile.parentFile?.mkdirs()
         context.contentResolver.openInputStream(safFile.uri)?.use { input ->
-            destFile.outputStream().use { os -> input.copyCounting(os, onBytes) }
+            RestoreSupport.writeTarget(destFile) { os -> input.copyCounting(os, onBytes) }
         }
     }
 }

@@ -34,14 +34,19 @@ class SetupGate internal constructor(private val checker: SetupCheck, private va
     private var proceed: (() -> Unit)? = null
     private var restoreBytes: Long? = null
     private var usesLocal = false
+    private var target: RestoreTarget? = null
 
-    fun check(s: CheckScope, restoreBytesNeeded: Long? = null, restoreUsesLocalFolder: Boolean = false, onProceed: () -> Unit = {}) {
+    fun check(
+        s: CheckScope, restoreBytesNeeded: Long? = null, restoreUsesLocalFolder: Boolean = false,
+        restoreTarget: RestoreTarget? = null, onProceed: () -> Unit = {}
+    ) {
         scope.launch {
             busy = true
-            val r = runCatching { checker.run(s, restoreBytesNeeded, restoreUsesLocalFolder) }.getOrDefault(emptyList())
+            val r = runCatching { checker.run(s, restoreBytesNeeded, restoreUsesLocalFolder, restoreTarget) }.getOrDefault(emptyList())
             busy = false
             if (r.none { it.severity != Severity.INFO }) { onProceed(); return@launch }
             issues = r; current = s; proceed = onProceed; restoreBytes = restoreBytesNeeded; usesLocal = restoreUsesLocalFolder
+            target = restoreTarget
         }
     }
 
@@ -49,7 +54,7 @@ class SetupGate internal constructor(private val checker: SetupCheck, private va
         val s = current ?: return
         scope.launch {
             busy = true
-            val r = runCatching { checker.run(s, restoreBytes, usesLocal) }.getOrDefault(issues)
+            val r = runCatching { checker.run(s, restoreBytes, usesLocal, target) }.getOrDefault(issues)
             busy = false
             issues = r
             if (r.none { it.severity != Severity.INFO }) proceedAnyway()

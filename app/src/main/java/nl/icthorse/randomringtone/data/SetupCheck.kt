@@ -138,14 +138,23 @@ object SetupRules {
 
 class SetupCheck(private val context: Context, private val storage: StorageManager, private val db: RingtoneDatabase) {
 
-    suspend fun run(scope: CheckScope, restoreBytesNeeded: Long? = null, restoreUsesLocalFolder: Boolean = false): List<SetupIssue> {
-        val facts = gather(restoreBytesNeeded, restoreUsesLocalFolder)
+    suspend fun run(
+        scope: CheckScope, restoreBytesNeeded: Long? = null, restoreUsesLocalFolder: Boolean = false,
+        restoreTarget: RestoreTarget? = null
+    ): List<SetupIssue> {
+        val facts = gather(restoreBytesNeeded, restoreUsesLocalFolder, restoreTarget)
         return SetupRules.evaluate(facts, scope).also {
             RemoteLogger.i("SetupCheck", "Controle $scope", mapOf("issues" to it.joinToString { i -> "${i.id}:${i.severity}" }))
         }
     }
 
-    suspend fun gather(restoreBytesNeeded: Long?, restoreUsesLocalFolder: Boolean): SetupFacts = withContext(Dispatchers.IO) {
+    /**
+     * [restoreTarget] (v2.2.1): wat de BACKUP nodig heeft — contact-/belplaylists en de doelmappen uit settings.json.
+     * Zonder dit keek de controle alleen naar het huidige toestel en vroeg hij bv. geen contactenrecht.
+     */
+    suspend fun gather(
+        restoreBytesNeeded: Long?, restoreUsesLocalFolder: Boolean, restoreTarget: RestoreTarget? = null
+    ): SetupFacts = withContext(Dispatchers.IO) {
         val perms = listOf("android.permission.READ_MEDIA_AUDIO", "android.permission.POST_NOTIFICATIONS") +
             SetupRules.PHONE_PERMISSIONS + SetupRules.CONTACT_PERMISSIONS
         val granted = perms.filter { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }.toSet()
@@ -157,9 +166,12 @@ class SetupCheck(private val context: Context, private val storage: StorageManag
             canWriteSettings = Settings.System.canWrite(context),
             granted = granted,
             canInstallPackages = context.packageManager.canRequestPackageInstalls(),
-            needsPhone = playlists.any { it.schedule == Schedule.EVERY_CALL },
-            needsContacts = playlists.any { !it.contactUri.isNullOrBlank() },
-            dirs = listOf(dirFact("Downloadmap", rawDir(isDownload = true)), dirFact("Ringtonemap", rawDir(isDownload = false))),
+            needsPhone = playlists.any { it.schedule == Schedule.EVERY_CALL } || restoreTarget?.needsPhone == true,
+            needsContacts = playlists.any { !it.contactUri.isNullOrBlank() } || restoreTarget?.needsContacts == true,
+            dirs = listOf(
+                dirFact("Downloadmap", restoreTarget?.downloadPath?.let { File(it).apply { mkdirs() } } ?: rawDir(isDownload = true)),
+                dirFact("Ringtonemap", restoreTarget?.ringtonePath?.let { File(it).apply { mkdirs() } } ?: rawDir(isDownload = false))
+            ),
             backupDir = backupFact(storage.getBackupUri()),
             tracksWithFile = tracks.size - missing,
             tracksMissingFile = missing,

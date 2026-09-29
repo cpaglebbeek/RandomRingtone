@@ -81,7 +81,8 @@ fun RestoreOfferHost(
                                     TextButton(onClick = {
                                         scope.launch {
                                             val need = client.slotSizeBytes(s.slot, o.deviceId)
-                                            setupGate.check(nl.icthorse.randomringtone.data.CheckScope.RESTORE, need) { scope.launch {
+                                            val plan = client.restorePlan(s.slot, o.deviceId)
+                                            setupGate.check(nl.icthorse.randomringtone.data.CheckScope.RESTORE, need, restoreTarget = plan) { scope.launch {
                                             restoring = true
                                             AppBusyState.isBusy = true
                                             val result = client.restore(s.slot, db, ringtoneManager.storage,

@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.2.0",
-  "versionCode": 143,
+  "version": "2.2.1",
+  "versionCode": 144,
   "codename": "Stevie_Wonder",
-  "releaseName": "Superstition",
+  "releaseName": "Sir_Duke",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-09-29",
   "status": "development",
-  "note": "v2.2.0 = scan alleen in ingestelde mappen + opschonen na scan/mapwijziging; cloud-restore met juiste mappen, instellingen en contact-op-naam; ringtones direct na restore; album art voor YouTube (ID3v2-bug) en tones"
+  "note": "v2.2.1 = restore: rechten/mappen vooraf uit de backup, bestanden vóór database, per-bestand tolerant (EACCES)"
 }

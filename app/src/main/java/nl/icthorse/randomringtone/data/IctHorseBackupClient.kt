@@ -276,6 +276,45 @@ class IctHorseBackupClient(private val context: Context) {
         }
     }
 
+    private fun listSlot(slot: Int, src: String): List<FileEntry> {
+        val listResponse = get("$BASE_URL?action=list&slot=$slot$src")
+        val listBody = listResponse.body?.string() ?: "{}"
+        if (!listResponse.isSuccessful) throw Exception("Lijst ophalen mislukt: HTTP ${listResponse.code}")
+        val dec = Json { ignoreUnknownKeys = true }
+        return dec.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(listBody)["files"]
+            ?.let { dec.decodeFromString<List<FileEntry>>(it.toString()) } ?: emptyList()
+    }
+
+    private fun srcParam(sourceDeviceId: String?) =
+        sourceDeviceId?.takeIf { it.isNotBlank() && it != deviceId }?.let { "&source=${enc(it)}" } ?: ""
+
+    /**
+     * v2.2.1: lees vóór de restore uit de BACKUP welke rechten (contacten, telefoon) en doelmappen nodig zijn,
+     * zodat SetupCheck die vooraf kan vragen/testen. null = niet te bepalen (restore gaat dan zoals voorheen).
+     */
+    suspend fun restorePlan(slot: Int, sourceDeviceId: String? = null): RestoreTarget? = withContext(Dispatchers.IO) {
+        val src = srcParam(sourceDeviceId)
+        try {
+            val listed = listSlot(slot, src)
+            val dir = File(context.cacheDir, "ict_restore_plan").apply { deleteRecursively(); mkdirs() }
+            val dec = Json { ignoreUnknownKeys = true }
+            downloadFile(slot, "playlists.json", File(dir, "playlists.json"), src)
+            val playlists = dec.decodeFromString<List<PlaylistBackup>>(File(dir, "playlists.json").readText())
+            val settings = if (listed.any { it.path == "settings.json" }) runCatching {
+                downloadFile(slot, "settings.json", File(dir, "settings.json"), src)
+                dec.decodeFromString(SettingsBackupData.serializer(), File(dir, "settings.json").readText())
+            }.getOrNull() else null
+            dir.deleteRecursively()
+            RestoreSupport.planFrom(playlists, settings).also {
+                RemoteLogger.i("Restore", "Plan", mapOf("contacts" to it.needsContacts.toString(), "phone" to it.needsPhone.toString(),
+                    "download" to (it.downloadPath ?: "-"), "ringtone" to (it.ringtonePath ?: "-")))
+            }
+        } catch (e: Exception) {
+            RemoteLogger.w("Restore", "Plan niet te bepalen", mapOf("error" to (e.message ?: "?")))
+            null
+        }
+    }
+
     // ── Restore: list + download files ──────────────────────────────
 
     suspend fun restore(
@@ -286,19 +325,13 @@ class IctHorseBackupClient(private val context: Context) {
         sourceDeviceId: String? = null
     ): BackupResult = withContext(Dispatchers.IO) {
         // Backup van een ander toestel van hetzelfde account (alleen met token; server controleert het account)
-        val src = sourceDeviceId?.takeIf { it.isNotBlank() && it != deviceId }?.let { "&source=${enc(it)}" } ?: ""
-        try {
+        val src = srcParam(sourceDeviceId)
+        val result = try {
             // Phase 1: Get file list
             onProgress(BackupProgress("Bestandslijst ophalen (slot $slot)...", 1, 5))
-            val listResponse = get("$BASE_URL?action=list&slot=$slot$src")
-            val listBody = listResponse.body?.string() ?: "{}"
-            if (!listResponse.isSuccessful) {
-                return@withContext BackupResult(false, "Lijst ophalen mislukt: HTTP ${listResponse.code}")
+            val listed = try { listSlot(slot, src) } catch (e: Exception) {
+                return@withContext BackupResult(false, e.message ?: "Lijst ophalen mislukt").also { RestoreSupport.logResult("cloud", false, it.message) }
             }
-
-            val jsonDecoderList = Json { ignoreUnknownKeys = true }
-            val listed = jsonDecoderList.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(listBody)["files"]
-                ?.let { jsonDecoderList.decodeFromString<List<FileEntry>>(it.toString()) } ?: emptyList()
             val jsonFiles = listOf("saved_tracks.json", "playlists.json", "playlist_tracks.json")
             val audioEntries = listed.filter { e -> audioExtensions.any { e.path.endsWith(".$it") } &&
                 (e.path.startsWith("downloads/") || e.path.startsWith("ringtones/")) }
@@ -314,15 +347,13 @@ class IctHorseBackupClient(private val context: Context) {
                 deleteRecursively()
                 mkdirs()
             }
-
             for (file in jsonFiles) {
                 downloadFile(slot, file, File(tempDir, file), src, onBytes)
             }
-
-            // Phase 3: Restore database
-            phaseText = "Database herstellen..."; phaseNo = 3
-            onProgress(meter.progress(phaseText, phaseNo, 5))
             val jsonDecoder = Json { ignoreUnknownKeys = true }
+            val trackBackups = jsonDecoder.decodeFromString<List<TrackBackup>>(File(tempDir, "saved_tracks.json").readText())
+            val rawPlaylists = jsonDecoder.decodeFromString<List<PlaylistBackup>>(File(tempDir, "playlists.json").readText())
+            val ptBackups = jsonDecoder.decodeFromString<List<PlaylistTrackBackup>>(File(tempDir, "playlist_tracks.json").readText())
 
             // v2.2.0: instellingen eerst — de mappen daaruit bepalen waar tracks en bestanden landen
             if (listed.any { it.path == "settings.json" }) {
@@ -339,13 +370,41 @@ class IctHorseBackupClient(private val context: Context) {
             val downloadDir = storage.getDownloadDir()
             val ringtoneDir = storage.getRingtoneDir()
 
-            val tracksJson = File(tempDir, "saved_tracks.json").readText()
-            val trackBackups = jsonDecoder.decodeFromString<List<TrackBackup>>(tracksJson)
-            val playlistsJson = File(tempDir, "playlists.json").readText()
-            val resolved = RestoreSupport.resolveContacts(context, jsonDecoder.decodeFromString<List<PlaylistBackup>>(playlistsJson))
+            // Phase 3 (v2.2.1: eerst de bestanden, dan pas de database — een fout laat de bibliotheek heel).
+            // Per bestand: zelfde grootte ⇒ overslaan; anders weghalen + schrijven; lukt dat niet ⇒ noteren, doorgaan.
+            var restoredFiles = 0
+            var skippedSame = 0
+            val fileFailures = mutableListOf<String>()
+            var firstError: String? = null
+            audioEntries.forEachIndexed { index, entry ->
+                phaseNo = 3
+                phaseText = "Bestanden downloaden (${index + 1}/${audioEntries.size})..."
+                onProgress(meter.progress(phaseText, phaseNo, 5))
+                val dir = if (entry.path.startsWith("downloads/")) downloadDir else ringtoneDir
+                val dest = File(dir, File(entry.path).name)
+                try {
+                    when (RestoreSupport.prepareTarget(dest, entry.size)) {
+                        TargetAction.SKIP_SAME -> { skippedSame++; restoredFiles++; meter.add(entry.size) }
+                        TargetAction.WRITE -> { downloadFile(slot, entry.path, dest, src, onBytes); restoredFiles++ }
+                    }
+                } catch (e: Exception) {
+                    fileFailures.add(dest.name)
+                    if (firstError == null) firstError = e.message
+                    RemoteLogger.w("Restore", "Bestand niet teruggezet", mapOf("file" to dest.absolutePath, "error" to (e.message ?: "?")))
+                }
+            }
+            if (audioEntries.isNotEmpty() && restoredFiles == 0) {
+                tempDir.deleteRecursively()
+                return@withContext BackupResult(false,
+                    "Herstel afgebroken — geen enkel bestand kon worden weggeschreven. Je bibliotheek is niet gewijzigd.\n${firstError ?: ""}")
+                    .also { RestoreSupport.logResult("cloud", false, it.message, fileFailures) }
+            }
+
+            // Phase 4: Restore database
+            phaseText = "Database herstellen..."; phaseNo = 4
+            onProgress(meter.progress(phaseText, phaseNo, 5))
+            val resolved = RestoreSupport.resolveContacts(context, rawPlaylists)
             val playlistBackups = resolved.playlists
-            val ptJson = File(tempDir, "playlist_tracks.json").readText()
-            val ptBackups = jsonDecoder.decodeFromString<List<PlaylistTrackBackup>>(ptJson)
 
             db.clearAllTables()
 
@@ -375,17 +434,6 @@ class IctHorseBackupClient(private val context: Context) {
                 db.playlistTrackDao().insert(PlaylistTrack(pt.playlistId, pt.trackId, pt.sortOrder))
             }
 
-            // Phase 4: audio downloaden — voortgang per 64 KB
-            var restoredFiles = 0
-            audioEntries.forEachIndexed { index, entry ->
-                phaseNo = 4
-                phaseText = "Bestanden downloaden (${index + 1}/${audioEntries.size})..."
-                onProgress(meter.progress(phaseText, phaseNo, 5))
-                val dir = if (entry.path.startsWith("downloads/")) downloadDir else ringtoneDir
-                downloadFile(slot, entry.path, File(dir, File(entry.path).name), src, onBytes)
-                restoredFiles++
-            }
-
             // Bestanden staan er nu ⇒ ringtones van actieve belplaylists meteen zetten
             val applyFailures = RestoreSupport.applyActiveCallPlaylists(context, db)
 
@@ -395,14 +443,16 @@ class IctHorseBackupClient(private val context: Context) {
             BackupResult(
                 success = true,
                 message = "Herstel van slot $slot geslaagd: ${trackBackups.size} tracks, ${playlistBackups.size} playlists, $restoredFiles bestanden" +
-                    RestoreSupport.summary(resolved.unresolved, applyFailures),
+                    (if (skippedSame > 0) " ($skippedSame stonden er al)" else "") +
+                    RestoreSupport.summary(resolved.unresolved, applyFailures, fileFailures),
                 trackCount = trackBackups.size,
                 playlistCount = playlistBackups.size,
                 fileCount = restoredFiles
-            )
+            ).also { RestoreSupport.logResult("cloud", true, it.message, fileFailures) }
         } catch (e: Exception) {
-            BackupResult(false, "iCt Horse herstel mislukt: ${e.message}")
+            BackupResult(false, "iCt Horse herstel mislukt: ${e.message}").also { RestoreSupport.logResult("cloud", false, it.message) }
         }
+        result
     }
 
     // ── HTTP helpers ────────────────────────────────────────────────
@@ -455,12 +505,11 @@ class IctHorseBackupClient(private val context: Context) {
         }
 
         destFile.parentFile?.mkdirs()
-        response.body?.byteStream()?.use { input ->
-            destFile.outputStream().use { output ->
-                input.copyCounting(output, onBytes)
+        response.use { r ->
+            r.body?.byteStream()?.use { input ->
+                RestoreSupport.writeTarget(destFile) { output -> input.copyCounting(output, onBytes) }
             }
         }
-        response.close()
     }
 }
 

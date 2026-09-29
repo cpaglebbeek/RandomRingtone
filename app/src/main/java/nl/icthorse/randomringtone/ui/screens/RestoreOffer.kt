@@ -35,7 +35,7 @@ fun RestoreOfferHost(
     var offers by remember { mutableStateOf<List<BackupOffer>>(emptyList()) }
     var dismissed by remember { mutableStateOf(false) }
     var restoring by remember { mutableStateOf(false) }
-    var phase by remember { mutableStateOf("") }
+    var progress by remember { mutableStateOf<nl.icthorse.randomringtone.data.BackupProgress?>(null) }
 
     LaunchedEffect(licensed) {
         if (!licensed) return@LaunchedEffect
@@ -61,8 +61,7 @@ fun RestoreOfferHost(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (restoring) {
-                    Text(phase.ifBlank { "Bezig…" })
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    TransferProgress(progress)
                 } else {
                     Text("Er staan backups van een ander toestel met hetzelfde account:")
                     offers.forEach { o ->
@@ -83,7 +82,7 @@ fun RestoreOfferHost(
                                             restoring = true
                                             AppBusyState.isBusy = true
                                             val result = client.restore(s.slot, db, ringtoneManager.storage,
-                                                onProgress = { p -> phase = p.phase }, sourceDeviceId = o.deviceId)
+                                                onProgress = { p -> progress = p }, sourceDeviceId = o.deviceId)
                                             AppBusyState.isBusy = false
                                             restoring = false
                                             dismissed = true

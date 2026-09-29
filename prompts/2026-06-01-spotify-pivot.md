@@ -3,7 +3,7 @@ date: 2026-06-01
 project: RandomRingtone
 session: SpotMate-debug-loop → Cronet-revert → Spotify Web API pivot
 resume: spotify-webapi-v200
-status: pending
+status: done
 ---
 
 # Sessie 2026-06-01 — SpotMate-debug-loop + Cronet-experiment + Spotify Web API pivot

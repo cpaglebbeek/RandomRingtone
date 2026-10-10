@@ -28,7 +28,7 @@ object RemoteLogger {
 
     private const val TAG = "RemoteLogger"
     private const val SERVER_URL = "https://horsecloud55.ddns.net/rrlog/log"
-    private const val API_KEY = "a27b57cdf56e023e3fa4947681e912291abf910ff5b90bb8"
+    private val API_KEY = nl.icthorse.randomringtone.BuildConfig.RR_LOGGER_API_KEY
     private const val HEARTBEAT_INTERVAL_MS = 30_000L
     private const val FLUSH_INTERVAL_MS = 2_000L
     private const val MAX_QUEUE_SIZE = 500

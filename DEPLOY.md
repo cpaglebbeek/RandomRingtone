@@ -225,3 +225,16 @@ Wanneer een build als STABLE wordt gemarkeerd:
 [ ] App getest op device
 [ ] (optioneel) Marker gewijzigd naar STABLE na succesvolle test
 ```
+
+## Build-geheimen (sinds v2.3.1, 2026-10-10)
+
+Deze repo is **public**. Keystore-wachtwoord en de API-keys voor logger (`/rrlog/log`) en backup-API
+(`icthorse.nl/randomringtone/backup_api.php`) staan niet meer in de code maar in
+`~/.config/randomringtone/secrets.properties` (mode 600; sleutels `RR_STORE_PASSWORD`, `RR_KEY_PASSWORD`,
+`RR_LOGGER_API_KEY`, `RR_BACKUP_API_KEY`). Bron: `ClaudeSecrets/secrets/randomringtone/secrets.properties`
+(uitgerold door `ClaudeConfig/bin/bootstrap.sh`). Ontbreekt het bestand, dan bouwt Gradle met lege waarden:
+de release-signing faalt en logging/backup krijgen 401.
+
+De vorige waarden lekten in deze repo en zijn op 2026-10-10 geroteerd én uit de git-history verwijderd.
+Gevolg: app-versies t/m v2.3.0 kunnen niet meer remote loggen, en toestellen zonder eigen device-token
+geen backup meer maken, tot ze v2.3.1+ hebben.

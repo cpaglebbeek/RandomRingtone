@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,14 @@ plugins {
     id("com.google.devtools.ksp") version "2.1.0-1.0.29"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.1.0"
 }
+
+// Geheimen staan NIET in deze repo (die is public). Bron: ClaudeSecrets/secrets/randomringtone/
+// secrets.properties, uitgerold naar ~/.config/randomringtone/secrets.properties (mode 600).
+val rrSecrets = Properties().apply {
+    val f = file(System.getProperty("user.home") + "/.config/randomringtone/secrets.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun rrSecret(name: String): String = rrSecrets.getProperty(name) ?: System.getenv(name) ?: ""
 
 val appCodename = "Elton_John"
 val appReleaseName = "Rocket_Man"
@@ -22,9 +32,9 @@ android {
         }
         create("release") {
             storeFile = file(System.getProperty("user.home") + "/.android/randomringtone-release.jks")
-            storePassword = "RandomRing2026!"
+            storePassword = rrSecret("RR_STORE_PASSWORD")
             keyAlias = "randomringtone"
-            keyPassword = "RandomRing2026!"
+            keyPassword = rrSecret("RR_KEY_PASSWORD")
         }
     }
 
@@ -32,14 +42,16 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 147
-        versionName = "2.3.0"
+        versionCode = 148
+        versionName = "2.3.1"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"$appCodename\"")
         buildConfigField("String", "RELEASE_NAME", "\"$appReleaseName\"")
-        buildConfigField("int", "BUILD_NUMBER", "143")
+        buildConfigField("int", "BUILD_NUMBER", "148")
         buildConfigField("String", "BUILD_STATUS", "\"DEBUG\"")  // DEBUG of STABLE
+        buildConfigField("String", "RR_LOGGER_API_KEY", "\"${rrSecret("RR_LOGGER_API_KEY")}\"")
+        buildConfigField("String", "RR_BACKUP_API_KEY", "\"${rrSecret("RR_BACKUP_API_KEY")}\"")
     }
 
     buildTypes {

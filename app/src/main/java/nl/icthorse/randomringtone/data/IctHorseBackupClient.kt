@@ -27,7 +27,7 @@ class IctHorseBackupClient(private val context: Context) {
 
     companion object {
         private const val BASE_URL = "https://icthorse.nl/randomringtone/backup_api.php"
-        private const val API_KEY = "16cBm1-DBBFgYSnveI2v3F8zKGfVILI_"
+        private val API_KEY = nl.icthorse.randomringtone.BuildConfig.RR_BACKUP_API_KEY
     }
 
     private val client = OkHttpClient.Builder()

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Spiegel icthorse.nl/RandomRing/Apk (APK's + build.timestamp) naar HC55 /srv/randomringtone-apk,
-# publiek via https://horsecloud55.ddns.net/rrlog/apk/ — fallback voor de in-app update (v2.2.2).
+# publiek via https://icthorsecloud.nl/rrlog/apk/ — fallback voor de in-app update (v2.2.2).
 # Draai na elke in-app-publicatie (tools/publish-inapp.sh doet dat zelf).
 set -euo pipefail
 DEST=/srv/randomringtone-apk

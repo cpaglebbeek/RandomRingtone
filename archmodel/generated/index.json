@@ -1981,7 +1981,7 @@
     {
       "id": "nd_logger",
       "type": "Node",
-      "label": "HC55 horsecloud55.ddns.net/rrlog (logger + viewer)",
+      "label": "HC55 icthorsecloud.nl/rrlog (logger + viewer)",
       "layer": "technology",
       "levels": [
         "fysiek"

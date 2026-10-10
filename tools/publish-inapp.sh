@@ -11,4 +11,4 @@ ssh icthorse "cd domains/icthorse.nl/public_html/RandomRing/Apk && echo '$L' >> 
 echo "$L" >> build.timestamp
 tools/sync-apk-mirror.sh
 curl -fsS -o /dev/null -w "icthorse %{http_code}\n" "https://icthorse.nl/RandomRing/Apk/$F"
-curl -fsS -o /dev/null -w "spiegel  %{http_code}\n" "https://horsecloud55.ddns.net/rrlog/apk/$F"
+curl -fsS -o /dev/null -w "spiegel  %{http_code}\n" "https://icthorsecloud.nl/rrlog/apk/$F"

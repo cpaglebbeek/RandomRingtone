@@ -940,7 +940,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .padding(top = 4.dp)
-                                .clickable { uriHandler.openUri("https://horsecloud55.ddns.net/rrlog/") }
+                                .clickable { uriHandler.openUri("https://icthorsecloud.nl/rrlog/") }
                         )
                     }
                 }

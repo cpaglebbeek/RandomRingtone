@@ -187,13 +187,13 @@ Singleton `object RemoteLogger` — altijd beschikbaar na `init(context)` bij ap
 
 Elke `RemoteLogger` call schrijft **altijd** naar:
 1. **Lokaal:** Android Logcat via `Log.{d,i,w,e}(tag, message)`
-2. **Remote:** Batch POST naar `https://horsecloud55.ddns.net/rrlog/log` (als `enabled = true`)
+2. **Remote:** Batch POST naar `https://icthorsecloud.nl/rrlog/log` (als `enabled = true`)
 
 #### Remote Server
 
 | Eigenschap | Waarde |
 |------------|--------|
-| URL | `https://horsecloud55.ddns.net/rrlog/log` |
+| URL | `https://icthorsecloud.nl/rrlog/log` |
 | Auth | `X-Api-Key` header |
 | Batch size | Max 50 entries per flush |
 | Flush interval | 2 seconden |

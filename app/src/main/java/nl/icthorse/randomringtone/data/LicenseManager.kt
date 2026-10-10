@@ -29,7 +29,7 @@ class LicenseManager(private val context: Context) {
         private const val GRACE_PERIOD_MS = 72 * 60 * 60 * 1000L  // 72 uur
         private const val PREFS_NAME = "randomringtone_license"
         private const val INFINITE_EXPIRY = 4000000000000L
-        const val BACKEND_BASE = "https://horsecloud55.ddns.net/rrlog"
+        const val BACKEND_BASE = "https://icthorsecloud.nl/rrlog"
         private const val AUTH_PREFS = "rr_device_auth"
         private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
     }

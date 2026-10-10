@@ -45,7 +45,7 @@ class UpdateManager(private val context: Context) {
         private const val TIMESTAMP_URL = "${BASE_URL}build_info.php"
 
         /** v2.2.2: publieke spiegel op HC55 (tools/sync-apk-mirror.sh) — fallback als icthorse.nl niet reageert. */
-        const val MIRROR_URL = "https://horsecloud55.ddns.net/rrlog/apk/"
+        const val MIRROR_URL = "https://icthorsecloud.nl/rrlog/apk/"
         private const val MIRROR_TIMESTAMP_URL = "${MIRROR_URL}build.timestamp"
 
         /** Bronnen in volgorde: (label, versielijst-URL, APK-basis). */

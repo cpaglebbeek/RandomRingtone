@@ -136,7 +136,7 @@ M4aMetadata   ── (geen afhankelijkheden, pure byte-level I/O)
 | iCt Horse APK | `icthorse.nl/RandomRing/Apk/` | Geen | UpdateManager |
 | iCt Horse License | `icthorse.nl/Apps/Android/RandomRing/lics/` | Device hash | LicenseManager |
 | iCt Horse Backup | `icthorse.nl` | API key | IctHorseBackupClient |
-| Remote Logger | `horsecloud55.ddns.net/rrlog/log` | X-Api-Key header | RemoteLogger |
+| Remote Logger | `icthorsecloud.nl/rrlog/log` | X-Api-Key header | RemoteLogger |
 
 ### Android System APIs
 

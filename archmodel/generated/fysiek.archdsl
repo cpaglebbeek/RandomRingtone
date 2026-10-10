@@ -98,7 +98,7 @@ Node nd_icthorse "icthorse.nl (licentie, backup_api.php, APK-updates)" in laag_t
     -stroke "#0284c7"
     -attr status = "extern"
 }
-Node nd_logger "HC55 horsecloud55.ddns.net/rrlog (logger + viewer)" in laag_technology {
+Node nd_logger "HC55 icthorsecloud.nl/rrlog (logger + viewer)" in laag_technology {
     -fill "#f0f9ff"
     -stroke "#0284c7"
     -attr status = "extern"

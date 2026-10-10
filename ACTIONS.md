@@ -26,7 +26,7 @@
 
 - **Licentie-activatie:** app → `POST /rrlog/license/request` → mail met magic link naar
   `cglebbeek+randomringtone.activation.request@gmail.com` → toekennen/afwijzen na **HorseAPK-goedkeuring** (PORTAL_API §7).
-- **Beheer:** `https://horsecloud55.ddns.net/rrlog/beheer/` (login via HorseAPK, geen Basic Auth). Oud beheer op
+- **Beheer:** `https://icthorsecloud.nl/rrlog/beheer/` (login via HorseAPK, geen Basic Auth). Oud beheer op
   icthorse.nl/beheer/RandomRing had sinds juni geen `api.php` meer.
 - **Account = e-mailadres** in `icthorse.nl/randomringtone/private/devices/<hash>.json` (403); publieke `lics/` ongewijzigd.
 - **Toestel-token** (sha256 op de server) voor backup_api v3 + Spotify-bron; oude gedeelde backup-key alleen nog voor

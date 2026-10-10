@@ -319,7 +319,7 @@ Node nd_deezer "api.deezer.com (30 s-previews)" {
 Node nd_icthorse "icthorse.nl (licentie, backup_api.php, APK-updates)" {
     -attr status = "extern"
 }
-Node nd_logger "HC55 horsecloud55.ddns.net/rrlog (logger + viewer)" {
+Node nd_logger "HC55 icthorsecloud.nl/rrlog (logger + viewer)" {
     -attr status = "extern"
     -description "De viewer-pagina staat in deze repo als logger-server/index.html; de logger-dienst zelf draait op HC55 buiten deze repo."
 }

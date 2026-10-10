@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
 object RemoteLogger {
 
     private const val TAG = "RemoteLogger"
-    private const val SERVER_URL = "https://horsecloud55.ddns.net/rrlog/log"
+    private const val SERVER_URL = "https://icthorsecloud.nl/rrlog/log"
     private val API_KEY = nl.icthorse.randomringtone.BuildConfig.RR_LOGGER_API_KEY
     private const val HEARTBEAT_INTERVAL_MS = 30_000L
     private const val FLUSH_INTERVAL_MS = 2_000L

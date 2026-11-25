@@ -1,7 +1,7 @@
 ---
 date: 2026-09-29
 repo: RandomRingtone
-status: pending
+status: done
 resume: "verder met randomringtone — v2.2.3 Isnt_She_Lovely (DEBUG) LIVE (art na restore + toestemming vervangen 23 oude bestanden). EERST vragen: restore op Fairphone 6 met v2.2.3 — toestemmingsvenster verschenen, alle album art zichtbaar? Log: Restore/Toestemming + Library/Scan. Daarna (2a7d66dd, Fold-backup) nu gelukt, contactenrecht toegestaan? Resultaat staat in app.log (Restore/Resultaat cloud). Daarna: shad-playlist vullen, archief HC55 backups-20260929 opruimen na bevestiging. Nog open uit 29-09: E2E magic link, ProjectGrant Fairphone, DEBUG-marker weg (vrijgave), Spotify-sleutels, accounts overige toestellen."
 ---
 

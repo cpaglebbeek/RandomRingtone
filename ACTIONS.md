@@ -1,6 +1,6 @@
 # Openstaande Acties — RandomRingtone
 
-> Laatst bijgewerkt: 2026-09-29 — v2.2.0 gepubliceerd (DEBUG) + cloud-backup Fold geconsolideerd; v2.0.0 "Tina_Turner" / "The_Best" gebouwd (release-ondertekend) + backend v1.1.0 + backup_api v3 + HorseAPK v1.2.0 live
+> Laatst bijgewerkt: 2026-11-25 — v2.3.2 (149) "Elton_John"/"Tiny_Dancer" gepubliceerd (DEBUG): hostnaam icthorsecloud.nl + geroteerde sleutels + bronnen v2.3.0
 
 ## Hoogste prio — afronden v2.0.0
 
@@ -12,7 +12,10 @@
 - [x] v2.2.1 (144) "Sir_Duke" gepubliceerd als DEBUG 29-09 — BUG #88 (rechtenfout bij restore op Fairphone: contactenrecht/doelmappen vooraf uit backup, EACCES per bestand, bestanden vóór database)
 - [x] v2.2.2 (145) "Signed_Sealed_Delivered" DEBUG 29-09 — BUG #89 update-check/download hing (icthorse.nl-timeouts): harde timeouts + fallback HC55-spiegel `/rrlog/apk/`; publiceren voortaan via `tools/publish-inapp.sh`
 - [x] v2.2.3 (146) "Isnt_She_Lovely" DEBUG 29-09 — BUG #90 album art na restore + bestanden eerdere installatie vervangen via Android-toestemming
-- [ ] **Fairphone/Fold (Christian):** v2.2.3 installeren → restore → toestemming 'wijzigen' toestaan → album art controleren → Backup → Herstellen uit cloud (slot 1 = geconsolideerd) → controleren: 5 actieve playlists (Joy/mam/marius/theo/shad), contacttoewijzingen, album art; playlist **shad is leeg** (inhoud nooit gelogd) → zelf vullen; thomas/algemeen/wa globaal staan UIT
+- [x] v2.3.2 (149) "Tiny_Dancer" DEBUG 25-11 — herbouw met hostnaam `icthorsecloud.nl` (oude ddns-naam heeft geen A-record meer) + geroteerde sleutels van 10-10 + bronnen v2.3.0 (Spotify-embed, YouTube op toestel, methodetest). v2.3.0/v2.3.1 zijn nooit gepubliceerd; de v2.3.1-APK bevatte nog de ddns-naam. Smoke verse AVD Android 16: 0 FATAL, logregels komen aan op HC55.
+- [ ] **Alle toestellen t/m v2.2.3 loggen sinds 10-10 niet meer** (dode ddns-naam + geroteerde sleutel; ook licentie-aanvraag en update-spiegel onbereikbaar, backup zonder toestel-token geweigerd). Oplossing = updaten naar v2.3.2+; breed pas na vrijgave STABLE (Theo draait nog 1.8.9).
+- [ ] **Christian:** v2.3.2 op de Fairphone (draaide 10-10 nog 2.2.2; schuif 'Old build' aan) → Instellingen → Bronnen & downloadmethodes → Test per methode (Spotify-embed, YouTube op toestel) — in de smoke niet getest
+- [ ] **Fairphone/Fold (Christian):** v2.3.2 installeren (bevat de fix van v2.2.3) → restore → toestemming 'wijzigen' toestaan → album art controleren → Backup → Herstellen uit cloud (slot 1 = geconsolideerd) → controleren: 5 actieve playlists (Joy/mam/marius/theo/shad), contacttoewijzingen, album art; playlist **shad is leeg** (inhoud nooit gelogd) → zelf vullen; thomas/algemeen/wa globaal staan UIT
 - [ ] Na geslaagd herstel: archief HC55 `/srv/randomringtone-backup-archief/backups-20260929/` mag weg (geconsolideerde kopie blijft in `geconsolideerd-20260929/`)
 - [ ] Bevinding (niet aangeraakt): `StorageManager.parseFileName` hasht `nameWithoutExtension`, `TrackIdResolver` hasht `name` (mét extensie) → scan-ids ≠ canonical ids (scan dedupt op bestandsnaam, dus geen dubbelingen, wel inconsistent)
 - [ ] Na E2E + test op de Fold: DEBUG-marker weghalen in `build.timestamp` (lokaal + icthorse.nl) = vrijgave; testlicenties verwijderen via `/rrlog/beheer/`

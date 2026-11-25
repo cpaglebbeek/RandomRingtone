@@ -237,4 +237,5 @@ de release-signing faalt en logging/backup krijgen 401.
 
 De vorige waarden lekten in deze repo en zijn op 2026-10-10 geroteerd én uit de git-history verwijderd.
 Gevolg: app-versies t/m v2.3.0 kunnen niet meer remote loggen, en toestellen zonder eigen device-token
-geen backup meer maken, tot ze v2.3.1+ hebben.
+geen backup meer maken, tot ze v2.3.2+ hebben (v2.3.1 is nooit gepubliceerd: die APK bevatte nog de oude
+ddns-hostnaam, die sinds het najaar van 2026 geen A-record meer heeft).

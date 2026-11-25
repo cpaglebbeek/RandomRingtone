@@ -29,8 +29,14 @@ object M4aMetadata {
             val moovPos = findTopLevelBox(bytes, "moov") ?: return
             val moovSize = readInt32(bytes, moovPos)
 
-            // Al metadata aanwezig → niet overschrijven
-            if (findChildBox(bytes, moovPos, "udta") != null) return
+            // Eigen metadata (hoes of marker) aanwezig → niet overschrijven. Een udta zonder die twee (ffmpeg/yt-dlp
+            // schrijft alleen een encoder-tag) wordt vervangen (v2.4.0: bestanden van de eigen server).
+            val oldUdtaPos = findChildBox(bytes, moovPos, "udta")
+            val oldUdtaSize = oldUdtaPos?.let { readInt32(bytes, it) } ?: 0
+            if (oldUdtaPos != null) {
+                val old = String(bytes, oldUdtaPos, oldUdtaSize, Charsets.ISO_8859_1)
+                if ("covr" in old || "\u00A9cmt" in old) return
+            }
 
             // Bouw ilst items
             val items = mutableListOf<ByteArray>()
@@ -48,15 +54,26 @@ object M4aMetadata {
             val meta = wrapBox("meta", ByteArray(4) + hdlr + ilst)
             val udta = wrapBox("udta", meta)
 
-            // Voeg udta toe aan einde van moov content en update moov size
+            // Nieuwe moov = oude moov zonder oude udta + nieuwe udta aan het einde
             val moovEnd = moovPos + moovSize
-            val newFile = ByteArray(bytes.size + udta.size)
-            System.arraycopy(bytes, 0, newFile, 0, moovEnd)
-            System.arraycopy(udta, 0, newFile, moovEnd, udta.size)
+            val keepA = (oldUdtaPos ?: moovEnd) - moovPos
+            val keepB = if (oldUdtaPos != null) moovEnd - (oldUdtaPos + oldUdtaSize) else 0
+            val newMoov = ByteArray(keepA + keepB + udta.size)
+            System.arraycopy(bytes, moovPos, newMoov, 0, keepA)
+            if (keepB > 0) System.arraycopy(bytes, oldUdtaPos!! + oldUdtaSize, newMoov, keepA, keepB)
+            System.arraycopy(udta, 0, newMoov, keepA + keepB, udta.size)
+            writeInt32(newMoov, 0, newMoov.size)
+            // Staat de audio (mdat) ná moov, dan schuiven de absolute chunk-offsets mee (stco/co64); anders speelt
+            // het bestand niet meer af. MediaMuxer (moov achteraan) en gefragmenteerde bestanden raakt dit niet.
+            val delta = newMoov.size - moovSize
+            if (delta != 0) shiftChunkOffsets(newMoov, 0, newMoov.size, moovEnd.toLong(), delta)
+
+            val newFile = ByteArray(bytes.size + delta)
+            System.arraycopy(bytes, 0, newFile, 0, moovPos)
+            System.arraycopy(newMoov, 0, newFile, moovPos, newMoov.size)
             if (moovEnd < bytes.size) {
-                System.arraycopy(bytes, moovEnd, newFile, moovEnd + udta.size, bytes.size - moovEnd)
+                System.arraycopy(bytes, moovEnd, newFile, moovPos + newMoov.size, bytes.size - moovEnd)
             }
-            writeInt32(newFile, moovPos, moovSize + udta.size)
 
             file.writeBytes(newFile)
         } catch (_: Exception) {
@@ -117,6 +134,41 @@ object M4aMetadata {
         val payload = ByteArray(25)
         "mdir".toByteArray(Charsets.ISO_8859_1).copyInto(payload, 8)
         return wrapBox("hdlr", payload)
+    }
+
+    /** Verhoog in [box] (moov of een containerbox daarin) elke chunk-offset ≥ [from] met [delta]. */
+    private fun shiftChunkOffsets(buf: ByteArray, boxPos: Int, boxEnd: Int, from: Long, delta: Int) {
+        var pos = boxPos + 8
+        while (pos + 8 <= boxEnd) {
+            val size = readInt32(buf, pos)
+            if (size < 8 || pos + size > boxEnd) return
+            when (readBoxType(buf, pos)) {
+                "trak", "mdia", "minf", "stbl" -> shiftChunkOffsets(buf, pos, pos + size, from, delta)
+                "stco" -> {
+                    val n = readInt32(buf, pos + 12)
+                    for (k in 0 until n) {
+                        val o = pos + 16 + 4 * k
+                        if (o + 4 > pos + size) break
+                        val v = readInt32(buf, o).toLong() and 0xFFFFFFFFL
+                        if (v >= from) writeInt32(buf, o, (v + delta).toInt())
+                    }
+                }
+                "co64" -> {
+                    val n = readInt32(buf, pos + 12)
+                    for (k in 0 until n) {
+                        val o = pos + 16 + 8 * k
+                        if (o + 8 > pos + size) break
+                        val v = (readInt32(buf, o).toLong() shl 32) or (readInt32(buf, o + 4).toLong() and 0xFFFFFFFFL)
+                        if (v >= from) {
+                            val nv = v + delta
+                            writeInt32(buf, o, (nv ushr 32).toInt())
+                            writeInt32(buf, o + 4, nv.toInt())
+                        }
+                    }
+                }
+            }
+            pos += size
+        }
     }
 
     // --- Box finding ---

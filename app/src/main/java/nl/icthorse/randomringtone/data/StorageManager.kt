@@ -169,7 +169,7 @@ class StorageManager(private val context: Context) {
 
     suspend fun getYouTubeMethod(): YouTubeMethod {
         val saved = context.settingsStore.data.map { it[KEY_YOUTUBE_METHOD] }.first()
-        return YouTubeMethod.entries.find { it.id == saved } ?: YouTubeMethod.DEVICE
+        return YouTubeMethod.entries.find { it.id == saved } ?: YouTubeMethod.SERVER
     }
 
     suspend fun setYouTubeMethod(m: YouTubeMethod) {
@@ -770,20 +770,20 @@ data class SpotifyConverter(
 enum class SpotifyMethod(val id: String, val label: String, val detail: String) {
     PREVIEW("preview", "Preview (Spotify-embed + Deezer)",
         "30 seconden, geen sleutels nodig. Titel/duur uit de openbare Spotify-embed, audio van Deezer (128 kbps) of anders Spotify's eigen preview."),
-    FULL("full", "Volledig nummer (via YouTube, op toestel)",
-        "Zoekt artiest + titel op YouTube, kiest de video met dezelfde duur en downloadt de audio (M4A ~128 kbps) met je eigen internetverbinding."),
+    FULL("full", "Volledig nummer (via YouTube)",
+        "Zoekt artiest + titel op YouTube, kiest de video met dezelfde duur en downloadt de audio (M4A) volgens de YouTube-methode hieronder."),
     BACKEND("backend", "Preview via backend (Spotify Web API + ISRC)",
         "Exacte ISRC-match via de RandomRingtone-server. Werkt alleen als daar Spotify-sleutels staan."),
     CONVERTER("converter", "Converter-website (handmatig)",
         "Opent een externe converter-site in de app; jij plakt de link en downloadt zelf. Sites wisselen vaak.")
 }
 
-/** v2.3.0: hoe een YouTube-video een audiobestand wordt. */
+/** v2.3.0: hoe een YouTube-video een audiobestand wordt. v2.4.0: eigen server erbij (standaard), Y2Mate eruit. */
 enum class YouTubeMethod(val id: String, val label: String, val detail: String) {
+    SERVER("server", "Eigen server (YourTube)",
+        "De RandomRingtone-server haalt de audio (M4A) op met de motor achter YourTube en de app haalt het bestand daar op. Werkt ook als YouTube je eigen netwerk blokkeert; alleen op een gelicenseerd toestel. Mislukt het, dan volgt 'Op toestel'."),
     DEVICE("device", "Op toestel (NewPipeExtractor)",
-        "Haalt de audio (M4A ~128 kbps) rechtstreeks van YouTube met je eigen verbinding. Geen tussenpartij."),
-    Y2MATE("y2mate", "Y2Mate (externe converter)",
-        "Via de Y2Mate-API (MP3). Wordt vaak geblokkeerd of verhuist; valt ook in als 'Op toestel' faalt.")
+        "Haalt de audio (M4A ~128 kbps) rechtstreeks van YouTube met je eigen verbinding. Geen tussenpartij.")
 }
 
 data class DiskUsage(

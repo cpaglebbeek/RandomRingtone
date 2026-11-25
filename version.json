@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.3.2",
-  "versionCode": 149,
-  "codename": "Elton_John",
-  "releaseName": "Tiny_Dancer",
+  "version": "2.4.0",
+  "versionCode": 150,
+  "codename": "Prince",
+  "releaseName": "Purple_Rain",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-11-25",
-  "status": "stable",
-  "note": "v2.3.2 = herbouw met hostnaam icthorsecloud.nl (oude ddns-naam resolvet niet meer) + geroteerde sleutels; inhoud v2.3.0: bronnen & downloadmethodes: Spotify-embed zonder sleutels + Deezer-match, YouTube op toestel (NewPipeExtractor), Spotify volledig via YouTube, gekaapte/dode converters weg, methodetest in Instellingen"
+  "status": "development",
+  "note": "v2.4.0 = YouTube-audio via de eigen server (motor achter YourTube: logger /rrlog/youtube + YourTube-dienstsleutel), standaardmethode voor YouTube en 'Spotify volledig'; terugval 'Op toestel'; Y2Mate verwijderd"
 }

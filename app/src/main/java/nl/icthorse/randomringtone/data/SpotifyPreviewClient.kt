@@ -254,7 +254,8 @@ class SpotifyPreviewClient(private val context: Context) {
         val sanitized = "${info.name}-${info.artist.substringBefore(",")}"
             .replace(Regex("[^a-zA-Z0-9_\\-]"), "_").replace(Regex("_+"), "_").trim('_')
         val cover = info.albumArt?.let { fetchBytes(it) }
-        val r = YouTubeOnDevice.downloadAudio(hit.videoId, destDir, prefix = "spotify_mp3_", baseName = sanitized,
+        val r = YouTubeDownload.audio(licenseManager, StorageManager(context).getYouTubeMethod(), hit.videoId, destDir,
+            prefix = "spotify_mp3_", baseName = sanitized,
             displayTitle = info.name, displayArtist = info.artist, coverJpeg = cover, forceOverwrite = forceOverwrite,
             onProgress = { ph, p -> onProgress(ph, 0.1f + 0.9f * p) })
         DownloadResult(r.success, file = r.file, trackInfo = info.copy(previewSource = "youtube:${hit.videoId}"),

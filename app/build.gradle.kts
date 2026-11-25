@@ -16,8 +16,8 @@ val rrSecrets = Properties().apply {
 }
 fun rrSecret(name: String): String = rrSecrets.getProperty(name) ?: System.getenv(name) ?: ""
 
-val appCodename = "Elton_John"
-val appReleaseName = "Tiny_Dancer"
+val appCodename = "Prince"
+val appReleaseName = "Purple_Rain"
 
 android {
     namespace = "nl.icthorse.randomringtone"
@@ -42,8 +42,8 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 149
-        versionName = "2.3.2"
+        versionCode = 150
+        versionName = "2.4.0"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"$appCodename\"")

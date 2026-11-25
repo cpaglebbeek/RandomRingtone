@@ -25,7 +25,7 @@ fun SourceMethodsSection(storage: StorageManager, snackbarHostState: SnackbarHos
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var spotify by remember { mutableStateOf(SpotifyMethod.PREVIEW) }
-    var youtube by remember { mutableStateOf(YouTubeMethod.DEVICE) }
+    var youtube by remember { mutableStateOf(YouTubeMethod.SERVER) }
     var converterId by remember { mutableStateOf(StorageManager.DEFAULT_SPOTIFY_CONVERTER) }
     val results = remember { mutableStateMapOf<String, String>() }
     LaunchedEffect(Unit) {
@@ -109,8 +109,9 @@ fun SourceMethodsSection(storage: StorageManager, snackbarHostState: SnackbarHos
             onTest = {
                 runTest("youtube_${m.id}") {
                     when (m) {
+                        YouTubeMethod.SERVER -> nl.icthorse.randomringtone.data.YouTubeServer.selfTest(
+                            nl.icthorse.randomringtone.data.LicenseManager(context))
                         YouTubeMethod.DEVICE -> YouTubeOnDevice.selfTest()
-                        YouTubeMethod.Y2MATE -> probeY2Mate()
                     }
                 }
             }
@@ -175,15 +176,6 @@ private suspend fun probeSite(url: String): String = withContext(Dispatchers.IO)
             r.isSuccessful -> "✓ Bereikbaar (HTTP ${r.code})"
             else -> "✗ HTTP ${r.code}"
         }
-    }
-}
-
-private suspend fun probeY2Mate(): String = withContext(Dispatchers.IO) {
-    probe.newCall(Request.Builder().url("https://eta.etacloud.org/api/v1/auth?_=${System.currentTimeMillis()}")
-        .header("User-Agent", PROBE_UA).header("Referer", "https://v3.y2mate.nu/").header("Origin", "https://v3.y2mate.nu")
-        .build()).execute().use { r ->
-        val body = r.body?.string().orEmpty()
-        if (r.isSuccessful && "\"key\"" in body) "✓ Y2Mate-API antwoordt (sleutel ontvangen)" else "✗ Y2Mate geblokkeerd (HTTP ${r.code})"
     }
 }
 

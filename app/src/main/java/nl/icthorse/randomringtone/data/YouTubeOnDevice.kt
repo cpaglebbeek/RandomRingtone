@@ -114,7 +114,7 @@ object YouTubeOnDevice {
         return hits.minByOrNull(::score)
     }
 
-    private fun sanitize(s: String) = s.replace(Regex("[^\\p{L}\\p{N}_\\-!&'(),.\\[\\]]"), "_")
+    internal fun sanitize(s: String) = s.replace(Regex("[^\\p{L}\\p{N}_\\-!&'(),.\\[\\]]"), "_")
         .replace(Regex("_+"), "_").trim('_').take(120)
 
     /**
@@ -170,7 +170,7 @@ object YouTubeOnDevice {
         } catch (e: Exception) {
             val msg = when {
                 e is ReCaptchaException || e.javaClass.simpleName.contains("SignInConfirmNotBot") ->
-                    "YouTube vraagt een robotcontrole voor dit netwerk — probeer wifi/mobiel te wisselen of Y2Mate"
+                    "YouTube vraagt een robotcontrole voor dit netwerk — probeer wifi/mobiel te wisselen of de methode Eigen server"
                 else -> e.message ?: e.javaClass.simpleName
             }
             RemoteLogger.e("YouTubeOnDevice", "Download FAILED", mapOf("videoId" to id, "error" to msg.take(300),
@@ -203,7 +203,7 @@ object YouTubeOnDevice {
         return pos
     }
 
-    private fun thumbnail(id: String): ByteArray? {
+    internal fun thumbnail(id: String): ByteArray? {
         for (q in listOf("maxresdefault", "hqdefault", "mqdefault")) {
             try {
                 http.newCall(okhttp3.Request.Builder().url("https://i.ytimg.com/vi/$id/$q.jpg").build()).execute().use { r ->

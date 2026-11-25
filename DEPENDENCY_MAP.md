@@ -120,8 +120,8 @@ M4aMetadata   ── (geen afhankelijkheden, pure byte-level I/O)
                                                     ┌───────────┘
                                                     ▼
                                           ┌─────────────────┐
-                                          │ horsecloud55     │
-                                          │ .ddns.net        │
+                                          │ icthorsecloud.nl │
+                                          │                  │
                                           │ • /rrlog/log     │
                                           │   (remote log)   │
                                           └─────────────────┘

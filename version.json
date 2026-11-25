@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.3.1",
-  "versionCode": 148,
+  "version": "2.3.2",
+  "versionCode": 149,
   "codename": "Elton_John",
-  "releaseName": "Rocket_Man",
+  "releaseName": "Tiny_Dancer",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
-  "last_updated": "2026-10-10",
+  "last_updated": "2026-11-25",
   "status": "development",
-  "note": "v2.3.0 = bronnen & downloadmethodes: Spotify-embed zonder sleutels + Deezer-match, YouTube op toestel (NewPipeExtractor), Spotify volledig via YouTube, gekaapte/dode converters weg, methodetest in Instellingen"
+  "note": "v2.3.2 = herbouw met hostnaam icthorsecloud.nl (oude ddns-naam resolvet niet meer) + geroteerde sleutels; inhoud v2.3.0: bronnen & downloadmethodes: Spotify-embed zonder sleutels + Deezer-match, YouTube op toestel (NewPipeExtractor), Spotify volledig via YouTube, gekaapte/dode converters weg, methodetest in Instellingen"
 }

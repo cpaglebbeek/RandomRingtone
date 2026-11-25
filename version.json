@@ -7,6 +7,6 @@
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-11-25",
-  "status": "development",
+  "status": "stable",
   "note": "v2.3.2 = herbouw met hostnaam icthorsecloud.nl (oude ddns-naam resolvet niet meer) + geroteerde sleutels; inhoud v2.3.0: bronnen & downloadmethodes: Spotify-embed zonder sleutels + Deezer-match, YouTube op toestel (NewPipeExtractor), Spotify volledig via YouTube, gekaapte/dode converters weg, methodetest in Instellingen"
 }

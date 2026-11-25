@@ -2,7 +2,7 @@
 date: 2026-11-25
 repo: RandomRingtone
 status: pending
-resume: "verder met randomringtone — v2.3.2 Tiny_Dancer (DEBUG) LIVE 25-11 (hostnaam icthorsecloud.nl + geroteerde sleutels + bronnen v2.3.0). EERST vragen: v2.3.2 op de Fairphone geïnstalleerd? Dan meten in app.log (toestel 2a7d66dd, appVersion 2.3.2): komen logregels weer binnen, methodetest Spotify-embed/YouTube op toestel, restore zet de 23 geweigerde bestanden terug (fix v2.2.3). Daarna: vrijgave STABLE (DEBUG-marker weg) zodat de overige toestellen (Theo 1.8.9 e.a.) weer loggen; open uit 29-09: E2E magic link, ProjectGrant Fairphone, Spotify-sleutels, accounts overige toestellen, shad-playlist, archief backups-20260929."
+resume: "verder met randomringtone — v2.3.2 Tiny_Dancer STABLE vrijgegeven 25-11 + Z Fold 8 (fab5c382) gelicenseerd (hostnaam icthorsecloud.nl + geroteerde sleutels + bronnen v2.3.0). EERST vragen: v2.3.2 op de Fairphone geïnstalleerd? Dan meten in app.log (toestel 2a7d66dd, appVersion 2.3.2): komen logregels weer binnen, methodetest Spotify-embed/YouTube op toestel, restore zet de 23 geweigerde bestanden terug (fix v2.2.3). Daarna: in app.log nameten welke toestellen na de update terugkomen (Theo 1.8.9 e.a.); volgende build BUILD_STATUS=STABLE (label); open uit 29-09: E2E magic link, ProjectGrant Fairphone, Spotify-sleutels, accounts overige toestellen, shad-playlist, archief backups-20260929."
 ---
 
 # 2026-11-25 — v2.3.2 "Elton_John" / "Tiny_Dancer": hostnaam icthorsecloud.nl
@@ -32,3 +32,11 @@ resume: "verder met randomringtone — v2.3.2 Tiny_Dancer (DEBUG) LIVE 25-11 (ho
 
 ## Open
 Zie `ACTIONS.md` (bovenaan) en de resume-regel.
+
+## Vervolg — "zet versie op stable en accepteer aanvraag zfold8"
+- Aanvraag `e8593781…` (Z Fold 8, SM-F971B, hash `fab5c3821cd6887f`, v2.3.2, 22:51 UTC) toegekend: dienst gestopt →
+  `licensing.grant` met de eigen code van de logger → dienst gestart. Nagemeten: licentie actief (publiek 200),
+  account gekoppeld, token-hash aanwezig. De HorseAPK-goedkeuringsstap is hierbij overgeslagen (opdracht in de sessie).
+- Vrijgave STABLE: marker weg op icthorse.nl (backup `build.timestamp.voor-stable-232`), lokaal en spiegel; APK in
+  `releases/`; `version.json` status stable. Niet herbouwd: het label in de app blijft [DEBUG] tot de volgende build.
+- Niet getest vóór vrijgave: methodetest Spotify/YouTube en restore op een echt toestel.

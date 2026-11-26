@@ -1,7 +1,7 @@
 ---
 date: 2026-11-26
 repo: RandomRingtone
-status: pending
+status: done
 resume: "verder met randomringtone — v2.5.1 David_Bowie/Starman DEBUG gepubliceerd 26-11 (delen van een nummer start direct zoeken + download, standaard volledig nummer; v2.5.0: Spotify playlist/album-import volgens Sunnify-werkwijze, strikte YouTube-treffer, album-tags; bovenop v2.4.0 YouTube via YourTube-motor). EERST vragen: v2.5.1 op Fold of Fairphone geïnstalleerd, een nummer gedeeld (direct download) en een album + een playlist geïmporteerd? Dan meten in app.log (SpotifyImport start/klaar, SpotifyCollection Lijst, YouTubeServer Download KLAAR) en in YourTube (dienst randomringtone). Open: hoeveel weigert de strikte controle (eventueel YouTube Music als zoekbron), daarna STABLE met BUILD_STATUS=STABLE; verder open uit 25-11 (Fairphone-restore 23 bestanden, terugkerende toestellen, E2E magic link)."
 ---
 

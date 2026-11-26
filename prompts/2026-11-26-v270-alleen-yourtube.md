@@ -2,7 +2,7 @@
 date: 2026-11-26
 repo: RandomRingtone
 status: pending
-resume: "verder met randomringtone — v2.7.0 Chuck_Berry/Johnny_B_Goode (één bron: YourTube-scherm met zoeken + downloaden via eigen server); wacht op proef op de Fold of Fairphone, daarna STABLE"
+resume: "verder met randomringtone — v2.7.0 Chuck_Berry/Johnny_B_Goode (één bron: YourTube-scherm met zoeken + downloaden via eigen server); EERST vragen: v2.7.0 op Fold of Fairphone geïnstalleerd, gezocht en gedownload? Dan meten in app.log (YourTube Zoekresultaat, YourTube Download KLAAR), daarna STABLE met BUILD_STATUS=STABLE; verder open uit 25-11 (Fairphone-restore 23 bestanden, terugkerende toestellen, E2E magic link)"
 ---
 
 # 2026-11-26 — v2.7.0 "Chuck_Berry" / "Johnny_B_Goode": alleen nog YourTube

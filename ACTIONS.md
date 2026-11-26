@@ -2,6 +2,17 @@
 
 > Laatst bijgewerkt: 2026-11-25 — v2.3.2 (149) "Elton_John"/"Tiny_Dancer" gepubliceerd (DEBUG): hostnaam icthorsecloud.nl + geroteerde sleutels + bronnen v2.3.0
 
+## v2.5.1 "David_Bowie" / "Starman" — DEBUG gepubliceerd 26-11-2026
+
+Christian: "ik ben gewend dat ik per nummer dat ik vind delen kies en dat dan het nummer wordt gezocht en gedownload".
+Delen → Link kopiëren van een nummer start nu direct zoeken + download (geen knop, geen bevestigingsvenster);
+standaardmethode Spotify = "Volledig nummer (via YouTube)". Een eerder gemaakte keuze in Instellingen blijft staan.
+
+- [x] Eén downloadpad (`startDownload`) voor delen en knop; 52 unit-tests; smoke telefoon-AVD 0 fouten
+- [ ] **Op toestel proberen:** nummer delen in het Spotify-scherm → voortgang → venster "Wat wil je doen?";
+      nameten in app.log (`Delen → direct downloaden`, `SpotifyFull YouTube-treffer`)
+- [ ] Auto-emulator gaf in de smoke van v2.5.1 geen logregel (in v2.4.0 en v2.5.0 wel) — bij de volgende smoke nakijken
+
 ## v2.5.0 "David_Bowie" / "Heroes" — DEBUG gepubliceerd 26-11-2026
 
 Spotify-motor volgens de werkwijze van Sunnify (zelf nagebouwd, geen code overgenomen: hun licentie verbiedt aanpassen).

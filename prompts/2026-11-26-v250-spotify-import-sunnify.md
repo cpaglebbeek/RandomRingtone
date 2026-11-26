@@ -2,7 +2,7 @@
 date: 2026-11-26
 repo: RandomRingtone
 status: pending
-resume: "verder met randomringtone — v2.5.0 David_Bowie/Heroes DEBUG gepubliceerd 26-11 (Spotify playlist/album-import volgens Sunnify-werkwijze, strikte YouTube-treffer, album-tags; bovenop v2.4.0 YouTube via YourTube-motor). EERST vragen: v2.5.0 op Fold of Fairphone geïnstalleerd en een album + een playlist geïmporteerd? Dan meten in app.log (SpotifyImport start/klaar, SpotifyCollection Lijst, YouTubeServer Download KLAAR) en in YourTube (dienst randomringtone). Open: hoeveel weigert de strikte controle (eventueel YouTube Music als zoekbron), daarna STABLE met BUILD_STATUS=STABLE; verder open uit 25-11 (Fairphone-restore 23 bestanden, terugkerende toestellen, E2E magic link)."
+resume: "verder met randomringtone — v2.5.1 David_Bowie/Starman DEBUG gepubliceerd 26-11 (delen van een nummer start direct zoeken + download, standaard volledig nummer; v2.5.0: Spotify playlist/album-import volgens Sunnify-werkwijze, strikte YouTube-treffer, album-tags; bovenop v2.4.0 YouTube via YourTube-motor). EERST vragen: v2.5.1 op Fold of Fairphone geïnstalleerd, een nummer gedeeld (direct download) en een album + een playlist geïmporteerd? Dan meten in app.log (SpotifyImport start/klaar, SpotifyCollection Lijst, YouTubeServer Download KLAAR) en in YourTube (dienst randomringtone). Open: hoeveel weigert de strikte controle (eventueel YouTube Music als zoekbron), daarna STABLE met BUILD_STATUS=STABLE; verder open uit 25-11 (Fairphone-restore 23 bestanden, terugkerende toestellen, E2E magic link)."
 ---
 
 # 2026-11-26 — v2.5.0 "David_Bowie" / "Heroes": Spotify-import volgens de Sunnify-werkwijze
@@ -43,3 +43,11 @@ resume: "verder met randomringtone — v2.5.0 David_Bowie/Heroes DEBUG gepublice
 - Het importvenster zelf en een download over de hele keten: vraagt een gelicenseerd toestel (emulator heeft geen
   licentie of toestel-token).
 - Hoeveel procent van een echte playlist de strikte controle weigert.
+
+## Vervolg — v2.5.1 "Starman" (zelfde dag)
+Christian: "ik ben gewend dat ik per nummer dat ik vind delen kies en dat dan het nummer wordt gezocht en gedownload"
+→ WhatIf → "akkoord". Gebouwd (commit 8c5c88f): de klembordluisteraar start bij een gedeelde tracklink direct
+`startDownload` (alleen bij de directe methoden, niet bij de converter); knop + bevestigingsvenster blijven voor het
+bladeren naar een nummerpagina; standaard `SpotifyMethod.FULL`. 52/52 tests. Smoke (run 560e5ba0…): telefoon-AVD logt
+als 2.5.1, 22 regels, 0 fouten; de auto-AVD gaf geen logregel (oorzaak niet onderzocht). DEBUG gepubliceerd
+(HorseAPK, icthorse.nl, spiegel 200/200). Niet gemeten: de deel-route zelf (vraagt gelicenseerd toestel).

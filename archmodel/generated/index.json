@@ -14,9 +14,9 @@
       "kind": "niveau",
       "level": "logisch",
       "label": "Logisch",
-      "elements": 54,
-      "relations": 75,
-      "sha256": "b48fa45f326c8a11cad2c05cde7271b234f6bca16e28d5ee005c383441dcb4f5"
+      "elements": 56,
+      "relations": 78,
+      "sha256": "0dd7f9ae4e99654ce664f184615b4d6cab00f28a97853bbf0f33c5402b2695dd"
     },
     {
       "file": "fysiek.archdsl",
@@ -25,7 +25,7 @@
       "label": "Fysiek",
       "elements": 19,
       "relations": 2,
-      "sha256": "ef2f14b2b75742167978dba74ff9fe21300f4903228aaae52047baa790bed422"
+      "sha256": "5f98feefbd3a4a75d0bba5b2a8c9a17c8233f3c2fa7897413269c3d7750e44dc"
     },
     {
       "file": "reis-reis_knippen.archdsl",
@@ -41,8 +41,8 @@
       ],
       "actor": "ba_gebruiker",
       "elements": 22,
-      "relations": 37,
-      "sha256": "78e9886da32d163432b2cc554323e92c4f3f30737fc7993250b42d207e8a825c"
+      "relations": 38,
+      "sha256": "0b833cdef26eeea89b4b3f7fe45d4cabae7140f87add4c0a52cd5e91de853942"
     },
     {
       "file": "reis-reis_playlist.archdsl",
@@ -156,15 +156,15 @@
     }
   },
   "counts": {
-    "gebouwd": 56,
+    "gebouwd": 59,
     "deels": 0,
-    "gepland": 7,
+    "gepland": 6,
     "alleen_code": 0,
     "ongetraceerd": 0,
     "extern": 11,
     "ontwerp": 49
   },
-  "facts": 42,
+  "facts": 43,
   "unclaimedFacts": 0,
   "warnings": [],
   "elements": [
@@ -387,7 +387,7 @@
         {
           "id": "android:activity:MainActivity",
           "sources": [
-            "app/src/main/AndroidManifest.xml:40"
+            "app/src/main/AndroidManifest.xml:42"
           ]
         },
         {
@@ -419,7 +419,7 @@
         {
           "id": "android:service:NotificationService",
           "sources": [
-            "app/src/main/AndroidManifest.xml:51"
+            "app/src/main/AndroidManifest.xml:53"
           ]
         },
         {
@@ -476,7 +476,7 @@
         {
           "id": "android:receiver:CallStateReceiver",
           "sources": [
-            "app/src/main/AndroidManifest.xml:72"
+            "app/src/main/AndroidManifest.xml:74"
           ]
         },
         {
@@ -692,7 +692,7 @@
     {
       "id": "ac_scr_spotify",
       "type": "ApplicationComponent",
-      "label": "SpotifyScreen: Spotify-WebView, klembord, converter",
+      "label": "SpotifyScreen: Spotify-WebView, klembord, download en import",
       "layer": "application",
       "levels": [
         "logisch"
@@ -717,7 +717,7 @@
     {
       "id": "ac_scr_youtube",
       "type": "ApplicationComponent",
-      "label": "YouTubeScreen: YouTube-WebView + Y2Mate",
+      "label": "YouTubeScreen: YouTube-WebView + download via eigen server",
       "layer": "application",
       "levels": [
         "logisch"
@@ -740,9 +740,9 @@
       "description": ""
     },
     {
-      "id": "ac_spotmate",
+      "id": "ac_spotify_collection",
       "type": "ApplicationComponent",
-      "label": "SpotMateDirectClient (Spotify → MP3)",
+      "label": "SpotifyCollection: nummerlijst van playlist of album (v2.5.0)",
       "layer": "application",
       "levels": [
         "logisch"
@@ -762,7 +762,57 @@
         }
       ],
       "factCount": 1,
-      "description": "Directe API-route. Bug #81: structureel geblokkeerd door Cloudflare; wordt vervangen in v2.0.0."
+      "description": "Embed-pagina voor de eerste ±100 nummers; langere playlists via Spotify's playlistdienst met het anonieme token uit de pagina."
+    },
+    {
+      "id": "ac_spotify_import",
+      "type": "ApplicationComponent",
+      "label": "SpotifyImportDialog: playlist/album importeren (v2.5.0)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/ui/screens"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/ui/screens",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": "Lijst met vinkjes, voortgang per nummer, overzicht van mislukte nummers, optioneel een gepauzeerde playlist in de app."
+    },
+    {
+      "id": "ac_spotmate",
+      "type": "ApplicationComponent",
+      "label": "SpotifyPreviewClient (embed-metadata, preview of volledig nummer)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); preview via Deezer of volledig nummer via de YouTube-keten. Vervangt SpotMateDirectClient."
     },
     {
       "id": "ac_storage",
@@ -908,7 +958,7 @@
         {
           "id": "android:provider:FileProvider",
           "sources": [
-            "app/src/main/AndroidManifest.xml:61"
+            "app/src/main/AndroidManifest.xml:63"
           ]
         },
         {
@@ -949,7 +999,7 @@
     {
       "id": "ac_y2mate",
       "type": "ApplicationComponent",
-      "label": "Y2MateClient (YouTube → MP3)",
+      "label": "YouTubeDownload: eigen server (YouTubeServer), terugval op toestel (v2.4.0)",
       "layer": "application",
       "levels": [
         "logisch"
@@ -972,6 +1022,31 @@
       "description": ""
     },
     {
+      "id": "ac_youtube_match",
+      "type": "ApplicationComponent",
+      "label": "YouTubeMatch: strikte treffercontrole (v2.5.0)",
+      "layer": "application",
+      "levels": [
+        "logisch"
+      ],
+      "status": "gebouwd",
+      "trace": [
+        "module:app/src/main/java/data"
+      ],
+      "missing": [],
+      "auto": false,
+      "facts": [
+        {
+          "id": "module:app/src/main/java/data",
+          "sources": [
+            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
+          ]
+        }
+      ],
+      "factCount": 1,
+      "description": "Titel en artiest moeten in de video staan, duur hooguit 30 s afwijkend."
+    },
+    {
       "id": "ar_apk",
       "type": "Artifact",
       "label": "Release-APK RandomRingtone-v…-release.apk (gebundelde afhankelijkheden)",
@@ -987,109 +1062,115 @@
       "auto": false,
       "facts": [
         {
+          "id": "dep:maven:com.github.TeamNewPipe:NewPipeExtractor",
+          "sources": [
+            "app/build.gradle.kts:133"
+          ]
+        },
+        {
           "id": "dep:maven:libs.activity.compose",
           "sources": [
-            "app/build.gradle.kts:91"
+            "app/build.gradle.kts:106"
           ]
         },
         {
           "id": "dep:maven:libs.compose.icons.extended",
           "sources": [
-            "app/build.gradle.kts:90"
+            "app/build.gradle.kts:103"
           ]
         },
         {
           "id": "dep:maven:libs.compose.material3",
           "sources": [
-            "app/build.gradle.kts:88"
+            "app/build.gradle.kts:101"
           ]
         },
         {
           "id": "dep:maven:libs.compose.ui",
           "sources": [
-            "app/build.gradle.kts:87"
+            "app/build.gradle.kts:100"
           ]
         },
         {
           "id": "dep:maven:libs.compose.ui.tooling.preview",
           "sources": [
-            "app/build.gradle.kts:89"
+            "app/build.gradle.kts:102"
           ]
         },
         {
           "id": "dep:maven:libs.core.ktx",
           "sources": [
-            "app/build.gradle.kts:114"
+            "app/build.gradle.kts:129"
           ]
         },
         {
           "id": "dep:maven:libs.datastore.preferences",
           "sources": [
-            "app/build.gradle.kts:115"
+            "app/build.gradle.kts:130"
           ]
         },
         {
           "id": "dep:maven:libs.documentfile",
           "sources": [
-            "app/build.gradle.kts:111"
+            "app/build.gradle.kts:126"
           ]
         },
         {
           "id": "dep:maven:libs.kotlinx.serialization.json",
           "sources": [
-            "app/build.gradle.kts:108"
+            "app/build.gradle.kts:123"
           ]
         },
         {
           "id": "dep:maven:libs.lifecycle.runtime.compose",
           "sources": [
-            "app/build.gradle.kts:94"
+            "app/build.gradle.kts:109"
           ]
         },
         {
           "id": "dep:maven:libs.lifecycle.viewmodel.compose",
           "sources": [
-            "app/build.gradle.kts:93"
+            "app/build.gradle.kts:108"
           ]
         },
         {
           "id": "dep:maven:libs.navigation.compose",
           "sources": [
-            "app/build.gradle.kts:92"
+            "app/build.gradle.kts:107"
           ]
         },
         {
           "id": "dep:maven:libs.okhttp",
           "sources": [
-            "app/build.gradle.kts:105"
+            "app/build.gradle.kts:120"
           ]
         },
         {
           "id": "dep:maven:libs.room.compiler",
           "sources": [
-            "app/build.gradle.kts:102"
+            "app/build.gradle.kts:117"
           ]
         },
         {
           "id": "dep:maven:libs.room.ktx",
           "sources": [
-            "app/build.gradle.kts:101"
+            "app/build.gradle.kts:116"
           ]
         },
         {
           "id": "dep:maven:libs.room.runtime",
           "sources": [
-            "app/build.gradle.kts:100"
+            "app/build.gradle.kts:115"
           ]
         },
         {
           "id": "dep:maven:libs.work.runtime.ktx",
           "sources": [
-            "app/build.gradle.kts:97"
+            "app/build.gradle.kts:112"
           ]
         }
       ],
-      "factCount": 17,
+      "factCount": 18,
       "description": ""
     },
     {
@@ -1161,7 +1242,7 @@
         {
           "id": "dep:maven:libs.documentfile",
           "sources": [
-            "app/build.gradle.kts:111"
+            "app/build.gradle.kts:126"
           ]
         },
         {
@@ -1267,7 +1348,7 @@
         {
           "id": "dep:maven:libs.datastore.preferences",
           "sources": [
-            "app/build.gradle.kts:115"
+            "app/build.gradle.kts:130"
           ]
         }
       ],
@@ -1292,25 +1373,25 @@
         {
           "id": "android:activity:MainActivity",
           "sources": [
-            "app/src/main/AndroidManifest.xml:40"
+            "app/src/main/AndroidManifest.xml:42"
           ]
         },
         {
           "id": "android:provider:FileProvider",
           "sources": [
-            "app/src/main/AndroidManifest.xml:61"
+            "app/src/main/AndroidManifest.xml:63"
           ]
         },
         {
           "id": "android:receiver:CallStateReceiver",
           "sources": [
-            "app/src/main/AndroidManifest.xml:72"
+            "app/src/main/AndroidManifest.xml:74"
           ]
         },
         {
           "id": "android:service:NotificationService",
           "sources": [
-            "app/src/main/AndroidManifest.xml:51"
+            "app/src/main/AndroidManifest.xml:53"
           ]
         }
       ],
@@ -1474,7 +1555,7 @@
         {
           "id": "android:service:NotificationService",
           "sources": [
-            "app/src/main/AndroidManifest.xml:51"
+            "app/src/main/AndroidManifest.xml:53"
           ]
         }
       ],
@@ -1578,55 +1659,55 @@
         {
           "id": "dep:maven:libs.activity.compose",
           "sources": [
-            "app/build.gradle.kts:91"
+            "app/build.gradle.kts:106"
           ]
         },
         {
           "id": "dep:maven:libs.compose.icons.extended",
           "sources": [
-            "app/build.gradle.kts:90"
+            "app/build.gradle.kts:103"
           ]
         },
         {
           "id": "dep:maven:libs.compose.material3",
           "sources": [
-            "app/build.gradle.kts:88"
+            "app/build.gradle.kts:101"
           ]
         },
         {
           "id": "dep:maven:libs.compose.ui",
           "sources": [
-            "app/build.gradle.kts:87"
+            "app/build.gradle.kts:100"
           ]
         },
         {
           "id": "dep:maven:libs.compose.ui.tooling.preview",
           "sources": [
-            "app/build.gradle.kts:89"
+            "app/build.gradle.kts:102"
           ]
         },
         {
           "id": "dep:maven:libs.core.ktx",
           "sources": [
-            "app/build.gradle.kts:114"
+            "app/build.gradle.kts:129"
           ]
         },
         {
           "id": "dep:maven:libs.lifecycle.runtime.compose",
           "sources": [
-            "app/build.gradle.kts:94"
+            "app/build.gradle.kts:109"
           ]
         },
         {
           "id": "dep:maven:libs.lifecycle.viewmodel.compose",
           "sources": [
-            "app/build.gradle.kts:93"
+            "app/build.gradle.kts:108"
           ]
         },
         {
           "id": "dep:maven:libs.navigation.compose",
           "sources": [
-            "app/build.gradle.kts:92"
+            "app/build.gradle.kts:107"
           ]
         }
       ],
@@ -1651,7 +1732,7 @@
         {
           "id": "dep:maven:libs.datastore.preferences",
           "sources": [
-            "app/build.gradle.kts:115"
+            "app/build.gradle.kts:130"
           ]
         }
       ],
@@ -1677,13 +1758,13 @@
         {
           "id": "dep:maven:libs.kotlinx.serialization.json",
           "sources": [
-            "app/build.gradle.kts:108"
+            "app/build.gradle.kts:123"
           ]
         },
         {
           "id": "dep:maven:libs.okhttp",
           "sources": [
-            "app/build.gradle.kts:105"
+            "app/build.gradle.kts:120"
           ]
         }
       ],
@@ -1708,19 +1789,19 @@
         {
           "id": "dep:maven:libs.room.compiler",
           "sources": [
-            "app/build.gradle.kts:102"
+            "app/build.gradle.kts:117"
           ]
         },
         {
           "id": "dep:maven:libs.room.ktx",
           "sources": [
-            "app/build.gradle.kts:101"
+            "app/build.gradle.kts:116"
           ]
         },
         {
           "id": "dep:maven:libs.room.runtime",
           "sources": [
-            "app/build.gradle.kts:100"
+            "app/build.gradle.kts:115"
           ]
         }
       ],
@@ -1745,7 +1826,7 @@
         {
           "id": "dep:maven:libs.documentfile",
           "sources": [
-            "app/build.gradle.kts:111"
+            "app/build.gradle.kts:126"
           ]
         }
       ],
@@ -1770,7 +1851,7 @@
         {
           "id": "dep:maven:libs.work.runtime.ktx",
           "sources": [
-            "app/build.gradle.kts:97"
+            "app/build.gradle.kts:112"
           ]
         }
       ],
@@ -1795,7 +1876,7 @@
         {
           "id": "android:provider:FileProvider",
           "sources": [
-            "app/src/main/AndroidManifest.xml:61"
+            "app/src/main/AndroidManifest.xml:63"
           ]
         }
       ],
@@ -1881,22 +1962,6 @@
       "facts": [],
       "factCount": 0,
       "description": "POST_NOTIFICATIONS staat al in het manifest maar wordt nog niet gebruikt."
-    },
-    {
-      "id": "ac_y2mate_host",
-      "type": "ApplicationComponent",
-      "label": "Y2Mate-host dynamisch bepalen (R12)",
-      "layer": "application",
-      "levels": [
-        "logisch"
-      ],
-      "status": "gepland",
-      "trace": [],
-      "missing": [],
-      "auto": false,
-      "facts": [],
-      "factCount": 0,
-      "description": ""
     },
     {
       "id": "bp_spotify_preview",
@@ -2045,7 +2110,7 @@
     {
       "id": "nd_y2mate",
       "type": "Node",
-      "label": "Y2Mate (v3.y2mate.nu / etacloud.org)",
+      "label": "RandomRingtone-logger /rrlog/youtube → YourTube-motor (HC55)",
       "layer": "technology",
       "levels": [
         "fysiek"

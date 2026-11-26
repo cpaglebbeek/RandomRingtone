@@ -90,10 +90,10 @@ ApplicationComponent ac_main "MainActivity: 7 tabs + editor, licentieblokkade" {
 ApplicationComponent ac_theme "Thema (Material 3 + Dynamic Color)" {
     -attr trace = "module:app/src/main/java/ui/theme"
 }
-ApplicationComponent ac_scr_spotify "SpotifyScreen: Spotify-WebView, klembord, converter" {
+ApplicationComponent ac_scr_spotify "SpotifyScreen: Spotify-WebView, klembord, download en import" {
     -attr trace = "module:app/src/main/java/ui/screens"
 }
-ApplicationComponent ac_scr_youtube "YouTubeScreen: YouTube-WebView + Y2Mate" {
+ApplicationComponent ac_scr_youtube "YouTubeScreen: YouTube-WebView + download via eigen server" {
     -attr trace = "module:app/src/main/java/ui/screens"
 }
 ApplicationComponent ac_scr_editor "EditorScreen: waveform, trim, fade, opslaan" {
@@ -149,11 +149,23 @@ ApplicationComponent ac_update "UpdateManager: in-app APK-updates (T12)" {
 ApplicationComponent ac_logger "RemoteLogger: wachtrij, flush 2 s, heartbeat 30 s" {
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_spotmate "SpotMateDirectClient (Spotify → MP3)" {
+ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata, preview of volledig nummer)" {
     -attr trace = "module:app/src/main/java/data"
-    -description "Directe API-route. Bug #81: structureel geblokkeerd door Cloudflare; wordt vervangen in v2.0.0."
+    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); preview via Deezer of volledig nummer via de YouTube-keten. Vervangt SpotMateDirectClient."
 }
-ApplicationComponent ac_y2mate "Y2MateClient (YouTube → MP3)" {
+ApplicationComponent ac_spotify_collection "SpotifyCollection: nummerlijst van playlist of album (v2.5.0)" {
+    -attr trace = "module:app/src/main/java/data"
+    -description "Embed-pagina voor de eerste ±100 nummers; langere playlists via Spotify's playlistdienst met het anonieme token uit de pagina."
+}
+ApplicationComponent ac_youtube_match "YouTubeMatch: strikte treffercontrole (v2.5.0)" {
+    -attr trace = "module:app/src/main/java/data"
+    -description "Titel en artiest moeten in de video staan, duur hooguit 30 s afwijkend."
+}
+ApplicationComponent ac_spotify_import "SpotifyImportDialog: playlist/album importeren (v2.5.0)" {
+    -attr trace = "module:app/src/main/java/ui/screens"
+    -description "Lijst met vinkjes, voortgang per nummer, overzicht van mislukte nummers, optioneel een gepauzeerde playlist in de app."
+}
+ApplicationComponent ac_y2mate "YouTubeDownload: eigen server (YouTubeServer), terugval op toestel (v2.4.0)" {
     -attr trace = "module:app/src/main/java/data"
 }
 ApplicationComponent ac_icthorse_client "IctHorseBackupClient (backup_api.php)" {
@@ -174,9 +186,6 @@ ApplicationComponent ac_okhttp_shared "Gedeelde OkHttpClient (R9)" {
     -description "Nu maakt elke client een eigen OkHttpClient aan (FLOW §13)."
 }
 ApplicationComponent ac_predownload "Pre-download bij playlist-activering (R10)" {
-    -attr status = "gepland"
-}
-ApplicationComponent ac_y2mate_host "Y2Mate-host dynamisch bepalen (R12)" {
     -attr status = "gepland"
 }
 ApplicationComponent ac_accu "Uitzondering batterij-optimalisatie aanvragen (roadmap v0.8.0)" {
@@ -310,7 +319,7 @@ Node nd_spotmate "spotmate.online" {
 Node nd_youtube "YouTube (www.youtube.com in WebView)" {
     -attr status = "extern"
 }
-Node nd_y2mate "Y2Mate (v3.y2mate.nu / etacloud.org)" {
+Node nd_y2mate "RandomRingtone-logger /rrlog/youtube → YourTube-motor (HC55)" {
     -attr status = "extern"
 }
 Node nd_deezer "api.deezer.com (30 s-previews)" {
@@ -446,9 +455,13 @@ ac_theme -> ac_main : serving "thema"
 ac_logger -> ac_main : serving "logging"
 
 ac_spotmate -> ac_scr_spotify : serving
+ac_spotify_import -> ac_scr_spotify : serving "importvenster"
+ac_spotify_collection -> ac_spotify_import : serving "nummerlijst"
+ac_youtube_match -> ac_spotmate : serving "treffercontrole"
+ac_y2mate -> ac_spotmate : serving "audio (volledig nummer)"
+nd_spotify -> ac_spotify_collection : serving "embed-pagina's"
 ac_spotify_webapi -> ac_scr_spotify : serving "vervangt SpotMate"
 ac_y2mate -> ac_scr_youtube : serving
-ac_y2mate_host -> ac_y2mate : serving
 ac_trackid -> ac_scr_spotify : serving "canonieke trackId"
 ac_trackid -> ac_scr_youtube : serving "canonieke trackId"
 ac_decoder -> ac_scr_editor : serving

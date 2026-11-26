@@ -83,7 +83,7 @@ Node nd_youtube "YouTube (www.youtube.com in WebView)" in laag_technology {
     -stroke "#0284c7"
     -attr status = "extern"
 }
-Node nd_y2mate "Y2Mate (v3.y2mate.nu / etacloud.org)" in laag_technology {
+Node nd_y2mate "RandomRingtone-logger /rrlog/youtube → YourTube-motor (HC55)" in laag_technology {
     -fill "#f0f9ff"
     -stroke "#0284c7"
     -attr status = "extern"

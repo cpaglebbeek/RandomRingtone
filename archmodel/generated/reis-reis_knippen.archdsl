@@ -44,12 +44,12 @@ Group laag_application "Applicatie" {
     -width 1220
     -height 310
 }
-ApplicationComponent ac_scr_spotify "SpotifyScreen: Spotify-WebView, klembord, converter" in laag_application {
+ApplicationComponent ac_scr_spotify "SpotifyScreen: Spotify-WebView, klembord, download en import" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/ui/screens"
 }
-ApplicationComponent ac_scr_youtube "YouTubeScreen: YouTube-WebView + Y2Mate" in laag_application {
+ApplicationComponent ac_scr_youtube "YouTubeScreen: YouTube-WebView + download via eigen server" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/ui/screens"
@@ -59,13 +59,13 @@ ApplicationComponent ac_tags "Metadata-tools (Mp3Marker, Mp3TagReader, Mp3AlbumA
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_spotmate "SpotMateDirectClient (Spotify → MP3)" in laag_application {
+ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata, preview of volledig nummer)" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
-    -description "Directe API-route. Bug #81: structureel geblokkeerd door Cloudflare; wordt vervangen in v2.0.0."
+    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); preview via Deezer of volledig nummer via de YouTube-keten. Vervangt SpotMateDirectClient."
 }
-ApplicationComponent ac_y2mate "Y2MateClient (YouTube → MP3)" in laag_application {
+ApplicationComponent ac_y2mate "YouTubeDownload: eigen server (YouTubeServer), terugval op toestel (v2.4.0)" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
@@ -177,6 +177,7 @@ ac_main composes ac_scr_spotify
 ac_main composes ac_scr_youtube
 ac_main composes ac_scr_editor
 ac_spotmate serves ac_scr_spotify
+ac_y2mate serves ac_spotmate "audio (volledig nummer)"
 ac_y2mate serves ac_scr_youtube
 ac_decoder serves ac_scr_editor
 ac_trimmer serves ac_scr_editor

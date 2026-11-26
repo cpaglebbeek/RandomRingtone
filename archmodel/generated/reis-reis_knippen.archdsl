@@ -3,7 +3,7 @@
 set language archimate
 set title "RandomRingtone — Klantreis: nummer zoeken en als ringtone knippen"
 set subtitle "Klantreis (stappen genummerd, afspeelbaar in het portaal)"
-set purpose "Via Spotify- of YouTube-tab een nummer vinden, MP3 laten converteren, in de editor een fragment met fade knippen en opslaan."
+set purpose "Via Spotify- of YouTube-tab een nummer vinden, de audio via de YouTube-keten downloaden, in de editor een fragment met fade knippen en opslaan."
 show legend true
 switch badges on
 set current state "As-is (code)"
@@ -20,7 +20,7 @@ BusinessProcess bp_zoeken "Nummer zoeken in Spotify- of YouTube-tab" in laag_bus
     -step 1
     -attr status = "ontwerp"
 }
-BusinessProcess bp_downloaden "MP3 downloaden via converter" in laag_business {
+BusinessProcess bp_downloaden "Audio downloaden (Spotify of YouTube, altijd via de YouTube-keten)" in laag_business {
     -step 2
     -attr status = "ontwerp"
 }
@@ -59,11 +59,11 @@ ApplicationComponent ac_tags "Metadata-tools (Mp3Marker, Mp3TagReader, Mp3AlbumA
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata, preview of volledig nummer)" in laag_application {
+ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata → volledig nummer)" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
-    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); preview via Deezer of volledig nummer via de YouTube-keten. Vervangt SpotMateDirectClient."
+    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); volledig nummer via de YouTube-keten. Sinds v2.6.0 zijn de previews (Deezer, Spotify, backend) en de converter-websites verwijderd."
 }
 ApplicationComponent ac_y2mate "YouTubeDownload: eigen server (YouTubeServer), terugval op toestel (v2.4.0)" in laag_application {
     -stroke "#16a34a"
@@ -107,15 +107,10 @@ DataObject do_saved_tracks "saved_tracks (Room)" in laag_application {
 }
 
 Group laag_technology "Technologie" {
-    -width 620
+    -width 420
     -height 180
 }
 Node nd_spotify "open.spotify.com (Spotify Web in WebView)" in laag_technology {
-    -fill "#f0f9ff"
-    -stroke "#0284c7"
-    -attr status = "extern"
-}
-Node nd_converters "Converter-sites (spotifydown e.a., via WebView)" in laag_technology {
     -fill "#f0f9ff"
     -stroke "#0284c7"
     -attr status = "extern"
@@ -150,8 +145,7 @@ pos ac_ringtone 860, 570
 pos do_saved_tracks 1060, 570
 pos laag_technology 40, 740
 pos nd_spotify 60, 790
-pos nd_converters 260, 790
-pos nd_youtube 460, 790
+pos nd_youtube 260, 790
 
 // Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
 ba_gebruiker associates bs_verzamelen "gebruikt"
@@ -162,7 +156,6 @@ nd_spotify serves bp_zoeken
 nd_youtube serves bp_zoeken
 ac_spotmate serves bp_downloaden
 ac_y2mate serves bp_downloaden
-nd_converters serves bp_downloaden
 ac_tags serves bp_downloaden "marker + albumcover"
 ac_main serves bp_editor_openen "navigatie"
 ac_scr_editor serves bp_editor_openen
@@ -185,7 +178,6 @@ ac_player serves ac_scr_editor
 ac_tags serves ac_trimmer "metadata behouden"
 ac_scr_editor accesses do_saved_tracks "schrijft"
 nd_spotify serves ac_scr_spotify "WebView"
-nd_converters serves ac_scr_spotify "WebView-converter"
 nd_youtube serves ac_scr_youtube "WebView"
 bp_zoeken -> bp_downloaden
 bp_downloaden -> bp_editor_openen

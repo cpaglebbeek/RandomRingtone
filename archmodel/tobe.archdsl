@@ -29,7 +29,6 @@ Requirement rq_licentie "Alleen gelicenseerde toestellen (device-hash, grace per
 Constraint cn_permissies "Android-permissies en speciale toegang (WRITE_SETTINGS, notificatie-toegang)"
 Constraint cn_standalone "Kernfunctie draait op het toestel; geen eigen server nodig om te wisselen"
 Constraint cn_samsung "Samsung OneUI: batterij-optimalisatie en restricted settings"
-Constraint cn_converters "Converter-diensten onbetrouwbaar (Cloudflare/JA3, bug #81)"
 Principle pr_trackresolver "Eén gedeelde track-resolver voor worker, receiver en service (R8)"
 
 BusinessActor ba_gebruiker "Gebruiker (toestelbezitter)"
@@ -46,14 +45,10 @@ BusinessProcess bp_bericht_geluid "Eigen geluid bij SMS/WhatsApp"
 BusinessProcess bp_permissies "Permissies en speciale toegang verlenen (F5)"
 BusinessProcess bp_updaten "App bijwerken via in-app update"
 BusinessProcess bp_opstarten "App starten: licentie, migratie, auto-restore"
-BusinessProcess bp_spotify_preview "Spotify-preview via Spotify Web API (v2.0.0)" {
-    -attr status = "gepland"
-    -description "ACTIONS.md hoogste prio: SpotMate vervangen door Client Credentials + preview_url."
-}
 
 // Stappen klantreis 1: nummer zoeken en als ringtone knippen
 BusinessProcess bp_zoeken "Nummer zoeken in Spotify- of YouTube-tab"
-BusinessProcess bp_downloaden "MP3 downloaden via converter"
+BusinessProcess bp_downloaden "Audio downloaden (Spotify of YouTube, altijd via de YouTube-keten)"
 BusinessProcess bp_editor_openen "Openen in de editor (waveform)"
 BusinessProcess bp_knippen "Fragment kiezen, fade instellen, voorbeluisteren"
 BusinessProcess bp_opslaan "Opslaan in bibliotheek + playlist (optioneel als ringtone)"
@@ -111,7 +106,7 @@ ApplicationComponent ac_scr_overview "OverviewScreen: actieve instellingen + con
 ApplicationComponent ac_scr_backup "BackupScreen: backup/restore SAF of iCt Horse" {
     -attr trace = "module:app/src/main/java/ui/screens"
 }
-ApplicationComponent ac_scr_settings "SettingsScreen: permissies, opslag, converter, updates, logging" {
+ApplicationComponent ac_scr_settings "SettingsScreen: permissies, opslag, bronnen, updates, logging" {
     -attr trace = "module:app/src/main/java/ui/screens"
 }
 
@@ -128,7 +123,7 @@ ApplicationComponent ac_conflict "ConflictResolver: één actief per kanaal + sc
 ApplicationComponent ac_contacts "ContactsRepository: contacten + CUSTOM_RINGTONE" {
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan, converterlijst" {
+ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan, YouTube-methode" {
     -attr trace = "module:app/src/main/java/data"
 }
 ApplicationComponent ac_backupmgr "BackupManager: SAF-backup, selectie, auto-backup, playlist-export" {
@@ -149,9 +144,9 @@ ApplicationComponent ac_update "UpdateManager: in-app APK-updates (T12)" {
 ApplicationComponent ac_logger "RemoteLogger: wachtrij, flush 2 s, heartbeat 30 s" {
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata, preview of volledig nummer)" {
+ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata → volledig nummer)" {
     -attr trace = "module:app/src/main/java/data"
-    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); preview via Deezer of volledig nummer via de YouTube-keten. Vervangt SpotMateDirectClient."
+    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); volledig nummer via de YouTube-keten. Sinds v2.6.0 zijn de previews (Deezer, Spotify, backend) en de converter-websites verwijderd."
 }
 ApplicationComponent ac_spotify_collection "SpotifyCollection: nummerlijst van playlist of album (v2.5.0)" {
     -attr trace = "module:app/src/main/java/data"
@@ -171,16 +166,12 @@ ApplicationComponent ac_y2mate "YouTubeDownload: eigen server (YouTubeServer), t
 ApplicationComponent ac_icthorse_client "IctHorseBackupClient (backup_api.php)" {
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_deezer "DeezerApi-client (T1; in main geen aanroeper meer)" {
+ApplicationComponent ac_deezer "Track-model DeezerTrack (historische naam; geen Deezer-aanroepen meer)" {
     -attr trace = "module:app/src/main/java/data"
-    -description "Deezer-tab is uit main verdwenen; Deezer-previews worden nog door de ringtone-engine gedownload via previewUrl."
+    -description "Sinds v2.6.0 haalt de app niets meer bij Deezer op; alleen het datamodel is gebleven voor bibliotheek, ringtone-motor en back-ups."
 }
 
 // Gepland (ACTIONS.md / CONFLICTS open / roadmap v0.8.0)
-ApplicationComponent ac_spotify_webapi "SpotifyWebApiClient: Client Credentials + preview_url (v2.0.0)" {
-    -attr status = "gepland"
-    -description "Vervangt SpotMateDirectClient in SpotifyScreen; token-cache ~1 uur; tracks zonder preview_url → WebView-converter."
-}
 ApplicationComponent ac_okhttp_shared "Gedeelde OkHttpClient (R9)" {
     -attr status = "gepland"
     -description "Nu maakt elke client een eigen OkHttpClient aan (FLOW §13)."
@@ -307,22 +298,10 @@ Artifact pm_listener "Notificatie-toegang (BIND_NOTIFICATION_LISTENER_SERVICE)" 
 Node nd_spotify "open.spotify.com (Spotify Web in WebView)" {
     -attr status = "extern"
 }
-Node nd_spotify_api "Spotify Web API (gepland v2.0.0)" {
-    -attr status = "extern"
-}
-Node nd_converters "Converter-sites (spotifydown e.a., via WebView)" {
-    -attr status = "extern"
-}
-Node nd_spotmate "spotmate.online" {
-    -attr status = "extern"
-}
 Node nd_youtube "YouTube (www.youtube.com in WebView)" {
     -attr status = "extern"
 }
 Node nd_y2mate "RandomRingtone-logger /rrlog/youtube → YourTube-motor (HC55)" {
-    -attr status = "extern"
-}
-Node nd_deezer "api.deezer.com (30 s-previews)" {
     -attr status = "extern"
 }
 Node nd_icthorse "icthorse.nl (licentie, backup_api.php, APK-updates)" {
@@ -349,8 +328,6 @@ cn_permissies -> bp_permissies : influence "begrenst"
 cn_standalone -> ac_resolver : influence "begrenst"
 cn_samsung -> ac_worker : influence "begrenst"
 cn_samsung -> ac_notifsvc : influence "begrenst"
-cn_converters -> ac_spotmate : influence "begrenst"
-cn_converters -> bp_spotify_preview : influence "drijft aan"
 pr_trackresolver -> ac_resolver : influence "vormt"
 rq_eenactief -> ac_conflict : realization
 rq_licentie -> ac_license : realization
@@ -371,7 +348,6 @@ bp_bk_maken -> bs_backup : realization
 bp_bk_herstellen -> bs_backup : realization
 bp_permissies -> bs_beheer : realization
 bp_updaten -> bs_beheer : realization
-bp_spotify_preview -> bs_verzamelen : realization
 bp_bericht_binnen -> bp_bericht_match : triggers
 bp_bericht_match -> bp_bericht_geluid : triggers
 
@@ -382,7 +358,6 @@ nd_spotify -> bp_zoeken : serving
 nd_youtube -> bp_zoeken : serving
 ac_spotmate -> bp_downloaden : serving
 ac_y2mate -> bp_downloaden : serving
-nd_converters -> bp_downloaden : serving
 ac_tags -> bp_downloaden : serving "marker + albumcover"
 ac_main -> bp_editor_openen : serving "navigatie"
 ac_scr_editor -> bp_editor_openen : serving
@@ -440,7 +415,6 @@ ac_main -> bp_opstarten : serving
 ac_license -> bp_opstarten : serving
 ac_trackid -> bp_opstarten : serving "migratie v8"
 ac_backupmgr -> bp_opstarten : serving "auto-restore"
-ac_spotify_webapi -> bp_spotify_preview : serving
 
 // ================= Relaties — logisch =================
 ac_main -> ac_scr_spotify : composition
@@ -460,7 +434,6 @@ ac_spotify_collection -> ac_spotify_import : serving "nummerlijst"
 ac_youtube_match -> ac_spotmate : serving "treffercontrole"
 ac_y2mate -> ac_spotmate : serving "audio (volledig nummer)"
 nd_spotify -> ac_spotify_collection : serving "embed-pagina's"
-ac_spotify_webapi -> ac_scr_spotify : serving "vervangt SpotMate"
 ac_y2mate -> ac_scr_youtube : serving
 ac_trackid -> ac_scr_spotify : serving "canonieke trackId"
 ac_trackid -> ac_scr_youtube : serving "canonieke trackId"
@@ -551,13 +524,8 @@ pm_call -> ac_receiver : serving
 pm_listener -> ac_notifsvc : serving
 
 nd_spotify -> ac_scr_spotify : serving "WebView"
-nd_converters -> ac_scr_spotify : serving "WebView-converter"
-nd_spotmate -> ac_spotmate : serving
-nd_spotify_api -> ac_spotify_webapi : serving
 nd_youtube -> ac_scr_youtube : serving "WebView"
 nd_y2mate -> ac_y2mate : serving
-nd_deezer -> ac_ringtone : serving "previewUrl"
-nd_deezer -> ac_deezer : serving
 nd_icthorse -> ac_license : serving "lics/{hash}.json"
 nd_icthorse -> ac_icthorse_client : serving "backup_api.php"
 nd_icthorse -> ac_update : serving "RandomRing/Apk"
@@ -569,7 +537,7 @@ Viewpoint reis_knippen "Klantreis: nummer zoeken en als ringtone knippen" {
     -attr journey = "true"
     -attr actor = "ba_gebruiker"
     -attr steps = "bp_zoeken bp_downloaden bp_editor_openen bp_knippen bp_opslaan"
-    -description "Via Spotify- of YouTube-tab een nummer vinden, MP3 laten converteren, in de editor een fragment met fade knippen en opslaan."
+    -description "Via Spotify- of YouTube-tab een nummer vinden, de audio via de YouTube-keten downloaden, in de editor een fragment met fade knippen en opslaan."
 }
 Viewpoint reis_playlist "Klantreis: playlist maken en koppelen" {
     -attr journey = "true"

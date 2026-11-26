@@ -52,9 +52,6 @@ Constraint cn_standalone "Kernfunctie draait op het toestel; geen eigen server n
 Constraint cn_samsung "Samsung OneUI: batterij-optimalisatie en restricted settings" in laag_motivation {
     -attr status = "ontwerp"
 }
-Constraint cn_converters "Converter-diensten onbetrouwbaar (Cloudflare/JA3, bug #81)" in laag_motivation {
-    -attr status = "ontwerp"
-}
 Principle pr_trackresolver "Eén gedeelde track-resolver voor worker, receiver en service (R8)" in laag_motivation {
     -attr status = "ontwerp"
 }
@@ -62,13 +59,6 @@ Principle pr_trackresolver "Eén gedeelde track-resolver voor worker, receiver e
 Group laag_business "Business" {
     -width 1220
     -height 830
-}
-BusinessProcess bp_spotify_preview "Spotify-preview via Spotify Web API (v2.0.0)" in laag_business {
-    -fill "#fff7ed"
-    -stroke "#ea580c"
-    -state target
-    -attr status = "gepland"
-    -description "ACTIONS.md hoogste prio: SpotMate vervangen door Client Credentials + preview_url."
 }
 BusinessService bs_backup "Backup en herstel" in laag_business {
     -attr status = "ontwerp"
@@ -109,7 +99,7 @@ BusinessProcess bp_opstarten "App starten: licentie, migratie, auto-restore" in 
 BusinessProcess bp_zoeken "Nummer zoeken in Spotify- of YouTube-tab" in laag_business {
     -attr status = "ontwerp"
 }
-BusinessProcess bp_downloaden "MP3 downloaden via converter" in laag_business {
+BusinessProcess bp_downloaden "Audio downloaden (Spotify of YouTube, altijd via de YouTube-keten)" in laag_business {
     -attr status = "ontwerp"
 }
 BusinessProcess bp_editor_openen "Openen in de editor (waveform)" in laag_business {
@@ -188,44 +178,42 @@ pos rq_licentie 660, 220
 pos cn_permissies 860, 220
 pos cn_standalone 1060, 220
 pos cn_samsung 60, 350
-pos cn_converters 260, 350
-pos pr_trackresolver 460, 350
+pos pr_trackresolver 260, 350
 pos laag_business 40, 520
-pos bp_spotify_preview 60, 570
-pos bs_backup 260, 570
-pos bp_permissies 460, 570
-pos ba_gebruiker 660, 570
-pos ba_beller 860, 570
-pos bs_wisselen 1060, 570
-pos bs_verzamelen 60, 700
-pos bs_playlists 260, 700
-pos bs_beheer 460, 700
-pos bp_schema_wissel 660, 700
-pos bp_bericht_geluid 860, 700
-pos bp_updaten 1060, 700
-pos bp_opstarten 60, 830
-pos bp_zoeken 260, 830
-pos bp_downloaden 460, 830
-pos bp_editor_openen 660, 830
-pos bp_knippen 860, 830
-pos bp_opslaan 1060, 830
-pos bp_pl_aanmaken 60, 960
-pos bp_contact_kiezen 260, 960
-pos bp_tracks_toevoegen 460, 960
-pos bp_activeren 660, 960
-pos bp_overzicht 860, 960
-pos bp_oproep 1060, 960
-pos bp_gesprek_einde 60, 1090
-pos bp_track_kiezen 260, 1090
-pos bp_ringtone_zetten 460, 1090
-pos bp_volgende_oproep 660, 1090
-pos bp_bk_provider 860, 1090
-pos bp_bk_selectie 1060, 1090
-pos bp_bk_maken 60, 1220
-pos bp_bk_preview 260, 1220
-pos bp_bk_herstellen 460, 1220
-pos bp_bericht_binnen 660, 1220
-pos bp_bericht_match 860, 1220
+pos bs_backup 60, 570
+pos bp_permissies 260, 570
+pos ba_gebruiker 460, 570
+pos ba_beller 660, 570
+pos bs_wisselen 860, 570
+pos bs_verzamelen 1060, 570
+pos bs_playlists 60, 700
+pos bs_beheer 260, 700
+pos bp_schema_wissel 460, 700
+pos bp_bericht_geluid 660, 700
+pos bp_updaten 860, 700
+pos bp_opstarten 1060, 700
+pos bp_zoeken 60, 830
+pos bp_downloaden 260, 830
+pos bp_editor_openen 460, 830
+pos bp_knippen 660, 830
+pos bp_opslaan 860, 830
+pos bp_pl_aanmaken 1060, 830
+pos bp_contact_kiezen 60, 960
+pos bp_tracks_toevoegen 260, 960
+pos bp_activeren 460, 960
+pos bp_overzicht 660, 960
+pos bp_oproep 860, 960
+pos bp_gesprek_einde 1060, 960
+pos bp_track_kiezen 60, 1090
+pos bp_ringtone_zetten 260, 1090
+pos bp_volgende_oproep 460, 1090
+pos bp_bk_provider 660, 1090
+pos bp_bk_selectie 860, 1090
+pos bp_bk_maken 1060, 1090
+pos bp_bk_preview 60, 1220
+pos bp_bk_herstellen 260, 1220
+pos bp_bericht_binnen 460, 1220
+pos bp_bericht_match 660, 1220
 
 // Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
 dr_afwisseling influences go_random "drijft aan"
@@ -237,7 +225,6 @@ go_random influences rq_eenactief "vereist"
 go_random influences rq_percontact "vereist"
 go_geen_verlies influences bs_backup "vereist"
 cn_permissies influences bp_permissies "begrenst"
-cn_converters influences bp_spotify_preview "drijft aan"
 ba_gebruiker associates bs_verzamelen "gebruikt"
 ba_gebruiker associates bs_playlists "gebruikt"
 ba_gebruiker associates bs_backup "gebruikt"
@@ -253,6 +240,5 @@ bp_bk_maken realizes bs_backup
 bp_bk_herstellen realizes bs_backup
 bp_permissies realizes bs_beheer
 bp_updaten realizes bs_beheer
-bp_spotify_preview realizes bs_verzamelen
 bp_bericht_binnen triggers bp_bericht_match
 bp_bericht_match triggers bp_bericht_geluid

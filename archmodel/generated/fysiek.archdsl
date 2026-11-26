@@ -11,7 +11,7 @@ set target state "To-be (ontwerp)"
 
 Group laag_technology "Technologie" {
     -width 1220
-    -height 570
+    -height 440
 }
 Device dv_toestel "Android-toestel (min SDK 26, target 35; Samsung OneUI)" in laag_technology {
     -stroke "#16a34a"
@@ -63,32 +63,12 @@ Node nd_spotify "open.spotify.com (Spotify Web in WebView)" in laag_technology {
     -stroke "#0284c7"
     -attr status = "extern"
 }
-Node nd_spotify_api "Spotify Web API (gepland v2.0.0)" in laag_technology {
-    -fill "#f0f9ff"
-    -stroke "#0284c7"
-    -attr status = "extern"
-}
-Node nd_converters "Converter-sites (spotifydown e.a., via WebView)" in laag_technology {
-    -fill "#f0f9ff"
-    -stroke "#0284c7"
-    -attr status = "extern"
-}
-Node nd_spotmate "spotmate.online" in laag_technology {
-    -fill "#f0f9ff"
-    -stroke "#0284c7"
-    -attr status = "extern"
-}
 Node nd_youtube "YouTube (www.youtube.com in WebView)" in laag_technology {
     -fill "#f0f9ff"
     -stroke "#0284c7"
     -attr status = "extern"
 }
 Node nd_y2mate "RandomRingtone-logger /rrlog/youtube → YourTube-motor (HC55)" in laag_technology {
-    -fill "#f0f9ff"
-    -stroke "#0284c7"
-    -attr status = "extern"
-}
-Node nd_deezer "api.deezer.com (30 s-previews)" in laag_technology {
     -fill "#f0f9ff"
     -stroke "#0284c7"
     -attr status = "extern"
@@ -122,15 +102,11 @@ pos ss_datastore 60, 220
 pos ss_saf 260, 220
 pos ti_fileprovider 460, 220
 pos nd_spotify 660, 220
-pos nd_spotify_api 860, 220
-pos nd_converters 1060, 220
-pos nd_spotmate 60, 350
-pos nd_youtube 260, 350
-pos nd_y2mate 460, 350
-pos nd_deezer 660, 350
-pos nd_icthorse 860, 350
-pos nd_logger 1060, 350
-pos nd_cloud 60, 480
+pos nd_youtube 860, 220
+pos nd_y2mate 1060, 220
+pos nd_icthorse 60, 350
+pos nd_logger 260, 350
+pos nd_cloud 460, 350
 
 // Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
 dv_toestel composes ss_android

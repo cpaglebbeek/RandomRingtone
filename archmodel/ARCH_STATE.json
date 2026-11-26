@@ -2,13 +2,13 @@
   "tool": "ModelArchDSL",
   "toolVersion": "0.1.0",
   "engineSha256": "0bdabb3b46febb6190ec1e1698d285c5b140e15f4c7f07e7c22a85f2105dacae",
-  "tobeSha256": "67c4174793511b34d5f4fbace99d245cf0dadc46dca1b18b509198bb0845293c",
+  "tobeSha256": "a2f480c7728975b9a0b12dd3b402f58a066c5f753514b4965a7254ed58889e7f",
   "factsSha256": "e731856f86bad36c2459b6d24ab4248fea444f6411424721698379962f96c8c9",
   "plates": {
-    "conceptueel.archdsl": "3136d5e46c5d1239e50ebca81449e2e6208a567c3112aff2bb25f42f67bafa0e",
-    "logisch.archdsl": "0dd7f9ae4e99654ce664f184615b4d6cab00f28a97853bbf0f33c5402b2695dd",
-    "fysiek.archdsl": "5f98feefbd3a4a75d0bba5b2a8c9a17c8233f3c2fa7897413269c3d7750e44dc",
-    "reis-reis_knippen.archdsl": "0b833cdef26eeea89b4b3f7fe45d4cabae7140f87add4c0a52cd5e91de853942",
+    "conceptueel.archdsl": "e5db6c216b16d33e3a9d60f96e9555368788229104a3795f5b0d02880250b7be",
+    "logisch.archdsl": "eda66a2f71b18cd58ad37abc3db390130a7e2dd857e45393efe80a3d7fd26fed",
+    "fysiek.archdsl": "1f6c85dd5090dd7655e7d42211e157572b47c748fb2b585e58e7ea5262101cde",
+    "reis-reis_knippen.archdsl": "b07a38fe4c7b25a4c5e171682e6a73d1dbf04dbb0d5d25160721d0bad9bfd67e",
     "reis-reis_playlist.archdsl": "bca5b8dfa5390c70158661112bb793bd0c3948834b6270b305a1f41f6b4bb0bf",
     "reis-reis_oproep.archdsl": "d0d5336885c3d5a1056ba337b23325847b21e09c798badd5f469346bc0dd40dc",
     "reis-reis_backup.archdsl": "65e8f0ff067025411a85a160f32386d91f5f63bce42e28188caa773a42347269",
@@ -17,11 +17,11 @@
   "counts": {
     "gebouwd": 59,
     "deels": 0,
-    "gepland": 6,
+    "gepland": 4,
     "alleen_code": 0,
     "ongetraceerd": 0,
-    "extern": 11,
-    "ontwerp": 49
+    "extern": 7,
+    "ontwerp": 48
   },
   "facts": 43,
   "unclaimedFacts": 0,

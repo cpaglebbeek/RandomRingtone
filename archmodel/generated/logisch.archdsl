@@ -58,7 +58,7 @@ ApplicationComponent ac_scr_backup "BackupScreen: backup/restore SAF of iCt Hors
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/ui/screens"
 }
-ApplicationComponent ac_scr_settings "SettingsScreen: permissies, opslag, converter, updates, logging" in laag_application {
+ApplicationComponent ac_scr_settings "SettingsScreen: permissies, opslag, bronnen, updates, logging" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/ui/screens"
@@ -83,7 +83,7 @@ ApplicationComponent ac_contacts "ContactsRepository: contacten + CUSTOM_RINGTON
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan, converterlijst" in laag_application {
+ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan, YouTube-methode" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
@@ -118,11 +118,11 @@ ApplicationComponent ac_logger "RemoteLogger: wachtrij, flush 2 s, heartbeat 30 
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata, preview of volledig nummer)" in laag_application {
+ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata → volledig nummer)" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
-    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); preview via Deezer of volledig nummer via de YouTube-keten. Vervangt SpotMateDirectClient."
+    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); volledig nummer via de YouTube-keten. Sinds v2.6.0 zijn de previews (Deezer, Spotify, backend) en de converter-websites verwijderd."
 }
 ApplicationComponent ac_spotify_collection "SpotifyCollection: nummerlijst van playlist of album (v2.5.0)" in laag_application {
     -stroke "#16a34a"
@@ -152,18 +152,11 @@ ApplicationComponent ac_icthorse_client "IctHorseBackupClient (backup_api.php)" 
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_deezer "DeezerApi-client (T1; in main geen aanroeper meer)" in laag_application {
+ApplicationComponent ac_deezer "Track-model DeezerTrack (historische naam; geen Deezer-aanroepen meer)" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
-    -description "Deezer-tab is uit main verdwenen; Deezer-previews worden nog door de ringtone-engine gedownload via previewUrl."
-}
-ApplicationComponent ac_spotify_webapi "SpotifyWebApiClient: Client Credentials + preview_url (v2.0.0)" in laag_application {
-    -fill "#fff7ed"
-    -stroke "#ea580c"
-    -state target
-    -attr status = "gepland"
-    -description "Vervangt SpotMateDirectClient in SpotifyScreen; token-cache ~1 uur; tracks zonder preview_url → WebView-converter."
+    -description "Sinds v2.6.0 haalt de app niets meer bij Deezer op; alleen het datamodel is gebleven voor bibliotheek, ringtone-motor en back-ups."
 }
 ApplicationComponent ac_okhttp_shared "Gedeelde OkHttpClient (R9)" in laag_application {
     -fill "#fff7ed"
@@ -338,34 +331,33 @@ pos ac_spotify_import 60, 610
 pos ac_y2mate 260, 610
 pos ac_icthorse_client 460, 610
 pos ac_deezer 660, 610
-pos ac_spotify_webapi 860, 610
-pos ac_okhttp_shared 1060, 610
-pos ac_predownload 60, 740
-pos ac_accu 260, 740
-pos ac_wissel_melding 460, 740
-pos ac_decoder 660, 740
-pos ac_trimmer 860, 740
-pos ac_player 1060, 740
-pos ac_receiver 60, 870
-pos ac_notifsvc 260, 870
-pos ac_worker 460, 870
-pos do_saved_tracks 660, 870
-pos do_playlists 860, 870
-pos do_playlist_tracks 1060, 870
-pos do_settings 60, 1000
-pos do_audio 260, 1000
-pos do_autobackup 460, 1000
-pos do_backupset 660, 1000
-pos ar_apk 860, 1000
-pos pm_internet 1060, 1000
-pos pm_settings 60, 1130
-pos pm_contacts 260, 1130
-pos pm_call 460, 1130
-pos pm_media 660, 1130
-pos pm_boot 860, 1130
-pos pm_notif 1060, 1130
-pos pm_install 60, 1260
-pos pm_listener 260, 1260
+pos ac_okhttp_shared 860, 610
+pos ac_predownload 1060, 610
+pos ac_accu 60, 740
+pos ac_wissel_melding 260, 740
+pos ac_decoder 460, 740
+pos ac_trimmer 660, 740
+pos ac_player 860, 740
+pos ac_receiver 1060, 740
+pos ac_notifsvc 60, 870
+pos ac_worker 260, 870
+pos do_saved_tracks 460, 870
+pos do_playlists 660, 870
+pos do_playlist_tracks 860, 870
+pos do_settings 1060, 870
+pos do_audio 60, 1000
+pos do_autobackup 260, 1000
+pos do_backupset 460, 1000
+pos ar_apk 660, 1000
+pos pm_internet 860, 1000
+pos pm_settings 1060, 1000
+pos pm_contacts 60, 1130
+pos pm_call 260, 1130
+pos pm_media 460, 1130
+pos pm_boot 660, 1130
+pos pm_notif 860, 1130
+pos pm_install 1060, 1130
+pos pm_listener 60, 1260
 
 // Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
 ac_main composes ac_scr_spotify
@@ -383,7 +375,6 @@ ac_spotify_import serves ac_scr_spotify "importvenster"
 ac_spotify_collection serves ac_spotify_import "nummerlijst"
 ac_youtube_match serves ac_spotmate "treffercontrole"
 ac_y2mate serves ac_spotmate "audio (volledig nummer)"
-ac_spotify_webapi serves ac_scr_spotify "vervangt SpotMate"
 ac_y2mate serves ac_scr_youtube
 ac_trackid serves ac_scr_spotify "canonieke trackId"
 ac_trackid serves ac_scr_youtube "canonieke trackId"

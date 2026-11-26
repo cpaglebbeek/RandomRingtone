@@ -239,3 +239,13 @@ De vorige waarden lekten in deze repo en zijn op 2026-10-10 geroteerd én uit de
 Gevolg: app-versies t/m v2.3.0 kunnen niet meer remote loggen, en toestellen zonder eigen device-token
 geen backup meer maken, tot ze v2.3.2+ hebben (v2.3.1 is nooit gepubliceerd: die APK bevatte nog de oude
 ddns-hostnaam, die sinds het najaar van 2026 geen A-record meer heeft).
+
+## YouTube via de eigen server (sinds v2.4.0, 2026-11-26)
+
+De app haalt YouTube-audio standaard via `https://icthorsecloud.nl/rrlog/youtube/<videoId>` (toestel-ID + toestel-token).
+Afhankelijk van: logger ≥ 1.2.0 (`YOURTUBE_API`, `YOURTUBE_SERVICE_KEY` in `.env`), YourTube ≥ 0.2.1 (dienst
+`randomringtone` in `/etc/yourtube/diensten.json`) en de nginx-locatie `^~ /rrlog/youtube/` zonder Basic Auth.
+Controle zonder toestel: `curl -X POST https://icthorsecloud.nl/rrlog/youtube/dQw4w9WgXcQ` → 401 met JSON
+`Toestel niet geautoriseerd` (een Basic Auth-prompt betekent dat de nginx-locatie ontbreekt).
+HorseAPK-bestandsnaam: `RandomRingtone-v<versie>-<Codename>_<Release>-release.apk` (kopie met underscore; de
+build levert `…-<Codename>-<Release>-release.apk`, die naam gaat naar icthorse.nl en de spiegel).

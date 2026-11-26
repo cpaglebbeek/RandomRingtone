@@ -1,7 +1,7 @@
 ---
 date: 2026-11-25
 repo: RandomRingtone
-status: pending
+status: done
 resume: "verder met randomringtone — v2.3.2 Tiny_Dancer STABLE vrijgegeven 25-11 + Z Fold 8 (fab5c382) gelicenseerd (hostnaam icthorsecloud.nl + geroteerde sleutels + bronnen v2.3.0). EERST vragen: v2.3.2 op de Fairphone geïnstalleerd? Dan meten in app.log (toestel 2a7d66dd, appVersion 2.3.2): komen logregels weer binnen, methodetest Spotify-embed/YouTube op toestel, restore zet de 23 geweigerde bestanden terug (fix v2.2.3). Daarna: in app.log nameten welke toestellen na de update terugkomen (Theo 1.8.9 e.a.); volgende build BUILD_STATUS=STABLE (label); open uit 29-09: E2E magic link, ProjectGrant Fairphone, Spotify-sleutels, accounts overige toestellen, shad-playlist, archief backups-20260929."
 ---
 

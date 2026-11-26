@@ -2,6 +2,18 @@
 
 > Laatst bijgewerkt: 2026-11-25 — v2.3.2 (149) "Elton_John"/"Tiny_Dancer" gepubliceerd (DEBUG): hostnaam icthorsecloud.nl + geroteerde sleutels + bronnen v2.3.0
 
+## v2.4.0 "Prince" / "Purple_Rain" — DEBUG gepubliceerd 26-11-2026
+
+YouTube-audio via de eigen server (YourTube-motor, wachtrij + workers achter NL-uitgangen), terugval "Op toestel".
+Keten: app → `https://icthorsecloud.nl/rrlog/youtube/<id>` (toestel-token) → logger 1.2.0 → YourTube 0.2.1 (dienstsleutel).
+
+- [x] YourTube 0.2.1 dienstsleutel, logger 1.2.0 route, nginx-locatie `/rrlog/youtube/` (regressietest 431 → 432, 0 regressies)
+- [x] Smoke op verse AVD's (telefoon API 36 + auto API 35): app start, logt als 2.4.0, geen fouten
+- [ ] **Echte download vanuit de app op een gelicenseerd toestel** (Fold of Fairphone): YouTube-tab + Spotify "Volledig nummer"; nameten in app.log en in YourTube (taak van dienst `randomringtone`)
+- [ ] Methodetest in Instellingen: regel "Eigen server (YourTube)" groen op toestel
+- [ ] Daarna vrijgave STABLE (met `BUILD_STATUS=STABLE` in de build)
+- [ ] Spotify-motor ombouwen naar de Sunnify-werkwijze (playlist/album via embed + spclient) — WhatIf voorgelegd 26-11, wacht op akkoord
+
 ## Hoogste prio — afronden v2.0.0
 
 - [ ] **E2E-goedkeuring** (Christian): magic link uit de testmail openen → *Licentie toevoegen* → code overtypen in HorseAPK
@@ -50,7 +62,7 @@ Eigen Spotify→MP3 relay op HC55:3801 is **PARKED**. Service draait (`systemctl
 
 - [ ] R9 — OkHttpClient singleton (LOW, performance)
 - [ ] R10 — Pre-download bij playlist activering (LOW, offline)
-- [ ] R12 — Y2Mate host dynamisch resolven (MED, 3e relocatie dit jaar)
+- [x] R12 — vervallen: Y2Mate is in v2.4.0 verwijderd
 
 ## Bundel 3 SECURITY (apart WhatIf, destructief, uit marathon)
 

@@ -84,7 +84,7 @@ fun RandomRingtoneApp() {
     val openStorageSettings: () -> Unit = {
         selectedTab = 6
         navController.navigate("settings") {
-            popUpTo("spotify") { inclusive = false }
+            popUpTo("yourtube") { inclusive = false }
             launchSingleTop = true
         }
     }
@@ -145,8 +145,7 @@ fun RandomRingtoneApp() {
     }
 
     val tabs = listOf(
-        Triple("spotify", "Spotify", Icons.Default.CloudDownload),
-        Triple("youtube", "YouTube", Icons.Default.VideoLibrary),
+        Triple("yourtube", "YourTube", Icons.Default.VideoLibrary),
         Triple("library", "Bibliotheek", Icons.Default.LibraryMusic),
         Triple("playlists", "Playlists", Icons.Default.QueueMusic),
         Triple("overview", "Overzicht", Icons.Default.Dashboard),
@@ -180,7 +179,7 @@ fun RandomRingtoneApp() {
                                 // Pop editor van back stack als die er op zit
                                 navController.popBackStack("editor", inclusive = true)
                                 navController.navigate(route) {
-                                    popUpTo("spotify") { inclusive = false }
+                                    popUpTo("yourtube") { inclusive = false }
                                     launchSingleTop = true
                                 }
                             }
@@ -196,30 +195,13 @@ fun RandomRingtoneApp() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = "spotify",
+            startDestination = "yourtube",
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            composable("spotify") {
-                SpotifyScreen(
-                    ringtoneManager = ringtoneManager,
-                    db = db,
-                    snackbarHostState = snackbarHostState,
-                    onOpenEditor = { title, file ->
-                        navController.currentBackStackEntry?.savedStateHandle?.apply {
-                            set("editorTrackTitle", title)
-                            set("editorTrackArtist", "Spotify")
-                            set("editorFilePath", file.absolutePath)
-                            set("editorTrackId", file.name.hashCode().toLong())
-                            set("editorPreviewUrl", "")
-                        }
-                        navController.navigate("editor")
-                    }
-                )
-            }
-            composable("youtube") {
-                YouTubeScreen(
+            composable("yourtube") {
+                YourTubeScreen(
                     ringtoneManager = ringtoneManager,
                     db = db,
                     snackbarHostState = snackbarHostState,
@@ -319,7 +301,7 @@ fun RandomRingtoneApp() {
                     pendingUpdate = null
                     selectedTab = 6
                     navController.navigate("settings") {
-                        popUpTo("spotify") { inclusive = false }
+                        popUpTo("yourtube") { inclusive = false }
                         launchSingleTop = true
                     }
                 }) { Text("Naar updates") }

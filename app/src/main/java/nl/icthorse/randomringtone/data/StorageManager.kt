@@ -143,15 +143,6 @@ class StorageManager(private val context: Context) {
         }
     }
 
-    suspend fun getYouTubeMethod(): YouTubeMethod {
-        val saved = context.settingsStore.data.map { it[KEY_YOUTUBE_METHOD] }.first()
-        return YouTubeMethod.entries.find { it.id == saved } ?: YouTubeMethod.SERVER
-    }
-
-    suspend fun setYouTubeMethod(m: YouTubeMethod) {
-        context.settingsStore.edit { it[KEY_YOUTUBE_METHOD] = m.id }
-    }
-
     // --- Backup URI ---
 
     suspend fun getBackupUri(): String? {
@@ -699,14 +690,6 @@ data class ScannedFile(
     val source: String = "",
     val isTrimmed: Boolean = false
 )
-
-/** v2.3.0: hoe een YouTube-video een audiobestand wordt. v2.4.0: eigen server erbij (standaard), Y2Mate eruit. */
-enum class YouTubeMethod(val id: String, val label: String, val detail: String) {
-    SERVER("server", "Eigen server (YourTube)",
-        "De RandomRingtone-server haalt de audio (M4A) op met de motor achter YourTube en de app haalt het bestand daar op. Werkt ook als YouTube je eigen netwerk blokkeert; alleen op een gelicenseerd toestel. Mislukt het, dan volgt 'Op toestel'."),
-    DEVICE("device", "Op toestel (NewPipeExtractor)",
-        "Haalt de audio (M4A ~128 kbps) rechtstreeks van YouTube met je eigen verbinding. Geen tussenpartij.")
-}
 
 data class DiskUsage(
     val downloadBytes: Long,

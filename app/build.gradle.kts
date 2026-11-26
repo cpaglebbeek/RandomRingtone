@@ -16,8 +16,8 @@ val rrSecrets = Properties().apply {
 }
 fun rrSecret(name: String): String = rrSecrets.getProperty(name) ?: System.getenv(name) ?: ""
 
-val appCodename = "Johnny_Cash"
-val appReleaseName = "Ring_of_Fire"
+val appCodename = "Chuck_Berry"
+val appReleaseName = "Johnny_B_Goode"
 
 android {
     namespace = "nl.icthorse.randomringtone"
@@ -42,13 +42,13 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 153
-        versionName = "2.6.0"
+        versionCode = 154
+        versionName = "2.7.0"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"$appCodename\"")
         buildConfigField("String", "RELEASE_NAME", "\"$appReleaseName\"")
-        buildConfigField("int", "BUILD_NUMBER", "153")
+        buildConfigField("int", "BUILD_NUMBER", "154")
         buildConfigField("String", "BUILD_STATUS", "\"DEBUG\"")  // DEBUG of STABLE
         buildConfigField("String", "RR_LOGGER_API_KEY", "\"${rrSecret("RR_LOGGER_API_KEY")}\"")
         buildConfigField("String", "RR_BACKUP_API_KEY", "\"${rrSecret("RR_BACKUP_API_KEY")}\"")
@@ -81,7 +81,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = true   // NewPipeExtractor (java.nio/java.time op oudere Android)
     }
 
     kotlinOptions {
@@ -102,7 +101,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.icons.extended)
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")   // SpotifyPreviewClient.parseEmbed in JVM-tests
+    testImplementation("org.json:json:20240303")   // org.json in JVM-tests (YourTube.parseSearch/parseState)
     implementation(libs.activity.compose)
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.viewmodel.compose)
@@ -129,7 +128,4 @@ dependencies {
     implementation(libs.core.ktx)
     implementation(libs.datastore.preferences)
 
-    // v2.3.0: YouTube zoeken + audio-extractie op het toestel (eigen IP) — GPL-3.0
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.5")
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 }

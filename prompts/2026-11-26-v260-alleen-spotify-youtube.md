@@ -1,7 +1,7 @@
 ---
 date: 2026-11-26
 repo: RandomRingtone
-status: pending
+status: done
 resume: "verder met randomringtone — v2.6.0 Johnny_Cash/Ring_of_Fire (alleen nog Spotify en YouTube, geen Deezer, geen converters, geen previews); wacht op proef op de Fold of Fairphone, daarna STABLE"
 ---
 

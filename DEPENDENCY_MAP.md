@@ -1,5 +1,8 @@
 # Dependency Map — RandomRingtone
 
+> **v2.7.0 (26-11-2026):** één bron: `YourTubeScreen` → `data/YourTube.kt` → `icthorsecloud.nl/rrlog/youtube/…` → YourTube.
+> Spotify-scherm, YouTube-WebView, import, `YouTubeMatch`, `YouTubeOnDevice` en NewPipeExtractor zijn verwijderd.
+>
 > **v2.6.0 (26-11-2026):** de app haalt audio alleen nog via de YouTube-keten (Spotify-scherm en YouTube-scherm).
 > De Deezer-client, de previews en de converter-websites zijn verwijderd; vermeldingen daarvan hieronder zijn historie.
 > `DeezerApi.kt` bevat alleen nog het model `DeezerTrack`.

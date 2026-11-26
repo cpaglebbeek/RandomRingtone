@@ -257,3 +257,10 @@ playlists boven de 100 nummers, Spotify's interne playlistdienst (kan zonder aan
 "alleen de eerste N nummers geladen"). Serverkant: logger ≥ 1.3.0 (150 taken/uur per toestel) en YourTube-dienstgrens 300.
 Controle zonder toestel: `RR_EMBED_DIR=<map met playlist.html + album.html> ./gradlew :app:testReleaseUnitTest` (parser
 op verse pagina's) en `RR_LIVE=1 … --tests '*youtubeStrictMatchLive'` (treffercontrole op echte zoekresultaten).
+
+## YourTube als enige bron (sinds v2.7.0, 2026-11-26)
+
+De app zoekt via `GET https://icthorsecloud.nl/rrlog/youtube/zoek?q=…` en downloadt via `/rrlog/youtube/<videoId>`
+(beide met toestel-ID + toestel-token). Vraagt RandomRingtoneLogger ≥ 1.4.0 en YourTube ≥ 0.2.2. De Spotify-import en
+de terugval "Op toestel" bestaan niet meer; de paragraaf "Spotify-import" hierboven is historie.
+Controle zonder toestel: `curl "https://icthorsecloud.nl/rrlog/youtube/zoek?q=test"` → 401.

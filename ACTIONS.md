@@ -1,6 +1,23 @@
 # Openstaande Acties — RandomRingtone
 
-> Laatst bijgewerkt: 2026-11-26 — v2.6.0 (153) "Johnny_Cash"/"Ring_of_Fire": alleen nog Spotify en YouTube
+> Laatst bijgewerkt: 2026-11-26 — v2.7.0 (154) "Chuck_Berry"/"Johnny_B_Goode": alleen nog YourTube
+
+## v2.7.0 "Chuck_Berry" / "Johnny_B_Goode" — DEBUG 26-11-2026
+
+Christian: "verwijder spotify ui en youtube ui. maak alleen yourtube ui en backend" → akkoord, "geen terugval", "anoniem".
+
+- [x] Verwijderd: `SpotifyScreen`, `SpotifyImportDialog`, `SpotifyPreviewClient`, `SpotifyCollection`, `YouTubeScreen`
+      (WebView), `YouTubeMatch`, `YouTubeOnDevice` + NewPipeExtractor (terugval "Op toestel"), `YouTubeMethod`,
+      desugaring en de jitpack-bron. APK 2,0 MB (was 2,9 MB)
+- [x] Nieuw: `YourTubeScreen` (zoekveld, trefferlijst met miniatuur/kanaal/duur, downloadknop, geplakte link =
+      direct downloaden) en `data/YourTube.kt` (zoeken + taak + ophalen, geen terugval)
+- [x] Backend: YourTube 0.2.2 (dienst mag `/api/zoek`, altijd anoniem) en RandomRingtoneLogger 1.4.0
+      (`GET /rrlog/youtube/zoek?q=`, toestel-token, 300 per uur per toestel); beide live, geen nginx-wijziging
+- [x] Instellingen: één bron "YourTube (eigen server)" met test (echte zoekopdracht)
+- [ ] **Gevolg om te kennen:** zoeken en downloaden werken alleen op een gelicenseerd toestel en alleen als HC55
+      bereikbaar is; er is geen terugval meer
+- [ ] Op een gelicenseerd toestel proberen: zoeken, downloaden, geplakte link; daarna STABLE
+- [ ] Vervallen uit v2.6.0: "nummer delen, album importeren" (bestaat niet meer)
 
 ## v2.6.0 "Johnny_Cash" / "Ring_of_Fire" — DEBUG gepubliceerd 26-11-2026
 

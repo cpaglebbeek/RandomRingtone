@@ -4,7 +4,7 @@ Android app die automatisch je ringtone wisselt op basis van muziek — op schem
 
 ## Wat doet het
 
-- Zoek en download muziek via Deezer API, Spotify (via converter) en YouTube
+- Zoek en download muziek via YourTube (eigen server; sinds v2.7.0 de enige bron)
 - Maak playlists, wijs ze toe aan kanalen (Telefoon, SMS, WhatsApp, Notificatie)
 - Stel schema's in: bij elke oproep, elk uur, dagelijks, wekelijks
 - Per-contact ringtones via ContactsContract

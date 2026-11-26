@@ -12,18 +12,13 @@ import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
 
 /**
- * Instellingen → "Bronnen & downloadmethodes" (v2.3.0).
- * Per bron een keuze met uitleg en een knop "Test" die live meet of de methode op dit toestel/netwerk werkt.
+ * Instellingen → "Bron" (v2.7.0: alleen YourTube), met een knop "Test" die live meet of zoeken op dit toestel werkt.
  */
 @Composable
 fun SourceMethodsSection(storage: StorageManager, snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var youtube by remember { mutableStateOf(YouTubeMethod.SERVER) }
     val results = remember { mutableStateMapOf<String, String>() }
-    LaunchedEffect(Unit) {
-        youtube = storage.getYouTubeMethod()
-    }
 
     fun runTest(key: String, block: suspend () -> String) {
         results[key] = "… bezig met testen"
@@ -34,54 +29,23 @@ fun SourceMethodsSection(storage: StorageManager, snackbarHostState: SnackbarHos
         }
     }
 
-    Text("Bronnen & downloadmethodes", style = MaterialTheme.typography.titleMedium)
+    Text("Bron", style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(4.dp))
     Text(
-        "Hoe een Spotify-link of YouTube-video een ringtonebestand wordt (sinds v2.6.0 alleen nog via YouTube). Met 'Test' meet je live of een methode " +
-            "op dit toestel en netwerk werkt.",
+        "Sinds v2.7.0 is er één bron: je eigen server YourTube. Met 'Test' meet je live of zoeken op dit toestel werkt.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     Spacer(Modifier.height(12.dp))
 
-    // ── Spotify (v2.6.0: één methode) ──
-    Text("Spotify", style = MaterialTheme.typography.titleSmall)
     MethodRow(
-        selected = true, label = "Volledig nummer (via YouTube)",
-        detail = "Titel, artiest en duur komen van de openbare Spotify-pagina. De app zoekt het nummer op YouTube, " +
-            "controleert titel, artiest en duur en downloadt de audio (M4A) volgens de YouTube-methode hieronder. " +
-            "Een playlist of album is in één keer te importeren.",
-        result = results["spotify_full"], onSelect = null,
-        onTest = {
-            runTest("spotify_full") {
-                YouTubeOnDevice.selfTest() + "\nPlaylist/album: " + SpotifyCollection.selfTest()
-            }
-        }
+        selected = true, label = "YourTube (eigen server)",
+        detail = "Zoeken en downloaden lopen via de RandomRingtone-server en de motor van YourTube; de app haalt de " +
+            "audio (M4A) daar op. Alleen op een gelicenseerd toestel. Is de server niet bereikbaar, dan kan er niet " +
+            "gezocht of gedownload worden.",
+        result = results["yourtube"], onSelect = null,
+        onTest = { runTest("yourtube") { YourTube.selfTest(LicenseManager(context)) } }
     )
-
-    Spacer(Modifier.height(16.dp))
-
-    // ── YouTube ──
-    Text("YouTube", style = MaterialTheme.typography.titleSmall)
-    YouTubeMethod.entries.forEach { m ->
-        MethodRow(
-            selected = youtube == m, label = m.label, detail = m.detail, result = results["youtube_${m.id}"],
-            onSelect = {
-                youtube = m
-                scope.launch { storage.setYouTubeMethod(m); snackbarHostState.showSnackbar("YouTube: ${m.label}") }
-            },
-            onTest = {
-                runTest("youtube_${m.id}") {
-                    when (m) {
-                        YouTubeMethod.SERVER -> nl.icthorse.randomringtone.data.YouTubeServer.selfTest(
-                            nl.icthorse.randomringtone.data.LicenseManager(context))
-                        YouTubeMethod.DEVICE -> YouTubeOnDevice.selfTest()
-                    }
-                }
-            }
-        )
-    }
-
 }
 
 @Composable

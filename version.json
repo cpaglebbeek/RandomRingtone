@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.6.0",
-  "versionCode": 153,
-  "codename": "Johnny_Cash",
-  "releaseName": "Ring_of_Fire",
+  "version": "2.7.0",
+  "versionCode": 154,
+  "codename": "Chuck_Berry",
+  "releaseName": "Johnny_B_Goode",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-11-26",
   "status": "development",
-  "note": "v2.6.0 = alleen nog Spotify (volledig nummer via YouTube) en YouTube: previews (Deezer, Spotify, backend), converter-websites en alle Deezer-aanroepen (ook de on-the-fly herstelstap en de hoes-terugval in de editor) verwijderd. v2.5.1 = delen van een nummer start direct zoeken + download"
+  "note": "v2.7.0 = één bron: YourTube (eigen server). Spotify-scherm, YouTube-WebView, import van playlist/album, strikte treffercontrole en de terugval 'Op toestel' (NewPipeExtractor) verwijderd; nieuw scherm met zoekveld en trefferlijst. v2.6.0 = alleen nog Spotify (via YouTube) en YouTube, geen Deezer/converters/previews"
 }

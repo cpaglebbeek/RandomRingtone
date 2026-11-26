@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
  * Met 72-uur grace period voor offline gebruik.
  *
  * v2.0.0: activatie-aanvraag via de backend (mail met magic link naar beheer, goedkeuring via HorseAPK) en een
- * per-toestel-token (backup/restore, Spotify-bron). Token staat in een eigen prefs-bestand dat buiten Android-backups
+ * per-toestel-token (backup/restore, YourTube). Token staat in een eigen prefs-bestand dat buiten Android-backups
  * blijft (res/xml/backup_rules.xml, data_extraction_rules.xml).
  */
 class LicenseManager(private val context: Context) {

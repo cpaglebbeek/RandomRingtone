@@ -11,7 +11,7 @@ set target state "To-be (ontwerp)"
 
 Group laag_application "Applicatie" {
     -width 1220
-    -height 1350
+    -height 1220
 }
 ApplicationComponent ac_main "MainActivity: 7 tabs + editor, licentieblokkade" in laag_application {
     -stroke "#16a34a"
@@ -23,12 +23,7 @@ ApplicationComponent ac_theme "Thema (Material 3 + Dynamic Color)" in laag_appli
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/ui/theme"
 }
-ApplicationComponent ac_scr_spotify "SpotifyScreen: Spotify-WebView, klembord, download en import" in laag_application {
-    -stroke "#16a34a"
-    -attr status = "gebouwd"
-    -attr trace = "module:app/src/main/java/ui/screens"
-}
-ApplicationComponent ac_scr_youtube "YouTubeScreen: YouTube-WebView + download via eigen server" in laag_application {
+ApplicationComponent ac_scr_youtube "YourTubeScreen: zoeken, trefferlijst en download via YourTube (v2.7.0)" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/ui/screens"
@@ -83,7 +78,7 @@ ApplicationComponent ac_contacts "ContactsRepository: contacten + CUSTOM_RINGTON
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan, YouTube-methode" in laag_application {
+ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
@@ -118,31 +113,7 @@ ApplicationComponent ac_logger "RemoteLogger: wachtrij, flush 2 s, heartbeat 30 
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata → volledig nummer)" in laag_application {
-    -stroke "#16a34a"
-    -attr status = "gebouwd"
-    -attr trace = "module:app/src/main/java/data"
-    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); volledig nummer via de YouTube-keten. Sinds v2.6.0 zijn de previews (Deezer, Spotify, backend) en de converter-websites verwijderd."
-}
-ApplicationComponent ac_spotify_collection "SpotifyCollection: nummerlijst van playlist of album (v2.5.0)" in laag_application {
-    -stroke "#16a34a"
-    -attr status = "gebouwd"
-    -attr trace = "module:app/src/main/java/data"
-    -description "Embed-pagina voor de eerste ±100 nummers; langere playlists via Spotify's playlistdienst met het anonieme token uit de pagina."
-}
-ApplicationComponent ac_youtube_match "YouTubeMatch: strikte treffercontrole (v2.5.0)" in laag_application {
-    -stroke "#16a34a"
-    -attr status = "gebouwd"
-    -attr trace = "module:app/src/main/java/data"
-    -description "Titel en artiest moeten in de video staan, duur hooguit 30 s afwijkend."
-}
-ApplicationComponent ac_spotify_import "SpotifyImportDialog: playlist/album importeren (v2.5.0)" in laag_application {
-    -stroke "#16a34a"
-    -attr status = "gebouwd"
-    -attr trace = "module:app/src/main/java/ui/screens"
-    -description "Lijst met vinkjes, voortgang per nummer, overzicht van mislukte nummers, optioneel een gepauzeerde playlist in de app."
-}
-ApplicationComponent ac_y2mate "YouTubeDownload: eigen server (YouTubeServer), terugval op toestel (v2.4.0)" in laag_application {
+ApplicationComponent ac_y2mate "YourTube-client: zoeken en audio via de eigen server, geen terugval (v2.7.0)" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
@@ -305,62 +276,56 @@ Artifact pm_listener "Notificatie-toegang (BIND_NOTIFICATION_LISTENER_SERVICE)" 
 pos laag_application 40, 40
 pos ac_main 60, 90
 pos ac_theme 260, 90
-pos ac_scr_spotify 460, 90
-pos ac_scr_youtube 660, 90
-pos ac_scr_editor 860, 90
-pos ac_scr_library 1060, 90
-pos ac_scr_playlists 60, 220
-pos ac_scr_overview 260, 220
-pos ac_scr_backup 460, 220
-pos ac_scr_settings 660, 220
-pos ac_ringtone 860, 220
-pos ac_resolver 1060, 220
-pos ac_conflict 60, 350
-pos ac_contacts 260, 350
-pos ac_storage 460, 350
-pos ac_backupmgr 660, 350
-pos ac_trackid 860, 350
-pos ac_tags 1060, 350
-pos ac_license 60, 480
-pos ac_update 260, 480
-pos ac_logger 460, 480
-pos ac_spotmate 660, 480
-pos ac_spotify_collection 860, 480
-pos ac_youtube_match 1060, 480
-pos ac_spotify_import 60, 610
-pos ac_y2mate 260, 610
-pos ac_icthorse_client 460, 610
-pos ac_deezer 660, 610
-pos ac_okhttp_shared 860, 610
-pos ac_predownload 1060, 610
-pos ac_accu 60, 740
-pos ac_wissel_melding 260, 740
-pos ac_decoder 460, 740
-pos ac_trimmer 660, 740
-pos ac_player 860, 740
-pos ac_receiver 1060, 740
-pos ac_notifsvc 60, 870
-pos ac_worker 260, 870
-pos do_saved_tracks 460, 870
-pos do_playlists 660, 870
-pos do_playlist_tracks 860, 870
-pos do_settings 1060, 870
-pos do_audio 60, 1000
-pos do_autobackup 260, 1000
-pos do_backupset 460, 1000
-pos ar_apk 660, 1000
-pos pm_internet 860, 1000
-pos pm_settings 1060, 1000
-pos pm_contacts 60, 1130
-pos pm_call 260, 1130
-pos pm_media 460, 1130
-pos pm_boot 660, 1130
-pos pm_notif 860, 1130
-pos pm_install 1060, 1130
-pos pm_listener 60, 1260
+pos ac_scr_youtube 460, 90
+pos ac_scr_editor 660, 90
+pos ac_scr_library 860, 90
+pos ac_scr_playlists 1060, 90
+pos ac_scr_overview 60, 220
+pos ac_scr_backup 260, 220
+pos ac_scr_settings 460, 220
+pos ac_ringtone 660, 220
+pos ac_resolver 860, 220
+pos ac_conflict 1060, 220
+pos ac_contacts 60, 350
+pos ac_storage 260, 350
+pos ac_backupmgr 460, 350
+pos ac_trackid 660, 350
+pos ac_tags 860, 350
+pos ac_license 1060, 350
+pos ac_update 60, 480
+pos ac_logger 260, 480
+pos ac_y2mate 460, 480
+pos ac_icthorse_client 660, 480
+pos ac_deezer 860, 480
+pos ac_okhttp_shared 1060, 480
+pos ac_predownload 60, 610
+pos ac_accu 260, 610
+pos ac_wissel_melding 460, 610
+pos ac_decoder 660, 610
+pos ac_trimmer 860, 610
+pos ac_player 1060, 610
+pos ac_receiver 60, 740
+pos ac_notifsvc 260, 740
+pos ac_worker 460, 740
+pos do_saved_tracks 660, 740
+pos do_playlists 860, 740
+pos do_playlist_tracks 1060, 740
+pos do_settings 60, 870
+pos do_audio 260, 870
+pos do_autobackup 460, 870
+pos do_backupset 660, 870
+pos ar_apk 860, 870
+pos pm_internet 1060, 870
+pos pm_settings 60, 1000
+pos pm_contacts 260, 1000
+pos pm_call 460, 1000
+pos pm_media 660, 1000
+pos pm_boot 860, 1000
+pos pm_notif 1060, 1000
+pos pm_install 60, 1130
+pos pm_listener 260, 1130
 
 // Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
-ac_main composes ac_scr_spotify
 ac_main composes ac_scr_youtube
 ac_main composes ac_scr_editor
 ac_main composes ac_scr_library
@@ -370,13 +335,7 @@ ac_main composes ac_scr_backup
 ac_main composes ac_scr_settings
 ac_theme serves ac_main "thema"
 ac_logger serves ac_main "logging"
-ac_spotmate serves ac_scr_spotify
-ac_spotify_import serves ac_scr_spotify "importvenster"
-ac_spotify_collection serves ac_spotify_import "nummerlijst"
-ac_youtube_match serves ac_spotmate "treffercontrole"
-ac_y2mate serves ac_spotmate "audio (volledig nummer)"
 ac_y2mate serves ac_scr_youtube
-ac_trackid serves ac_scr_spotify "canonieke trackId"
 ac_trackid serves ac_scr_youtube "canonieke trackId"
 ac_decoder serves ac_scr_editor
 ac_trimmer serves ac_scr_editor
@@ -407,7 +366,7 @@ ac_predownload serves ac_resolver
 ac_wissel_melding serves ac_worker
 ac_okhttp_shared serves ac_ringtone
 ac_okhttp_shared serves ac_icthorse_client
-ac_okhttp_shared serves ac_spotmate
+ac_okhttp_shared serves ac_y2mate
 ac_resolver accesses do_playlists "leest/werkt bij"
 ac_resolver accesses do_playlist_tracks "leest"
 ac_resolver accesses do_saved_tracks "leest"

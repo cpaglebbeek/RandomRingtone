@@ -19,7 +19,7 @@ Driver dr_afwisseling "Afwisseling in ringtone zonder handwerk" in laag_motivati
 Goal go_random "Willekeurige ringtone per oproep uit eigen playlists" in laag_motivation {
     -attr status = "ontwerp"
 }
-Goal go_eigen_muziek "Eigen muziek (Spotify/YouTube) als kort ringtone-fragment" in laag_motivation {
+Goal go_eigen_muziek "Eigen muziek (via YourTube) als kort ringtone-fragment" in laag_motivation {
     -attr status = "ontwerp"
 }
 Goal go_geen_verlies "Geen verlies van tracks en playlists" in laag_motivation {
@@ -96,10 +96,10 @@ BusinessProcess bp_updaten "App bijwerken via in-app update" in laag_business {
 BusinessProcess bp_opstarten "App starten: licentie, migratie, auto-restore" in laag_business {
     -attr status = "ontwerp"
 }
-BusinessProcess bp_zoeken "Nummer zoeken in Spotify- of YouTube-tab" in laag_business {
+BusinessProcess bp_zoeken "Nummer zoeken in de YourTube-tab" in laag_business {
     -attr status = "ontwerp"
 }
-BusinessProcess bp_downloaden "Audio downloaden (Spotify of YouTube, altijd via de YouTube-keten)" in laag_business {
+BusinessProcess bp_downloaden "Audio downloaden via YourTube (eigen server)" in laag_business {
     -attr status = "ontwerp"
 }
 BusinessProcess bp_editor_openen "Openen in de editor (waveform)" in laag_business {

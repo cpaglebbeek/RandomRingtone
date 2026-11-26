@@ -39,20 +39,11 @@
       "sub": "service"
     },
     {
-      "id": "dep:maven:com.github.TeamNewPipe:NewPipeExtractor",
-      "kind": "dep",
-      "label": "com.github.TeamNewPipe:NewPipeExtractor",
-      "sources": [
-        "app/build.gradle.kts:133"
-      ],
-      "eco": "maven"
-    },
-    {
       "id": "dep:maven:libs.activity.compose",
       "kind": "dep",
       "label": "libs.activity.compose",
       "sources": [
-        "app/build.gradle.kts:106"
+        "app/build.gradle.kts:105"
       ],
       "eco": "maven"
     },
@@ -61,7 +52,7 @@
       "kind": "dep",
       "label": "libs.compose.icons.extended",
       "sources": [
-        "app/build.gradle.kts:103"
+        "app/build.gradle.kts:102"
       ],
       "eco": "maven"
     },
@@ -70,7 +61,7 @@
       "kind": "dep",
       "label": "libs.compose.material3",
       "sources": [
-        "app/build.gradle.kts:101"
+        "app/build.gradle.kts:100"
       ],
       "eco": "maven"
     },
@@ -79,7 +70,7 @@
       "kind": "dep",
       "label": "libs.compose.ui",
       "sources": [
-        "app/build.gradle.kts:100"
+        "app/build.gradle.kts:99"
       ],
       "eco": "maven"
     },
@@ -88,7 +79,7 @@
       "kind": "dep",
       "label": "libs.compose.ui.tooling.preview",
       "sources": [
-        "app/build.gradle.kts:102"
+        "app/build.gradle.kts:101"
       ],
       "eco": "maven"
     },
@@ -97,7 +88,7 @@
       "kind": "dep",
       "label": "libs.core.ktx",
       "sources": [
-        "app/build.gradle.kts:129"
+        "app/build.gradle.kts:128"
       ],
       "eco": "maven"
     },
@@ -106,7 +97,7 @@
       "kind": "dep",
       "label": "libs.datastore.preferences",
       "sources": [
-        "app/build.gradle.kts:130"
+        "app/build.gradle.kts:129"
       ],
       "eco": "maven"
     },
@@ -115,7 +106,7 @@
       "kind": "dep",
       "label": "libs.documentfile",
       "sources": [
-        "app/build.gradle.kts:126"
+        "app/build.gradle.kts:125"
       ],
       "eco": "maven"
     },
@@ -124,7 +115,7 @@
       "kind": "dep",
       "label": "libs.kotlinx.serialization.json",
       "sources": [
-        "app/build.gradle.kts:123"
+        "app/build.gradle.kts:122"
       ],
       "eco": "maven"
     },
@@ -133,7 +124,7 @@
       "kind": "dep",
       "label": "libs.lifecycle.runtime.compose",
       "sources": [
-        "app/build.gradle.kts:109"
+        "app/build.gradle.kts:108"
       ],
       "eco": "maven"
     },
@@ -142,7 +133,7 @@
       "kind": "dep",
       "label": "libs.lifecycle.viewmodel.compose",
       "sources": [
-        "app/build.gradle.kts:108"
+        "app/build.gradle.kts:107"
       ],
       "eco": "maven"
     },
@@ -151,7 +142,7 @@
       "kind": "dep",
       "label": "libs.navigation.compose",
       "sources": [
-        "app/build.gradle.kts:107"
+        "app/build.gradle.kts:106"
       ],
       "eco": "maven"
     },
@@ -160,7 +151,7 @@
       "kind": "dep",
       "label": "libs.okhttp",
       "sources": [
-        "app/build.gradle.kts:120"
+        "app/build.gradle.kts:119"
       ],
       "eco": "maven"
     },
@@ -169,7 +160,7 @@
       "kind": "dep",
       "label": "libs.room.compiler",
       "sources": [
-        "app/build.gradle.kts:117"
+        "app/build.gradle.kts:116"
       ],
       "eco": "maven"
     },
@@ -178,7 +169,7 @@
       "kind": "dep",
       "label": "libs.room.ktx",
       "sources": [
-        "app/build.gradle.kts:116"
+        "app/build.gradle.kts:115"
       ],
       "eco": "maven"
     },
@@ -187,7 +178,7 @@
       "kind": "dep",
       "label": "libs.room.runtime",
       "sources": [
-        "app/build.gradle.kts:115"
+        "app/build.gradle.kts:114"
       ],
       "eco": "maven"
     },
@@ -196,7 +187,7 @@
       "kind": "dep",
       "label": "libs.work.runtime.ktx",
       "sources": [
-        "app/build.gradle.kts:112"
+        "app/build.gradle.kts:111"
       ],
       "eco": "maven"
     },
@@ -225,7 +216,7 @@
       "sources": [
         "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
       ],
-      "files": 28
+      "files": 24
     },
     {
       "id": "module:app/src/main/java/receiver",
@@ -252,7 +243,7 @@
       "sources": [
         "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
       ],
-      "files": 15
+      "files": 13
     },
     {
       "id": "module:app/src/main/java/ui/theme",

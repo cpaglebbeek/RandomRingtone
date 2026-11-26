@@ -4,15 +4,15 @@ Gegenereerd door ModelArchDSL; niet met de hand bewerken.
 
 | Status | Aantal |
 |---|---:|
-| Gebouwd | 59 |
+| Gebouwd | 54 |
 | Deels gebouwd | 0 |
 | Gepland (to-be) | 4 |
 | Alleen in code | 0 |
 | Niet traceerbaar | 0 |
-| Extern (andere repo) | 7 |
+| Extern (andere repo) | 6 |
 | Ontwerp | 48 |
 
-Feiten uit de code: 43, waarvan 0 niet in het ontwerp.
+Feiten uit de code: 42, waarvan 0 niet in het ontwerp.
 
 ## Gepland — in het ontwerp, nog niet in de code
 

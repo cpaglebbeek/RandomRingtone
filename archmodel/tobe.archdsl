@@ -18,7 +18,7 @@ set purpose "Bij elke oproep (of op schema) automatisch een willekeurige rington
 // ================= Conceptueel =================
 Driver dr_afwisseling "Afwisseling in ringtone zonder handwerk"
 Goal go_random "Willekeurige ringtone per oproep uit eigen playlists"
-Goal go_eigen_muziek "Eigen muziek (Spotify/YouTube) als kort ringtone-fragment"
+Goal go_eigen_muziek "Eigen muziek (via YourTube) als kort ringtone-fragment"
 Goal go_geen_verlies "Geen verlies van tracks en playlists"
 Requirement rq_kanalen "Vier kanalen: Telefoon, Notificatie, SMS, WhatsApp (F3)"
 Requirement rq_modi "Vier modi: Vast, Echt-, Semi- en Quasi-willekeurig"
@@ -47,8 +47,8 @@ BusinessProcess bp_updaten "App bijwerken via in-app update"
 BusinessProcess bp_opstarten "App starten: licentie, migratie, auto-restore"
 
 // Stappen klantreis 1: nummer zoeken en als ringtone knippen
-BusinessProcess bp_zoeken "Nummer zoeken in Spotify- of YouTube-tab"
-BusinessProcess bp_downloaden "Audio downloaden (Spotify of YouTube, altijd via de YouTube-keten)"
+BusinessProcess bp_zoeken "Nummer zoeken in de YourTube-tab"
+BusinessProcess bp_downloaden "Audio downloaden via YourTube (eigen server)"
 BusinessProcess bp_editor_openen "Openen in de editor (waveform)"
 BusinessProcess bp_knippen "Fragment kiezen, fade instellen, voorbeluisteren"
 BusinessProcess bp_opslaan "Opslaan in bibliotheek + playlist (optioneel als ringtone)"
@@ -85,10 +85,7 @@ ApplicationComponent ac_main "MainActivity: 7 tabs + editor, licentieblokkade" {
 ApplicationComponent ac_theme "Thema (Material 3 + Dynamic Color)" {
     -attr trace = "module:app/src/main/java/ui/theme"
 }
-ApplicationComponent ac_scr_spotify "SpotifyScreen: Spotify-WebView, klembord, download en import" {
-    -attr trace = "module:app/src/main/java/ui/screens"
-}
-ApplicationComponent ac_scr_youtube "YouTubeScreen: YouTube-WebView + download via eigen server" {
+ApplicationComponent ac_scr_youtube "YourTubeScreen: zoeken, trefferlijst en download via YourTube (v2.7.0)" {
     -attr trace = "module:app/src/main/java/ui/screens"
 }
 ApplicationComponent ac_scr_editor "EditorScreen: waveform, trim, fade, opslaan" {
@@ -123,7 +120,7 @@ ApplicationComponent ac_conflict "ConflictResolver: één actief per kanaal + sc
 ApplicationComponent ac_contacts "ContactsRepository: contacten + CUSTOM_RINGTONE" {
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan, YouTube-methode" {
+ApplicationComponent ac_storage "StorageManager: paden, DataStore, bestandsscan" {
     -attr trace = "module:app/src/main/java/data"
 }
 ApplicationComponent ac_backupmgr "BackupManager: SAF-backup, selectie, auto-backup, playlist-export" {
@@ -144,23 +141,7 @@ ApplicationComponent ac_update "UpdateManager: in-app APK-updates (T12)" {
 ApplicationComponent ac_logger "RemoteLogger: wachtrij, flush 2 s, heartbeat 30 s" {
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata → volledig nummer)" {
-    -attr trace = "module:app/src/main/java/data"
-    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); volledig nummer via de YouTube-keten. Sinds v2.6.0 zijn de previews (Deezer, Spotify, backend) en de converter-websites verwijderd."
-}
-ApplicationComponent ac_spotify_collection "SpotifyCollection: nummerlijst van playlist of album (v2.5.0)" {
-    -attr trace = "module:app/src/main/java/data"
-    -description "Embed-pagina voor de eerste ±100 nummers; langere playlists via Spotify's playlistdienst met het anonieme token uit de pagina."
-}
-ApplicationComponent ac_youtube_match "YouTubeMatch: strikte treffercontrole (v2.5.0)" {
-    -attr trace = "module:app/src/main/java/data"
-    -description "Titel en artiest moeten in de video staan, duur hooguit 30 s afwijkend."
-}
-ApplicationComponent ac_spotify_import "SpotifyImportDialog: playlist/album importeren (v2.5.0)" {
-    -attr trace = "module:app/src/main/java/ui/screens"
-    -description "Lijst met vinkjes, voortgang per nummer, overzicht van mislukte nummers, optioneel een gepauzeerde playlist in de app."
-}
-ApplicationComponent ac_y2mate "YouTubeDownload: eigen server (YouTubeServer), terugval op toestel (v2.4.0)" {
+ApplicationComponent ac_y2mate "YourTube-client: zoeken en audio via de eigen server, geen terugval (v2.7.0)" {
     -attr trace = "module:app/src/main/java/data"
 }
 ApplicationComponent ac_icthorse_client "IctHorseBackupClient (backup_api.php)" {
@@ -295,13 +276,10 @@ Artifact pm_listener "Notificatie-toegang (BIND_NOTIFICATION_LISTENER_SERVICE)" 
 }
 
 // Externe diensten
-Node nd_spotify "open.spotify.com (Spotify Web in WebView)" {
+Node nd_youtube "YouTube: miniaturen (i.ytimg.com) en oEmbed bij een geplakte link" {
     -attr status = "extern"
 }
-Node nd_youtube "YouTube (www.youtube.com in WebView)" {
-    -attr status = "extern"
-}
-Node nd_y2mate "RandomRingtone-logger /rrlog/youtube → YourTube-motor (HC55)" {
+Node nd_y2mate "RandomRingtone-logger /rrlog/youtube (zoek + taak) → YourTube (HC55)" {
     -attr status = "extern"
 }
 Node nd_icthorse "icthorse.nl (licentie, backup_api.php, APK-updates)" {
@@ -352,11 +330,8 @@ bp_bericht_binnen -> bp_bericht_match : triggers
 bp_bericht_match -> bp_bericht_geluid : triggers
 
 // ================= Relaties — stappen ↔ componenten (klantreizen) =================
-ac_scr_spotify -> bp_zoeken : serving
 ac_scr_youtube -> bp_zoeken : serving
-nd_spotify -> bp_zoeken : serving
-nd_youtube -> bp_zoeken : serving
-ac_spotmate -> bp_downloaden : serving
+nd_y2mate -> bp_zoeken : serving
 ac_y2mate -> bp_downloaden : serving
 ac_tags -> bp_downloaden : serving "marker + albumcover"
 ac_main -> bp_editor_openen : serving "navigatie"
@@ -417,7 +392,6 @@ ac_trackid -> bp_opstarten : serving "migratie v8"
 ac_backupmgr -> bp_opstarten : serving "auto-restore"
 
 // ================= Relaties — logisch =================
-ac_main -> ac_scr_spotify : composition
 ac_main -> ac_scr_youtube : composition
 ac_main -> ac_scr_editor : composition
 ac_main -> ac_scr_library : composition
@@ -428,14 +402,7 @@ ac_main -> ac_scr_settings : composition
 ac_theme -> ac_main : serving "thema"
 ac_logger -> ac_main : serving "logging"
 
-ac_spotmate -> ac_scr_spotify : serving
-ac_spotify_import -> ac_scr_spotify : serving "importvenster"
-ac_spotify_collection -> ac_spotify_import : serving "nummerlijst"
-ac_youtube_match -> ac_spotmate : serving "treffercontrole"
-ac_y2mate -> ac_spotmate : serving "audio (volledig nummer)"
-nd_spotify -> ac_spotify_collection : serving "embed-pagina's"
 ac_y2mate -> ac_scr_youtube : serving
-ac_trackid -> ac_scr_spotify : serving "canonieke trackId"
 ac_trackid -> ac_scr_youtube : serving "canonieke trackId"
 ac_decoder -> ac_scr_editor : serving
 ac_trimmer -> ac_scr_editor : serving
@@ -467,7 +434,7 @@ ac_predownload -> ac_resolver : serving
 ac_wissel_melding -> ac_worker : serving
 ac_okhttp_shared -> ac_ringtone : serving
 ac_okhttp_shared -> ac_icthorse_client : serving
-ac_okhttp_shared -> ac_spotmate : serving
+ac_okhttp_shared -> ac_y2mate : serving
 
 ac_resolver -> do_playlists : access "leest/werkt bij"
 ac_resolver -> do_playlist_tracks : access "leest"
@@ -523,8 +490,7 @@ pm_contacts -> ac_contacts : serving
 pm_call -> ac_receiver : serving
 pm_listener -> ac_notifsvc : serving
 
-nd_spotify -> ac_scr_spotify : serving "WebView"
-nd_youtube -> ac_scr_youtube : serving "WebView"
+nd_youtube -> ac_scr_youtube : serving "miniaturen"
 nd_y2mate -> ac_y2mate : serving
 nd_icthorse -> ac_license : serving "lics/{hash}.json"
 nd_icthorse -> ac_icthorse_client : serving "backup_api.php"
@@ -537,7 +503,7 @@ Viewpoint reis_knippen "Klantreis: nummer zoeken en als ringtone knippen" {
     -attr journey = "true"
     -attr actor = "ba_gebruiker"
     -attr steps = "bp_zoeken bp_downloaden bp_editor_openen bp_knippen bp_opslaan"
-    -description "Via Spotify- of YouTube-tab een nummer vinden, de audio via de YouTube-keten downloaden, in de editor een fragment met fade knippen en opslaan."
+    -description "In de YourTube-tab een nummer zoeken, de audio via de eigen server downloaden, in de editor een fragment met fade knippen en opslaan."
 }
 Viewpoint reis_playlist "Klantreis: playlist maken en koppelen" {
     -attr journey = "true"

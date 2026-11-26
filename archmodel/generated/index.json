@@ -7,25 +7,25 @@
       "label": "Conceptueel",
       "elements": 48,
       "relations": 26,
-      "sha256": "e5db6c216b16d33e3a9d60f96e9555368788229104a3795f5b0d02880250b7be"
+      "sha256": "b7bb034bb59eb612ca60cfae6a4eff95de169c91f4f71bd5a6abbe07343ea3d8"
     },
     {
       "file": "logisch.archdsl",
       "kind": "niveau",
       "level": "logisch",
       "label": "Logisch",
-      "elements": 55,
-      "relations": 77,
-      "sha256": "eda66a2f71b18cd58ad37abc3db390130a7e2dd857e45393efe80a3d7fd26fed"
+      "elements": 50,
+      "relations": 70,
+      "sha256": "e52ebc3617710a564d82a74ff98d016238a54aa8cf9389475d3d73cb8ff8d5f2"
     },
     {
       "file": "fysiek.archdsl",
       "kind": "niveau",
       "level": "fysiek",
       "label": "Fysiek",
-      "elements": 15,
+      "elements": 14,
       "relations": 2,
-      "sha256": "1f6c85dd5090dd7655e7d42211e157572b47c748fb2b585e58e7ea5262101cde"
+      "sha256": "51b42e30af61aa18061c4c072762fe5e831619fc76300c244587b80410bd303b"
     },
     {
       "file": "reis-reis_knippen.archdsl",
@@ -40,9 +40,9 @@
         "bp_opslaan"
       ],
       "actor": "ba_gebruiker",
-      "elements": 21,
-      "relations": 36,
-      "sha256": "b07a38fe4c7b25a4c5e171682e6a73d1dbf04dbb0d5d25160721d0bad9bfd67e"
+      "elements": 18,
+      "relations": 29,
+      "sha256": "fd2cdc66762e2a9e956878390169e4021a1ecb983e409ad7f89a735df8c1b4e3"
     },
     {
       "file": "reis-reis_playlist.archdsl",
@@ -156,15 +156,15 @@
     }
   },
   "counts": {
-    "gebouwd": 59,
+    "gebouwd": 54,
     "deels": 0,
     "gepland": 4,
     "alleen_code": 0,
     "ongetraceerd": 0,
-    "extern": 7,
+    "extern": 6,
     "ontwerp": 48
   },
-  "facts": 43,
+  "facts": 42,
   "unclaimedFacts": 0,
   "warnings": [],
   "elements": [
@@ -690,34 +690,9 @@
       "description": ""
     },
     {
-      "id": "ac_scr_spotify",
-      "type": "ApplicationComponent",
-      "label": "SpotifyScreen: Spotify-WebView, klembord, download en import",
-      "layer": "application",
-      "levels": [
-        "logisch"
-      ],
-      "status": "gebouwd",
-      "trace": [
-        "module:app/src/main/java/ui/screens"
-      ],
-      "missing": [],
-      "auto": false,
-      "facts": [
-        {
-          "id": "module:app/src/main/java/ui/screens",
-          "sources": [
-            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
-          ]
-        }
-      ],
-      "factCount": 1,
-      "description": ""
-    },
-    {
       "id": "ac_scr_youtube",
       "type": "ApplicationComponent",
-      "label": "YouTubeScreen: YouTube-WebView + download via eigen server",
+      "label": "YourTubeScreen: zoeken, trefferlijst en download via YourTube (v2.7.0)",
       "layer": "application",
       "levels": [
         "logisch"
@@ -738,86 +713,11 @@
       ],
       "factCount": 1,
       "description": ""
-    },
-    {
-      "id": "ac_spotify_collection",
-      "type": "ApplicationComponent",
-      "label": "SpotifyCollection: nummerlijst van playlist of album (v2.5.0)",
-      "layer": "application",
-      "levels": [
-        "logisch"
-      ],
-      "status": "gebouwd",
-      "trace": [
-        "module:app/src/main/java/data"
-      ],
-      "missing": [],
-      "auto": false,
-      "facts": [
-        {
-          "id": "module:app/src/main/java/data",
-          "sources": [
-            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
-          ]
-        }
-      ],
-      "factCount": 1,
-      "description": "Embed-pagina voor de eerste ±100 nummers; langere playlists via Spotify's playlistdienst met het anonieme token uit de pagina."
-    },
-    {
-      "id": "ac_spotify_import",
-      "type": "ApplicationComponent",
-      "label": "SpotifyImportDialog: playlist/album importeren (v2.5.0)",
-      "layer": "application",
-      "levels": [
-        "logisch"
-      ],
-      "status": "gebouwd",
-      "trace": [
-        "module:app/src/main/java/ui/screens"
-      ],
-      "missing": [],
-      "auto": false,
-      "facts": [
-        {
-          "id": "module:app/src/main/java/ui/screens",
-          "sources": [
-            "app/src/main/java/nl/icthorse/randomringtone/ui/screens/BackupScreen.kt"
-          ]
-        }
-      ],
-      "factCount": 1,
-      "description": "Lijst met vinkjes, voortgang per nummer, overzicht van mislukte nummers, optioneel een gepauzeerde playlist in de app."
-    },
-    {
-      "id": "ac_spotmate",
-      "type": "ApplicationComponent",
-      "label": "SpotifyPreviewClient (embed-metadata → volledig nummer)",
-      "layer": "application",
-      "levels": [
-        "logisch"
-      ],
-      "status": "gebouwd",
-      "trace": [
-        "module:app/src/main/java/data"
-      ],
-      "missing": [],
-      "auto": false,
-      "facts": [
-        {
-          "id": "module:app/src/main/java/data",
-          "sources": [
-            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
-          ]
-        }
-      ],
-      "factCount": 1,
-      "description": "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); volledig nummer via de YouTube-keten. Sinds v2.6.0 zijn de previews (Deezer, Spotify, backend) en de converter-websites verwijderd."
     },
     {
       "id": "ac_storage",
       "type": "ApplicationComponent",
-      "label": "StorageManager: paden, DataStore, bestandsscan, YouTube-methode",
+      "label": "StorageManager: paden, DataStore, bestandsscan",
       "layer": "application",
       "levels": [
         "logisch"
@@ -999,7 +899,7 @@
     {
       "id": "ac_y2mate",
       "type": "ApplicationComponent",
-      "label": "YouTubeDownload: eigen server (YouTubeServer), terugval op toestel (v2.4.0)",
+      "label": "YourTube-client: zoeken en audio via de eigen server, geen terugval (v2.7.0)",
       "layer": "application",
       "levels": [
         "logisch"
@@ -1022,31 +922,6 @@
       "description": ""
     },
     {
-      "id": "ac_youtube_match",
-      "type": "ApplicationComponent",
-      "label": "YouTubeMatch: strikte treffercontrole (v2.5.0)",
-      "layer": "application",
-      "levels": [
-        "logisch"
-      ],
-      "status": "gebouwd",
-      "trace": [
-        "module:app/src/main/java/data"
-      ],
-      "missing": [],
-      "auto": false,
-      "facts": [
-        {
-          "id": "module:app/src/main/java/data",
-          "sources": [
-            "app/src/main/java/nl/icthorse/randomringtone/data/BackupManager.kt"
-          ]
-        }
-      ],
-      "factCount": 1,
-      "description": "Titel en artiest moeten in de video staan, duur hooguit 30 s afwijkend."
-    },
-    {
       "id": "ar_apk",
       "type": "Artifact",
       "label": "Release-APK RandomRingtone-v…-release.apk (gebundelde afhankelijkheden)",
@@ -1062,115 +937,109 @@
       "auto": false,
       "facts": [
         {
-          "id": "dep:maven:com.github.TeamNewPipe:NewPipeExtractor",
-          "sources": [
-            "app/build.gradle.kts:133"
-          ]
-        },
-        {
           "id": "dep:maven:libs.activity.compose",
           "sources": [
-            "app/build.gradle.kts:106"
+            "app/build.gradle.kts:105"
           ]
         },
         {
           "id": "dep:maven:libs.compose.icons.extended",
           "sources": [
-            "app/build.gradle.kts:103"
+            "app/build.gradle.kts:102"
           ]
         },
         {
           "id": "dep:maven:libs.compose.material3",
           "sources": [
-            "app/build.gradle.kts:101"
+            "app/build.gradle.kts:100"
           ]
         },
         {
           "id": "dep:maven:libs.compose.ui",
           "sources": [
-            "app/build.gradle.kts:100"
+            "app/build.gradle.kts:99"
           ]
         },
         {
           "id": "dep:maven:libs.compose.ui.tooling.preview",
           "sources": [
-            "app/build.gradle.kts:102"
+            "app/build.gradle.kts:101"
           ]
         },
         {
           "id": "dep:maven:libs.core.ktx",
           "sources": [
-            "app/build.gradle.kts:129"
+            "app/build.gradle.kts:128"
           ]
         },
         {
           "id": "dep:maven:libs.datastore.preferences",
           "sources": [
-            "app/build.gradle.kts:130"
+            "app/build.gradle.kts:129"
           ]
         },
         {
           "id": "dep:maven:libs.documentfile",
           "sources": [
-            "app/build.gradle.kts:126"
+            "app/build.gradle.kts:125"
           ]
         },
         {
           "id": "dep:maven:libs.kotlinx.serialization.json",
           "sources": [
-            "app/build.gradle.kts:123"
+            "app/build.gradle.kts:122"
           ]
         },
         {
           "id": "dep:maven:libs.lifecycle.runtime.compose",
           "sources": [
-            "app/build.gradle.kts:109"
+            "app/build.gradle.kts:108"
           ]
         },
         {
           "id": "dep:maven:libs.lifecycle.viewmodel.compose",
           "sources": [
-            "app/build.gradle.kts:108"
+            "app/build.gradle.kts:107"
           ]
         },
         {
           "id": "dep:maven:libs.navigation.compose",
           "sources": [
-            "app/build.gradle.kts:107"
+            "app/build.gradle.kts:106"
           ]
         },
         {
           "id": "dep:maven:libs.okhttp",
           "sources": [
-            "app/build.gradle.kts:120"
+            "app/build.gradle.kts:119"
           ]
         },
         {
           "id": "dep:maven:libs.room.compiler",
           "sources": [
-            "app/build.gradle.kts:117"
+            "app/build.gradle.kts:116"
           ]
         },
         {
           "id": "dep:maven:libs.room.ktx",
           "sources": [
-            "app/build.gradle.kts:116"
+            "app/build.gradle.kts:115"
           ]
         },
         {
           "id": "dep:maven:libs.room.runtime",
           "sources": [
-            "app/build.gradle.kts:115"
+            "app/build.gradle.kts:114"
           ]
         },
         {
           "id": "dep:maven:libs.work.runtime.ktx",
           "sources": [
-            "app/build.gradle.kts:112"
+            "app/build.gradle.kts:111"
           ]
         }
       ],
-      "factCount": 18,
+      "factCount": 17,
       "description": ""
     },
     {
@@ -1242,7 +1111,7 @@
         {
           "id": "dep:maven:libs.documentfile",
           "sources": [
-            "app/build.gradle.kts:126"
+            "app/build.gradle.kts:125"
           ]
         },
         {
@@ -1348,7 +1217,7 @@
         {
           "id": "dep:maven:libs.datastore.preferences",
           "sources": [
-            "app/build.gradle.kts:130"
+            "app/build.gradle.kts:129"
           ]
         }
       ],
@@ -1659,55 +1528,55 @@
         {
           "id": "dep:maven:libs.activity.compose",
           "sources": [
-            "app/build.gradle.kts:106"
+            "app/build.gradle.kts:105"
           ]
         },
         {
           "id": "dep:maven:libs.compose.icons.extended",
           "sources": [
-            "app/build.gradle.kts:103"
+            "app/build.gradle.kts:102"
           ]
         },
         {
           "id": "dep:maven:libs.compose.material3",
           "sources": [
-            "app/build.gradle.kts:101"
+            "app/build.gradle.kts:100"
           ]
         },
         {
           "id": "dep:maven:libs.compose.ui",
           "sources": [
-            "app/build.gradle.kts:100"
+            "app/build.gradle.kts:99"
           ]
         },
         {
           "id": "dep:maven:libs.compose.ui.tooling.preview",
           "sources": [
-            "app/build.gradle.kts:102"
+            "app/build.gradle.kts:101"
           ]
         },
         {
           "id": "dep:maven:libs.core.ktx",
           "sources": [
-            "app/build.gradle.kts:129"
+            "app/build.gradle.kts:128"
           ]
         },
         {
           "id": "dep:maven:libs.lifecycle.runtime.compose",
           "sources": [
-            "app/build.gradle.kts:109"
+            "app/build.gradle.kts:108"
           ]
         },
         {
           "id": "dep:maven:libs.lifecycle.viewmodel.compose",
           "sources": [
-            "app/build.gradle.kts:108"
+            "app/build.gradle.kts:107"
           ]
         },
         {
           "id": "dep:maven:libs.navigation.compose",
           "sources": [
-            "app/build.gradle.kts:107"
+            "app/build.gradle.kts:106"
           ]
         }
       ],
@@ -1732,7 +1601,7 @@
         {
           "id": "dep:maven:libs.datastore.preferences",
           "sources": [
-            "app/build.gradle.kts:130"
+            "app/build.gradle.kts:129"
           ]
         }
       ],
@@ -1758,13 +1627,13 @@
         {
           "id": "dep:maven:libs.kotlinx.serialization.json",
           "sources": [
-            "app/build.gradle.kts:123"
+            "app/build.gradle.kts:122"
           ]
         },
         {
           "id": "dep:maven:libs.okhttp",
           "sources": [
-            "app/build.gradle.kts:120"
+            "app/build.gradle.kts:119"
           ]
         }
       ],
@@ -1789,19 +1658,19 @@
         {
           "id": "dep:maven:libs.room.compiler",
           "sources": [
-            "app/build.gradle.kts:117"
+            "app/build.gradle.kts:116"
           ]
         },
         {
           "id": "dep:maven:libs.room.ktx",
           "sources": [
-            "app/build.gradle.kts:116"
+            "app/build.gradle.kts:115"
           ]
         },
         {
           "id": "dep:maven:libs.room.runtime",
           "sources": [
-            "app/build.gradle.kts:115"
+            "app/build.gradle.kts:114"
           ]
         }
       ],
@@ -1826,7 +1695,7 @@
         {
           "id": "dep:maven:libs.documentfile",
           "sources": [
-            "app/build.gradle.kts:126"
+            "app/build.gradle.kts:125"
           ]
         }
       ],
@@ -1851,7 +1720,7 @@
         {
           "id": "dep:maven:libs.work.runtime.ktx",
           "sources": [
-            "app/build.gradle.kts:112"
+            "app/build.gradle.kts:111"
           ]
         }
       ],
@@ -1996,25 +1865,9 @@
       "description": "De viewer-pagina staat in deze repo als logger-server/index.html; de logger-dienst zelf draait op HC55 buiten deze repo."
     },
     {
-      "id": "nd_spotify",
-      "type": "Node",
-      "label": "open.spotify.com (Spotify Web in WebView)",
-      "layer": "technology",
-      "levels": [
-        "fysiek"
-      ],
-      "status": "extern",
-      "trace": [],
-      "missing": [],
-      "auto": false,
-      "facts": [],
-      "factCount": 0,
-      "description": ""
-    },
-    {
       "id": "nd_y2mate",
       "type": "Node",
-      "label": "RandomRingtone-logger /rrlog/youtube → YourTube-motor (HC55)",
+      "label": "RandomRingtone-logger /rrlog/youtube (zoek + taak) → YourTube (HC55)",
       "layer": "technology",
       "levels": [
         "fysiek"
@@ -2030,7 +1883,7 @@
     {
       "id": "nd_youtube",
       "type": "Node",
-      "label": "YouTube (www.youtube.com in WebView)",
+      "label": "YouTube: miniaturen (i.ytimg.com) en oEmbed bij een geplakte link",
       "layer": "technology",
       "levels": [
         "fysiek"
@@ -2254,7 +2107,7 @@
     {
       "id": "bp_downloaden",
       "type": "BusinessProcess",
-      "label": "Audio downloaden (Spotify of YouTube, altijd via de YouTube-keten)",
+      "label": "Audio downloaden via YourTube (eigen server)",
       "layer": "business",
       "levels": [
         "conceptueel"
@@ -2510,7 +2363,7 @@
     {
       "id": "bp_zoeken",
       "type": "BusinessProcess",
-      "label": "Nummer zoeken in Spotify- of YouTube-tab",
+      "label": "Nummer zoeken in de YourTube-tab",
       "layer": "business",
       "levels": [
         "conceptueel"
@@ -2670,7 +2523,7 @@
     {
       "id": "go_eigen_muziek",
       "type": "Goal",
-      "label": "Eigen muziek (Spotify/YouTube) als kort ringtone-fragment",
+      "label": "Eigen muziek (via YourTube) als kort ringtone-fragment",
       "layer": "motivation",
       "levels": [
         "conceptueel"

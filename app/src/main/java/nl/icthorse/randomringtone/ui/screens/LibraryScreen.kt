@@ -538,7 +538,7 @@ fun LibraryScreen(
             else -> "Leeg"
         }
         val emptySubtitle = when (selectedTab) {
-            0 -> "Download nummers via Spotify en druk op Scan"
+            0 -> "Download nummers via YourTube en druk op Scan"
             1 -> "Trim een download via de editor"
             2 -> "Download nummers via de YouTube tab"
             else -> ""

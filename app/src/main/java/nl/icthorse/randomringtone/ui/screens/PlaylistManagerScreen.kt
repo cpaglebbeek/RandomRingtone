@@ -784,7 +784,7 @@ private fun AddTracksDialog(
                 val emptyMsg = if (trackSearchQuery.isNotBlank()) {
                     "Geen resultaten voor \"$trackSearchQuery\""
                 } else when (sourceFilter) {
-                    0 -> "Nog geen tracks. Download eerst een nummer via Spotify."
+                    0 -> "Nog geen tracks. Download eerst een nummer via YourTube."
                     1 -> "Nog geen tones. Trim eerst een download via de editor."
                     2 -> "Nog geen YouTube clips. Download eerst via de YouTube tab."
                     else -> "Leeg"

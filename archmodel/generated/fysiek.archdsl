@@ -58,17 +58,12 @@ TechnologyInterface ti_fileprovider "FileProvider (update-APK installeren)" in l
     -attr status = "gebouwd"
     -attr trace = "android:provider:FileProvider"
 }
-Node nd_spotify "open.spotify.com (Spotify Web in WebView)" in laag_technology {
+Node nd_youtube "YouTube: miniaturen (i.ytimg.com) en oEmbed bij een geplakte link" in laag_technology {
     -fill "#f0f9ff"
     -stroke "#0284c7"
     -attr status = "extern"
 }
-Node nd_youtube "YouTube (www.youtube.com in WebView)" in laag_technology {
-    -fill "#f0f9ff"
-    -stroke "#0284c7"
-    -attr status = "extern"
-}
-Node nd_y2mate "RandomRingtone-logger /rrlog/youtube → YourTube-motor (HC55)" in laag_technology {
+Node nd_y2mate "RandomRingtone-logger /rrlog/youtube (zoek + taak) → YourTube (HC55)" in laag_technology {
     -fill "#f0f9ff"
     -stroke "#0284c7"
     -attr status = "extern"
@@ -101,12 +96,11 @@ pos ss_net 1060, 90
 pos ss_datastore 60, 220
 pos ss_saf 260, 220
 pos ti_fileprovider 460, 220
-pos nd_spotify 660, 220
-pos nd_youtube 860, 220
-pos nd_y2mate 1060, 220
-pos nd_icthorse 60, 350
-pos nd_logger 260, 350
-pos nd_cloud 460, 350
+pos nd_youtube 660, 220
+pos nd_y2mate 860, 220
+pos nd_icthorse 1060, 220
+pos nd_logger 60, 350
+pos nd_cloud 260, 350
 
 // Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
 dv_toestel composes ss_android

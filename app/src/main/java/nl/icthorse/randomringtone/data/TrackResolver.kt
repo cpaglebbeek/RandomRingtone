@@ -169,7 +169,7 @@ class TrackResolver(
         }
 
         // v2.6.0: de on-the-fly Deezer-download (oude stap 3) is verwijderd — ontbreekt het bestand, dan is het nummer
-        // niet beschikbaar tot het opnieuw via Spotify of YouTube is gedownload.
+        // niet beschikbaar tot het opnieuw via YourTube is gedownload.
         RemoteLogger.w("TrackResolver", "Bestand ontbreekt — track niet beschikbaar (opnieuw downloaden)", mapOf("title" to track.title))
         return null
     }

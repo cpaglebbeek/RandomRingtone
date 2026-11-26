@@ -620,7 +620,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // v2.3.0: bronnen & downloadmethodes (vervangt "Spotify Converter" + Spotify-bron-schakelaar)
+        // v2.7.0: één bron (YourTube) met zelftest
         SourceMethodsSection(ringtoneManager.storage, snackbarHostState)
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -980,7 +980,7 @@ fun SettingsScreen(
                 InfoRow("Versie", "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME}" +
                     if (nl.icthorse.randomringtone.BuildConfig.BUILD_STATUS == "DEBUG") " [DEBUG]" else " [STABLE]")
                 InfoRow("Build", "${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER} — ${nl.icthorse.randomringtone.BuildConfig.CODENAME} / ${nl.icthorse.randomringtone.BuildConfig.RELEASE_NAME}")
-                InfoRow("Muziekbron", "Spotify + YouTube")
+                InfoRow("Muziekbron", "YourTube (eigen server)")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }
         }

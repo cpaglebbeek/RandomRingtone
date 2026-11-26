@@ -3,7 +3,7 @@
 set language archimate
 set title "RandomRingtone — Klantreis: nummer zoeken en als ringtone knippen"
 set subtitle "Klantreis (stappen genummerd, afspeelbaar in het portaal)"
-set purpose "Via Spotify- of YouTube-tab een nummer vinden, de audio via de YouTube-keten downloaden, in de editor een fragment met fade knippen en opslaan."
+set purpose "In de YourTube-tab een nummer zoeken, de audio via de eigen server downloaden, in de editor een fragment met fade knippen en opslaan."
 show legend true
 switch badges on
 set current state "As-is (code)"
@@ -16,11 +16,11 @@ Group laag_business "Business" {
 BusinessActor ba_gebruiker "Gebruiker (toestelbezitter)" in laag_business {
     -attr status = "ontwerp"
 }
-BusinessProcess bp_zoeken "Nummer zoeken in Spotify- of YouTube-tab" in laag_business {
+BusinessProcess bp_zoeken "Nummer zoeken in de YourTube-tab" in laag_business {
     -step 1
     -attr status = "ontwerp"
 }
-BusinessProcess bp_downloaden "Audio downloaden (Spotify of YouTube, altijd via de YouTube-keten)" in laag_business {
+BusinessProcess bp_downloaden "Audio downloaden via YourTube (eigen server)" in laag_business {
     -step 2
     -attr status = "ontwerp"
 }
@@ -44,12 +44,7 @@ Group laag_application "Applicatie" {
     -width 1220
     -height 310
 }
-ApplicationComponent ac_scr_spotify "SpotifyScreen: Spotify-WebView, klembord, download en import" in laag_application {
-    -stroke "#16a34a"
-    -attr status = "gebouwd"
-    -attr trace = "module:app/src/main/java/ui/screens"
-}
-ApplicationComponent ac_scr_youtube "YouTubeScreen: YouTube-WebView + download via eigen server" in laag_application {
+ApplicationComponent ac_scr_youtube "YourTubeScreen: zoeken, trefferlijst en download via YourTube (v2.7.0)" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/ui/screens"
@@ -59,13 +54,7 @@ ApplicationComponent ac_tags "Metadata-tools (Mp3Marker, Mp3TagReader, Mp3AlbumA
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
 }
-ApplicationComponent ac_spotmate "SpotifyPreviewClient (embed-metadata → volledig nummer)" in laag_application {
-    -stroke "#16a34a"
-    -attr status = "gebouwd"
-    -attr trace = "module:app/src/main/java/data"
-    -description "Sinds v2.3.0: metadata uit de openbare Spotify-embed (geen sleutels); volledig nummer via de YouTube-keten. Sinds v2.6.0 zijn de previews (Deezer, Spotify, backend) en de converter-websites verwijderd."
-}
-ApplicationComponent ac_y2mate "YouTubeDownload: eigen server (YouTubeServer), terugval op toestel (v2.4.0)" in laag_application {
+ApplicationComponent ac_y2mate "YourTube-client: zoeken en audio via de eigen server, geen terugval (v2.7.0)" in laag_application {
     -stroke "#16a34a"
     -attr status = "gebouwd"
     -attr trace = "module:app/src/main/java/data"
@@ -107,15 +96,10 @@ DataObject do_saved_tracks "saved_tracks (Room)" in laag_application {
 }
 
 Group laag_technology "Technologie" {
-    -width 420
+    -width 400
     -height 180
 }
-Node nd_spotify "open.spotify.com (Spotify Web in WebView)" in laag_technology {
-    -fill "#f0f9ff"
-    -stroke "#0284c7"
-    -attr status = "extern"
-}
-Node nd_youtube "YouTube (www.youtube.com in WebView)" in laag_technology {
+Node nd_y2mate "RandomRingtone-logger /rrlog/youtube (zoek + taak) → YourTube (HC55)" in laag_technology {
     -fill "#f0f9ff"
     -stroke "#0284c7"
     -attr status = "extern"
@@ -131,30 +115,24 @@ pos bp_knippen 860, 90
 pos bp_opslaan 1060, 90
 pos bs_verzamelen 60, 220
 pos laag_application 40, 390
-pos ac_scr_spotify 60, 440
-pos ac_scr_youtube 260, 440
-pos ac_tags 460, 440
-pos ac_spotmate 660, 440
-pos ac_y2mate 860, 440
-pos ac_main 1060, 440
-pos ac_decoder 60, 570
-pos ac_scr_editor 260, 570
-pos ac_trimmer 460, 570
-pos ac_player 660, 570
-pos ac_ringtone 860, 570
-pos do_saved_tracks 1060, 570
+pos ac_scr_youtube 60, 440
+pos ac_tags 260, 440
+pos ac_y2mate 460, 440
+pos ac_main 660, 440
+pos ac_decoder 860, 440
+pos ac_scr_editor 1060, 440
+pos ac_trimmer 60, 570
+pos ac_player 260, 570
+pos ac_ringtone 460, 570
+pos do_saved_tracks 660, 570
 pos laag_technology 40, 740
-pos nd_spotify 60, 790
-pos nd_youtube 260, 790
+pos nd_y2mate 60, 790
 
 // Relaties — Dragon1-compatibel: werkwoordvorm, of ongetypeerd waar Dragon1 het type afleidt
 ba_gebruiker associates bs_verzamelen "gebruikt"
 bp_opslaan realizes bs_verzamelen
-ac_scr_spotify serves bp_zoeken
 ac_scr_youtube serves bp_zoeken
-nd_spotify serves bp_zoeken
-nd_youtube serves bp_zoeken
-ac_spotmate serves bp_downloaden
+nd_y2mate serves bp_zoeken
 ac_y2mate serves bp_downloaden
 ac_tags serves bp_downloaden "marker + albumcover"
 ac_main serves bp_editor_openen "navigatie"
@@ -166,19 +144,15 @@ ac_player serves bp_knippen
 ac_scr_editor serves bp_opslaan
 do_saved_tracks serves bp_opslaan
 ac_ringtone serves bp_opslaan "optioneel als hoofdringtone"
-ac_main composes ac_scr_spotify
 ac_main composes ac_scr_youtube
 ac_main composes ac_scr_editor
-ac_spotmate serves ac_scr_spotify
-ac_y2mate serves ac_spotmate "audio (volledig nummer)"
 ac_y2mate serves ac_scr_youtube
 ac_decoder serves ac_scr_editor
 ac_trimmer serves ac_scr_editor
 ac_player serves ac_scr_editor
 ac_tags serves ac_trimmer "metadata behouden"
 ac_scr_editor accesses do_saved_tracks "schrijft"
-nd_spotify serves ac_scr_spotify "WebView"
-nd_youtube serves ac_scr_youtube "WebView"
+nd_y2mate serves ac_y2mate
 bp_zoeken -> bp_downloaden
 bp_downloaden -> bp_editor_openen
 bp_editor_openen -> bp_knippen

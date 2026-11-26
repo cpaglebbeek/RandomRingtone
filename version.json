@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.5.0",
-  "versionCode": 151,
+  "version": "2.5.1",
+  "versionCode": 152,
   "codename": "David_Bowie",
-  "releaseName": "Heroes",
+  "releaseName": "Starman",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-11-26",
   "status": "development",
-  "note": "v2.5.0 = Spotify-motor volgens de Sunnify-werkwijze: playlist/album importeren (embed-pagina + playlistdienst voor >100 nummers), strikte YouTube-treffercontrole (titel, artiest, duur ±30 s), album + volgnummer in de tags, optioneel als (gepauzeerde) playlist in de app"
+  "note": "v2.5.1 = delen van een nummer (Link kopiëren) start direct zoeken + download zonder knop of bevestiging; standaardmethode Spotify = volledig nummer (via YouTube). v2.5.0 = playlist/album-import volgens de Sunnify-werkwijze"
 }

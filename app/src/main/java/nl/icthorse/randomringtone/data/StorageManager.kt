@@ -160,7 +160,7 @@ class StorageManager(private val context: Context) {
     /** v2.3.0: Spotify-methode — zie [SpotifyMethod]. Oude "use_direct_api" wordt niet overgenomen (backend zonder sleutels = 503). */
     suspend fun getSpotifyMethod(): SpotifyMethod {
         val saved = context.settingsStore.data.map { it[KEY_SPOTIFY_METHOD] }.first()
-        return SpotifyMethod.entries.find { it.id == saved } ?: SpotifyMethod.PREVIEW
+        return SpotifyMethod.entries.find { it.id == saved } ?: SpotifyMethod.FULL  // v2.5.1: standaard volledig nummer
     }
 
     suspend fun setSpotifyMethod(m: SpotifyMethod) {

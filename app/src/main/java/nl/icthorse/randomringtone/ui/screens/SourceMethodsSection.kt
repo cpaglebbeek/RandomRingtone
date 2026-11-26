@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 fun SourceMethodsSection(storage: StorageManager, snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var spotify by remember { mutableStateOf(SpotifyMethod.PREVIEW) }
+    var spotify by remember { mutableStateOf(SpotifyMethod.FULL) }
     var youtube by remember { mutableStateOf(YouTubeMethod.SERVER) }
     var converterId by remember { mutableStateOf(StorageManager.DEFAULT_SPOTIFY_CONVERTER) }
     val results = remember { mutableStateMapOf<String, String>() }

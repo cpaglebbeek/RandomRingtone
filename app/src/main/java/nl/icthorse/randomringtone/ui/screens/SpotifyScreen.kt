@@ -58,7 +58,7 @@ fun SpotifyScreen(
     var converterUrl by remember { mutableStateOf("") }
     var converterName by remember { mutableStateOf("") }
     var useDirectApi by remember { mutableStateOf(false) }
-    var spotifyMethod by remember { mutableStateOf(nl.icthorse.randomringtone.data.SpotifyMethod.PREVIEW) }
+    var spotifyMethod by remember { mutableStateOf(nl.icthorse.randomringtone.data.SpotifyMethod.FULL) }
 
     // Direct API state
     val spotifyPreviewClient = remember { SpotifyPreviewClient(context) }
@@ -187,6 +187,44 @@ fun SpotifyScreen(
         detectedCollection = SpotifyCollection.parseLink(currentUrl)
     }
 
+    // Eén downloadpad voor de knop (na bevestiging) en voor delen (v2.5.1: start direct, zonder bevestiging).
+    val startDownload: (String) -> Unit = { trackUrl ->
+        isDirectDownloading = true
+        AppBusyState.isBusy = true
+        directDownloadPhase = "Nummer opzoeken..."
+        directDownloadProgress = 0.05f
+        scope.launch {
+            val result = try {
+                runSpotifyDownload(spotifyPreviewClient, spotifyMethod, trackUrl,
+                    ringtoneManager.storage.getDownloadDir(), false) { phase, progress ->
+                    directDownloadPhase = phase
+                    directDownloadProgress = progress
+                }
+            } finally {
+                isDirectDownloading = false
+                AppBusyState.isBusy = false
+            }
+            if (result.fileExists && result.file != null) {
+                pendingOverwriteUrl = trackUrl
+                pendingOverwriteFile = result.file
+                pendingOverwriteTrackInfo = result.trackInfo
+                showOverwriteDialog = true
+            } else if (result.success && result.file != null) {
+                lastDownloadedFile = result.file
+                showActionsDialog = true
+                if (result.trackInfo != null) {
+                    detectedTrackName = result.trackInfo.name
+                    detectedArtist = result.trackInfo.artist
+                }
+            } else {
+                snackbarHostState.showSnackbar(
+                    result.error ?: "Download mislukt — probeer WebView converter"
+                )
+            }
+        }
+    }
+    val startDownloadNow by rememberUpdatedState(startDownload)
+
     // Klembord LIVE monitoren — reageert direct als Spotify "Delen → Link kopiëren" wordt gebruikt
     DisposableEffect(Unit) {
         val listener = ClipboardManager.OnPrimaryClipChangedListener {
@@ -200,7 +238,15 @@ fun SpotifyScreen(
                     if (clipMatch != null) {
                         val clipUrl = clipText.split("?").first()
                         if (clipUrl !in processedClipUrls) {
-                            detectedTrackUrl = clipUrl
+                            if (useDirectApi && !isDirectDownloading) {
+                                // v2.5.1: delen is genoeg — direct zoeken en downloaden
+                                processedClipUrls = processedClipUrls + clipUrl
+                                detectedTrackUrl = null
+                                RemoteLogger.i("Spotify", "Delen → direct downloaden", mapOf("method" to spotifyMethod.id))
+                                startDownloadNow(clipUrl)
+                            } else {
+                                detectedTrackUrl = clipUrl
+                            }
                         }
                     }
                 }
@@ -492,32 +538,7 @@ fun SpotifyScreen(
                     confirmTrackInfo = null
                     confirmTrackUrl = null
                     // === FASE 2: daadwerkelijk downloaden ===
-                    isDirectDownloading = true
-                    scope.launch {
-                        val result = runSpotifyDownload(spotifyPreviewClient, spotifyMethod, trackUrl,
-                            ringtoneManager.storage.getDownloadDir(), false) { phase, progress ->
-                            directDownloadPhase = phase
-                            directDownloadProgress = progress
-                        }
-                        isDirectDownloading = false
-                        if (result.fileExists && result.file != null) {
-                            pendingOverwriteUrl = trackUrl
-                            pendingOverwriteFile = result.file
-                            pendingOverwriteTrackInfo = result.trackInfo
-                            showOverwriteDialog = true
-                        } else if (result.success && result.file != null) {
-                            lastDownloadedFile = result.file
-                            showActionsDialog = true
-                            if (result.trackInfo != null) {
-                                detectedTrackName = result.trackInfo.name
-                                detectedArtist = result.trackInfo.artist
-                            }
-                        } else {
-                            snackbarHostState.showSnackbar(
-                                result.error ?: "Download mislukt — probeer WebView converter"
-                            )
-                        }
-                    }
+                    startDownload(trackUrl)
                 }) { Text("Downloaden") }
             },
             dismissButton = {

@@ -114,6 +114,9 @@ object YouTubeServer {
         displayArtist: String? = null,
         coverJpeg: ByteArray? = null,
         forceOverwrite: Boolean = false,
+        album: String? = null,
+        trackNo: Int? = null,
+        trackTotal: Int? = null,
         onProgress: (phase: String, progress: Float) -> Unit = { _, _ -> }
     ): YouTubeOnDevice.Result = withContext(Dispatchers.IO) {
         val id = YouTubeOnDevice.videoId(videoIdOrUrl) ?: videoIdOrUrl.takeIf { it.length == 11 }
@@ -155,7 +158,7 @@ object YouTubeServer {
             onProgress("Hoes en marker toevoegen...", 0.96f)
             val art = coverJpeg ?: YouTubeOnDevice.thumbnail(id)
             val marker = if (prefix == "youtube_mp3_") Mp3Marker.MARKER_YOUTUBE else Mp3Marker.MARKER_TRACK
-            M4aMetadata.write(dest, title, artist, art, marker)
+            M4aMetadata.write(dest, title, artist, art, marker, album, trackNo, trackTotal)
             onProgress("Klaar!", 1f)
             RemoteLogger.output("YouTubeServer", "Download KLAAR", mapOf("file" to dest.name,
                 "size" to "${dest.length() / 1024}KB", "bytes" to "$total", "art" to (art != null).toString(),
@@ -200,19 +203,22 @@ object YouTubeDownload {
         displayArtist: String? = null,
         coverJpeg: ByteArray? = null,
         forceOverwrite: Boolean = false,
+        album: String? = null,
+        trackNo: Int? = null,
+        trackTotal: Int? = null,
         onProgress: (phase: String, progress: Float) -> Unit = { _, _ -> }
     ): YouTubeOnDevice.Result {
         if (method == YouTubeMethod.SERVER) {
             val s = YouTubeServer.downloadAudio(lm, videoIdOrUrl, destDir, prefix, baseName, displayTitle, displayArtist,
-                coverJpeg, forceOverwrite, onProgress)
+                coverJpeg, forceOverwrite, album, trackNo, trackTotal, onProgress)
             if (s.success || s.fileExists) return s
             RemoteLogger.w("YouTube", "Eigen server mislukt — terugval op toestel", mapOf("error" to (s.error ?: "")))
             onProgress("Eigen server mislukt — op toestel...", 0f)
             val d = YouTubeOnDevice.downloadAudio(videoIdOrUrl, destDir, prefix, baseName, displayTitle, displayArtist,
-                coverJpeg, forceOverwrite, onProgress)
+                coverJpeg, forceOverwrite, album, trackNo, trackTotal, onProgress)
             return if (d.success || d.fileExists) d else d.copy(error = "Eigen server: ${s.error}\nOp toestel: ${d.error}")
         }
         return YouTubeOnDevice.downloadAudio(videoIdOrUrl, destDir, prefix, baseName, displayTitle, displayArtist,
-            coverJpeg, forceOverwrite, onProgress)
+            coverJpeg, forceOverwrite, album, trackNo, trackTotal, onProgress)
     }
 }

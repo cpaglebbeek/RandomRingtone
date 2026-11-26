@@ -114,6 +114,20 @@ object YouTubeOnDevice {
         return hits.minByOrNull(::score)
     }
 
+    /**
+     * Strikte treffer (v2.5.0, import van playlist/album): titel én een artiest moeten in de video staan en de duur
+     * mag hooguit 30 s afwijken. Tweede poging zonder haakjestekst. Geen treffer ⇒ null (liever niets dan het verkeerde).
+     */
+    suspend fun strictMatch(artists: String, title: String, durationSec: Long?): Hit? {
+        val first = artists.substringBefore(",").trim()
+        val queries = listOf("$first $title audio", "$first ${YouTubeMatch.coreTitle(title)}").distinct()
+        for (q in queries) {
+            val hit = YouTubeMatch.pick(search(q, 10), artists, title, durationSec)
+            if (hit != null) return hit
+        }
+        return null
+    }
+
     internal fun sanitize(s: String) = s.replace(Regex("[^\\p{L}\\p{N}_\\-!&'(),.\\[\\]]"), "_")
         .replace(Regex("_+"), "_").trim('_').take(120)
 
@@ -131,6 +145,9 @@ object YouTubeOnDevice {
         displayArtist: String? = null,
         coverJpeg: ByteArray? = null,
         forceOverwrite: Boolean = false,
+        album: String? = null,
+        trackNo: Int? = null,
+        trackTotal: Int? = null,
         onProgress: (phase: String, progress: Float) -> Unit = { _, _ -> }
     ): Result = withContext(Dispatchers.IO) {
         val id = videoId(videoIdOrUrl) ?: videoIdOrUrl.takeIf { it.length == 11 }
@@ -161,7 +178,7 @@ object YouTubeOnDevice {
             onProgress("Hoes en marker toevoegen...", 0.95f)
             val art = coverJpeg ?: thumbnail(id)
             val marker = if (prefix == "youtube_mp3_") Mp3Marker.MARKER_YOUTUBE else Mp3Marker.MARKER_TRACK
-            M4aMetadata.write(dest, title, artist, art, marker)
+            M4aMetadata.write(dest, title, artist, art, marker, album, trackNo, trackTotal)
             onProgress("Klaar!", 1f)
             RemoteLogger.output("YouTubeOnDevice", "Download KLAAR", mapOf(
                 "file" to dest.name, "size" to "${dest.length() / 1024}KB", "bytes" to "$total",

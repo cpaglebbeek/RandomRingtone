@@ -74,6 +74,9 @@ fun SpotifyScreen(
 
     // Track detectie
     var detectedTrackUrl by remember { mutableStateOf<String?>(null) }
+    // v2.5.0: playlist of album in beeld (of op het klembord) → importknop
+    var detectedCollection by remember { mutableStateOf<SpotifyCollection.Ref?>(null) }
+    var importRef by remember { mutableStateOf<SpotifyCollection.Ref?>(null) }
     var processedClipUrls by remember { mutableStateOf<Set<String>>(emptySet()) }
     var detectedTrackName by remember { mutableStateOf("") }
     var detectedArtist by remember { mutableStateOf("") }
@@ -181,6 +184,7 @@ fun SpotifyScreen(
         } else {
             detectedTrackUrl = null
         }
+        detectedCollection = SpotifyCollection.parseLink(currentUrl)
     }
 
     // Klembord LIVE monitoren — reageert direct als Spotify "Delen → Link kopiëren" wordt gebruikt
@@ -191,6 +195,7 @@ fun SpotifyScreen(
                 val clip = clipboardManager.primaryClip
                 if (clip != null && clip.itemCount > 0) {
                     val clipText = clip.getItemAt(0).text?.toString() ?: ""
+                    SpotifyCollection.parseLink(clipText)?.let { detectedCollection = it }
                     val clipMatch = SPOTIFY_TRACK_REGEX.find(clipText)
                     if (clipMatch != null) {
                         val clipUrl = clipText.split("?").first()
@@ -270,6 +275,18 @@ fun SpotifyScreen(
                     canGoBack = spotifyWebView?.canGoBack() == true
                 },
                 onDownloadStart = null // Spotify heeft geen downloads
+            )
+        }
+
+        // FAB: playlist of album importeren (v2.5.0)
+        AnimatedVisibility(
+            visible = detectedCollection != null && detectedTrackUrl == null && !showConverter && !isDirectDownloading,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+        ) {
+            ExtendedFloatingActionButton(
+                onClick = { importRef = detectedCollection; detectedCollection = null },
+                icon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null) },
+                text = { Text(if (detectedCollection?.kind == SpotifyCollection.Kind.ALBUM) "Album importeren" else "Playlist importeren") }
             )
         }
 
@@ -597,6 +614,11 @@ fun SpotifyScreen(
     }
 
     // === ACTIES DIALOOG na download ===
+    importRef?.let { ref ->
+        SpotifyImportDialog(ref = ref, client = spotifyPreviewClient, ringtoneManager = ringtoneManager, db = db,
+            onDismiss = { importRef = null })
+    }
+
     if (showActionsDialog && lastDownloadedFile != null) {
         val file = lastDownloadedFile!!
         AlertDialog(
@@ -851,7 +873,7 @@ private fun CreateWebView(
 }
 
 /** Extract album art uit Spotify MP3 (embedded via converter) en sla op in cache. */
-private fun extractSpotifyArt(context: android.content.Context, audioFile: File): String? {
+internal fun extractSpotifyArt(context: android.content.Context, audioFile: File): String? {
     val retriever = android.media.MediaMetadataRetriever()
     return try {
         retriever.setDataSource(audioFile.absolutePath)

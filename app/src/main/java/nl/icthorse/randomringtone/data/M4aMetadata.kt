@@ -19,7 +19,10 @@ object M4aMetadata {
         title: String? = null,
         artist: String? = null,
         albumArtJpeg: ByteArray? = null,
-        comment: String? = null
+        comment: String? = null,
+        album: String? = null,
+        trackNo: Int? = null,
+        trackTotal: Int? = null
     ) {
         if (!file.exists() || !file.canWrite()) return
         if (file.extension.lowercase() !in listOf("m4a", "mp4", "aac")) return
@@ -42,6 +45,8 @@ object M4aMetadata {
             val items = mutableListOf<ByteArray>()
             if (!title.isNullOrBlank()) items.add(buildTextItem("\u00A9nam", title))
             if (!artist.isNullOrBlank()) items.add(buildTextItem("\u00A9ART", artist))
+            if (!album.isNullOrBlank()) items.add(buildTextItem("\u00A9alb", album))
+            if (trackNo != null && trackNo > 0) items.add(buildTrackNumberItem(trackNo, trackTotal ?: 0))
             if (!comment.isNullOrBlank()) items.add(buildTextItem("\u00A9cmt", comment))
             if (albumArtJpeg != null && albumArtJpeg.size > 100) {
                 items.add(buildImageItem("covr", albumArtJpeg))
@@ -120,6 +125,14 @@ object M4aMetadata {
         // bytes 4-7: locale = 0 (already zero-initialized)
         textBytes.copyInto(dataPayload, 8)
         return wrapBox(type, wrapBox("data", dataPayload))
+    }
+
+    /** trkn: binaire data (type 0) = 00 00 | nummer (2) | totaal (2) | 00 00. */
+    private fun buildTrackNumberItem(no: Int, total: Int): ByteArray {
+        val d = ByteArray(16)
+        d[10] = (no shr 8).toByte(); d[11] = no.toByte()
+        d[12] = (total shr 8).toByte(); d[13] = total.toByte()
+        return wrapBox("trkn", wrapBox("data", d))
     }
 
     private fun buildImageItem(type: String, jpeg: ByteArray): ByteArray {

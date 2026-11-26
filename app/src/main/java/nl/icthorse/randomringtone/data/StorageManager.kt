@@ -771,7 +771,7 @@ enum class SpotifyMethod(val id: String, val label: String, val detail: String) 
     PREVIEW("preview", "Preview (Spotify-embed + Deezer)",
         "30 seconden, geen sleutels nodig. Titel/duur uit de openbare Spotify-embed, audio van Deezer (128 kbps) of anders Spotify's eigen preview."),
     FULL("full", "Volledig nummer (via YouTube)",
-        "Zoekt artiest + titel op YouTube, kiest de video met dezelfde duur en downloadt de audio (M4A) volgens de YouTube-methode hieronder."),
+        "Zoekt artiest + titel op YouTube, kiest de video met dezelfde duur en downloadt de audio (M4A) volgens de YouTube-methode hieronder. Een playlist of album in beeld (of als gekopieerde link) is in één keer te importeren."),
     BACKEND("backend", "Preview via backend (Spotify Web API + ISRC)",
         "Exacte ISRC-match via de RandomRingtone-server. Werkt alleen als daar Spotify-sleutels staan."),
     CONVERTER("converter", "Converter-website (handmatig)",

@@ -67,7 +67,7 @@ fun SourceMethodsSection(storage: StorageManager, snackbarHostState: SnackbarHos
                     val client = SpotifyPreviewClient(context)
                     when (m) {
                         SpotifyMethod.PREVIEW -> client.selfTestEmbed()
-                        SpotifyMethod.FULL -> YouTubeOnDevice.selfTest()
+                        SpotifyMethod.FULL -> YouTubeOnDevice.selfTest() + "\nPlaylist/album: " + nl.icthorse.randomringtone.data.SpotifyCollection.selfTest()
                         SpotifyMethod.BACKEND -> client.selfTestBackend()
                         SpotifyMethod.CONVERTER -> probeSite(SpotifyConverter.findById(converterId).url)
                     }

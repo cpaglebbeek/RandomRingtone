@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.4.0",
-  "versionCode": 150,
-  "codename": "Prince",
-  "releaseName": "Purple_Rain",
+  "version": "2.5.0",
+  "versionCode": 151,
+  "codename": "David_Bowie",
+  "releaseName": "Heroes",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
-  "last_updated": "2026-11-25",
+  "last_updated": "2026-11-26",
   "status": "development",
-  "note": "v2.4.0 = YouTube-audio via de eigen server (motor achter YourTube: logger /rrlog/youtube + YourTube-dienstsleutel), standaardmethode voor YouTube en 'Spotify volledig'; terugval 'Op toestel'; Y2Mate verwijderd"
+  "note": "v2.5.0 = Spotify-motor volgens de Sunnify-werkwijze: playlist/album importeren (embed-pagina + playlistdienst voor >100 nummers), strikte YouTube-treffercontrole (titel, artiest, duur ±30 s), album + volgnummer in de tags, optioneel als (gepauzeerde) playlist in de app"
 }

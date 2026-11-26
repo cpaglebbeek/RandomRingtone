@@ -158,4 +158,15 @@ class SourcesTest {
         assertTrue(al.items.size >= 10 && al.coverUrl != null && al.owner.isNotBlank())
         println("ECHT playlist=${pl.name} n=${pl.items.size} | album=${al.name} n=${al.items.size} owner=${al.owner}")
     }
+
+    /** Alleen met RR_LIVE=1: echte YouTube-zoekopdracht door de strikte treffercontrole (netwerk nodig). */
+    @Test fun youtubeStrictMatchLive() {
+        if (System.getenv("RR_LIVE") != "1") return
+        val cases = listOf(Triple("TOTO", "Africa", 295L), Triple("Queen", "Bohemian Rhapsody - Remastered 2011", 354L),
+            Triple("Pitbull, Sensato", "Global Warming (feat. Sensato)", 85L), Triple("Zzqxj Nietbestaand", "Qwrtplk Vbnmzx", 200L))
+        for ((artist, title, dur) in cases) {
+            val h = kotlinx.coroutines.runBlocking { YouTubeOnDevice.strictMatch(artist, title, dur) }
+            println("LIVE $artist | $title | $dur -> " + (h?.let { "${it.title} [${it.uploader}] ${it.durationSec}s" } ?: "GEEN"))
+        }
+    }
 }

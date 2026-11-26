@@ -302,7 +302,7 @@ class BackupManager(private val context: Context) {
                 val settings = SettingsBackup(
                     downloadPath = storage.getDownloadDir().absolutePath,
                     ringtonePath = storage.getRingtoneDir().absolutePath,
-                    spotifyConverter = storage.getSpotifyConverter(),
+                    spotifyConverter = ""  /* v2.6.0: converter-sites verwijderd; veld blijft voor oude versies */,
                     backupUri = storage.getBackupUri()
                 )
                 writeJsonFile(backupDir, "settings.json", json.encodeToString(settings))
@@ -717,7 +717,7 @@ class BackupManager(private val context: Context) {
             val settings = SettingsBackup(
                 downloadPath = storage.getDownloadDir().absolutePath,
                 ringtonePath = storage.getRingtoneDir().absolutePath,
-                spotifyConverter = storage.getSpotifyConverter(),
+                spotifyConverter = ""  /* v2.6.0: converter-sites verwijderd; veld blijft voor oude versies */,
                 backupUri = storage.getBackupUri()
             )
             File(dir, "settings.json").writeText(json.encodeToString(settings))

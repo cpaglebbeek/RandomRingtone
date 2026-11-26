@@ -16,8 +16,8 @@ val rrSecrets = Properties().apply {
 }
 fun rrSecret(name: String): String = rrSecrets.getProperty(name) ?: System.getenv(name) ?: ""
 
-val appCodename = "David_Bowie"
-val appReleaseName = "Starman"
+val appCodename = "Johnny_Cash"
+val appReleaseName = "Ring_of_Fire"
 
 android {
     namespace = "nl.icthorse.randomringtone"
@@ -42,13 +42,13 @@ android {
         applicationId = "nl.icthorse.randomringtone"
         minSdk = 26
         targetSdk = 35
-        versionCode = 152
-        versionName = "2.5.1"
+        versionCode = 153
+        versionName = "2.6.0"
 
         // Build metadata — automatisch bijgewerkt bij elke release
         buildConfigField("String", "CODENAME", "\"$appCodename\"")
         buildConfigField("String", "RELEASE_NAME", "\"$appReleaseName\"")
-        buildConfigField("int", "BUILD_NUMBER", "148")
+        buildConfigField("int", "BUILD_NUMBER", "153")
         buildConfigField("String", "BUILD_STATUS", "\"DEBUG\"")  // DEBUG of STABLE
         buildConfigField("String", "RR_LOGGER_API_KEY", "\"${rrSecret("RR_LOGGER_API_KEY")}\"")
         buildConfigField("String", "RR_BACKUP_API_KEY", "\"${rrSecret("RR_BACKUP_API_KEY")}\"")

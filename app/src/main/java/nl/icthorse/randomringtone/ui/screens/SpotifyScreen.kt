@@ -2,18 +2,9 @@ package nl.icthorse.randomringtone.ui.screens
 
 import nl.icthorse.randomringtone.AppBusyState
 import android.annotation.SuppressLint
-import android.app.DownloadManager
-import android.content.BroadcastReceiver
-import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.net.Uri
-import android.os.Build
-import android.os.Environment
 import android.webkit.*
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -26,8 +17,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import nl.icthorse.randomringtone.data.*
 import java.io.File
@@ -36,13 +25,10 @@ private const val SPOTIFY_WEB_URL = "https://open.spotify.com"
 private val SPOTIFY_TRACK_REGEX = Regex("open\\.spotify\\.com/track/([a-zA-Z0-9]+)")
 
 /**
- * Spotify-naar-MP3 scherm.
+ * Spotify-scherm (v2.6.0: alleen nog volledig nummer via YouTube).
  *
- * Architectuur: twee gescheiden WebViews.
- * 1. Spotify WebView (altijd actief) — browse open.spotify.com
- * 2. Converter WebView (fullscreen dialoog) — aparte schone instantie zonder Spotify cookies
- *
- * Flow: zoek track → delen/kopieer URL → FAB → converter dialoog → download → acties
+ * Eén WebView met open.spotify.com. Flow: nummer zoeken → Delen → Link kopiëren → de app zoekt het nummer op
+ * YouTube en downloadt de audio → acties. Playlist of album in beeld → importeren.
  */
 @Composable
 fun SpotifyScreen(
@@ -53,12 +39,6 @@ fun SpotifyScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
-    // Converter config
-    var converterUrl by remember { mutableStateOf("") }
-    var converterName by remember { mutableStateOf("") }
-    var useDirectApi by remember { mutableStateOf(false) }
-    var spotifyMethod by remember { mutableStateOf(nl.icthorse.randomringtone.data.SpotifyMethod.FULL) }
 
     // Direct API state
     val spotifyPreviewClient = remember { SpotifyPreviewClient(context) }
@@ -81,9 +61,6 @@ fun SpotifyScreen(
     var detectedTrackName by remember { mutableStateOf("") }
     var detectedArtist by remember { mutableStateOf("") }
 
-    // Converter dialoog
-    var showConverter by remember { mutableStateOf(false) }
-
     // Download state
     var lastDownloadedFile by remember { mutableStateOf<File?>(null) }
     var showActionsDialog by remember { mutableStateOf(false) }
@@ -93,9 +70,6 @@ fun SpotifyScreen(
     var pendingOverwriteUrl by remember { mutableStateOf<String?>(null) }
     var pendingOverwriteFile by remember { mutableStateOf<File?>(null) }
     var pendingOverwriteTrackInfo by remember { mutableStateOf<SpotifyPreviewClient.TrackInfo?>(null) }
-    // Voor WebView converter flow
-    var pendingConverterSource by remember { mutableStateOf<File?>(null) }
-    var pendingConverterDest by remember { mutableStateOf<File?>(null) }
 
     // Track bevestiging state — vergelijk SpotMate metadata met Spotify pagina
     var showConfirmTrackDialog by remember { mutableStateOf(false) }
@@ -103,76 +77,6 @@ fun SpotifyScreen(
     var confirmTrackUrl by remember { mutableStateOf<String?>(null) }
     var confirmSpotifyTitle by remember { mutableStateOf("") }
     var confirmSpotifyArtist by remember { mutableStateOf("") }
-
-    // Laad converter uit instellingen
-    LaunchedEffect(Unit) {
-        val converterId = ringtoneManager.storage.getSpotifyConverter()
-        val converter = SpotifyConverter.findById(converterId)
-        converterUrl = converter.url
-        converterName = converter.name
-        spotifyMethod = ringtoneManager.storage.getSpotifyMethod()
-        useDirectApi = spotifyMethod != nl.icthorse.randomringtone.data.SpotifyMethod.CONVERTER
-    }
-
-    // Download completion receiver
-    DisposableEffect(Unit) {
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                if (downloadId == -1L) return
-
-                val query = DownloadManager.Query().setFilterById(downloadId)
-                downloadManager.query(query)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                        val uriIdx = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                        if (statusIdx >= 0 && cursor.getInt(statusIdx) == DownloadManager.STATUS_SUCCESSFUL) {
-                            val localUri = if (uriIdx >= 0) cursor.getString(uriIdx) else null
-                            if (localUri != null) {
-                                val file = File(Uri.parse(localUri).path ?: return)
-                                scope.launch {
-                                    val destName = if (detectedTrackName.isNotBlank() && detectedArtist.isNotBlank()) {
-                                        val sanitized = "${detectedTrackName}-${detectedArtist}"
-                                            .replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
-                                            .replace(Regex("_+"), "_")
-                                            .trim('_')
-                                        "spotify_mp3_${sanitized}.mp3"
-                                    } else {
-                                        "spotify_mp3_${System.currentTimeMillis()}.mp3"
-                                    }
-                                    val destFile = File(
-                                        ringtoneManager.storage.getDownloadDir(),
-                                        destName
-                                    )
-                                    if (destFile.exists()) {
-                                        // Bestand bestaat al — vraag gebruiker
-                                        pendingConverterSource = file
-                                        pendingConverterDest = destFile
-                                        showConverter = false
-                                        showOverwriteDialog = true
-                                    } else {
-                                        file.copyTo(destFile, overwrite = false)
-                                        lastDownloadedFile = destFile
-                                        showConverter = false
-                                        showActionsDialog = true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            context.registerReceiver(receiver, filter)
-        }
-        onDispose { context.unregisterReceiver(receiver) }
-    }
 
     // Check URL voor Spotify track URLs
     val clipboardManager = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
@@ -195,11 +99,11 @@ fun SpotifyScreen(
         directDownloadProgress = 0.05f
         scope.launch {
             val result = try {
-                runSpotifyDownload(spotifyPreviewClient, spotifyMethod, trackUrl,
-                    ringtoneManager.storage.getDownloadDir(), false) { phase, progress ->
+                spotifyPreviewClient.downloadFull(trackUrl,
+                    ringtoneManager.storage.getDownloadDir(), { phase, progress ->
                     directDownloadPhase = phase
                     directDownloadProgress = progress
-                }
+                }, false)
             } finally {
                 isDirectDownloading = false
                 AppBusyState.isBusy = false
@@ -218,7 +122,7 @@ fun SpotifyScreen(
                 }
             } else {
                 snackbarHostState.showSnackbar(
-                    result.error ?: "Download mislukt — probeer WebView converter"
+                    result.error ?: "Download mislukt"
                 )
             }
         }
@@ -228,7 +132,6 @@ fun SpotifyScreen(
     // Klembord LIVE monitoren — reageert direct als Spotify "Delen → Link kopiëren" wordt gebruikt
     DisposableEffect(Unit) {
         val listener = ClipboardManager.OnPrimaryClipChangedListener {
-            if (showConverter) return@OnPrimaryClipChangedListener
             try {
                 val clip = clipboardManager.primaryClip
                 if (clip != null && clip.itemCount > 0) {
@@ -238,11 +141,11 @@ fun SpotifyScreen(
                     if (clipMatch != null) {
                         val clipUrl = clipText.split("?").first()
                         if (clipUrl !in processedClipUrls) {
-                            if (useDirectApi && !isDirectDownloading) {
+                            if (!isDirectDownloading) {
                                 // v2.5.1: delen is genoeg — direct zoeken en downloaden
                                 processedClipUrls = processedClipUrls + clipUrl
                                 detectedTrackUrl = null
-                                RemoteLogger.i("Spotify", "Delen → direct downloaden", mapOf("method" to spotifyMethod.id))
+                                RemoteLogger.i("Spotify", "Delen → direct downloaden", mapOf("method" to "full"))
                                 startDownloadNow(clipUrl)
                             } else {
                                 detectedTrackUrl = clipUrl
@@ -319,14 +222,13 @@ fun SpotifyScreen(
                 onPageFinished = { url ->
                     isLoading = false; currentUrl = url
                     canGoBack = spotifyWebView?.canGoBack() == true
-                },
-                onDownloadStart = null // Spotify heeft geen downloads
+                }
             )
         }
 
         // FAB: playlist of album importeren (v2.5.0)
         AnimatedVisibility(
-            visible = detectedCollection != null && detectedTrackUrl == null && !showConverter && !isDirectDownloading,
+            visible = detectedCollection != null && detectedTrackUrl == null && !isDirectDownloading,
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         ) {
             ExtendedFloatingActionButton(
@@ -338,7 +240,7 @@ fun SpotifyScreen(
 
         // FAB: "Download MP3"
         AnimatedVisibility(
-            visible = detectedTrackUrl != null && !showConverter && !isDirectDownloading,
+            visible = detectedTrackUrl != null && !isDirectDownloading,
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         ) {
             ExtendedFloatingActionButton(
@@ -359,47 +261,30 @@ fun SpotifyScreen(
                     processedClipUrls = processedClipUrls + trackUrl
                     detectedTrackUrl = null
 
-                    if (useDirectApi) {
-                        // === DIRECTE API: FASE 1 — metadata ophalen + bevestigen ===
-                        isDirectDownloading = true
-                        AppBusyState.isBusy = true
-                        scope.launch {
-                            directDownloadPhase = "Track info ophalen..."
-                            directDownloadProgress = 0.1f
-                            val trackInfo = if (spotifyMethod == nl.icthorse.randomringtone.data.SpotifyMethod.BACKEND)
-                                spotifyPreviewClient.fetchTrackInfo(trackUrl) else spotifyPreviewClient.fetchTrackInfoEmbed(trackUrl)
-                            isDirectDownloading = false
-                            AppBusyState.isBusy = false
-                            if (trackInfo != null) {
-                                confirmTrackInfo = trackInfo
-                                confirmTrackUrl = trackUrl
-                                confirmSpotifyTitle = detectedTrackName
-                                confirmSpotifyArtist = detectedArtist
-                                showConfirmTrackDialog = true
-                            } else {
-                                snackbarHostState.showSnackbar(
-                                    spotifyPreviewClient.lastError ?: "Track info ophalen mislukt — probeer WebView converter"
-                                )
-                            }
-                        }
-                    } else {
-                        // === WEBVIEW CONVERTER FLOW ===
-                        clipboardManager.setPrimaryClip(ClipData.newPlainText("Spotify URL", trackUrl))
-                        showConverter = true
-                        scope.launch {
+                    // Fase 1 — metadata ophalen + bevestigen
+                    isDirectDownloading = true
+                    AppBusyState.isBusy = true
+                    scope.launch {
+                        directDownloadPhase = "Track info ophalen..."
+                        directDownloadProgress = 0.1f
+                        val trackInfo = spotifyPreviewClient.fetchTrackInfoEmbed(trackUrl)
+                        isDirectDownloading = false
+                        AppBusyState.isBusy = false
+                        if (trackInfo != null) {
+                            confirmTrackInfo = trackInfo
+                            confirmTrackUrl = trackUrl
+                            confirmSpotifyTitle = detectedTrackName
+                            confirmSpotifyArtist = detectedArtist
+                            showConfirmTrackDialog = true
+                        } else {
                             snackbarHostState.showSnackbar(
-                                message = "Spotify URL op klembord — plak in $converterName zoekveld",
-                                duration = SnackbarDuration.Long
+                                spotifyPreviewClient.lastError ?: "Track info ophalen mislukt"
                             )
                         }
                     }
                 },
                 icon = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
-                text = { Text(when (spotifyMethod) {
-                    nl.icthorse.randomringtone.data.SpotifyMethod.FULL -> "Volledig nummer downloaden"
-                    nl.icthorse.randomringtone.data.SpotifyMethod.CONVERTER -> "Download via converter"
-                    else -> "Preview downloaden"
-                }) },
+                text = { Text("Volledig nummer downloaden") },
                 containerColor = MaterialTheme.colorScheme.primary
             )
         }
@@ -436,29 +321,6 @@ fun SpotifyScreen(
                 }
             }
         }
-    }
-
-    // === CONVERTER FULLSCREEN DIALOOG (eigen schone WebView) ===
-    if (showConverter && converterUrl.isNotBlank()) {
-        ConverterDialog(
-            converterUrl = converterUrl,
-            converterName = converterName,
-            onDismiss = { showConverter = false },
-            onDownloadStart = { url, userAgent, contentDisposition, mimeType, _ ->
-                val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
-                val request = DownloadManager.Request(Uri.parse(url)).apply {
-                    setMimeType(mimeType)
-                    addRequestHeader("User-Agent", userAgent)
-                    setTitle(fileName)
-                    setDescription("Spotify to MP3 — $converterName")
-                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-                }
-                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                dm.enqueue(request)
-                Toast.makeText(context, "Downloaden: $fileName", Toast.LENGTH_SHORT).show()
-            }
-        )
     }
 
     // === TRACK BEVESTIGING DIALOOG — vergelijk SpotMate vs Spotify ===
@@ -524,7 +386,7 @@ fun SpotifyScreen(
                     }
                     if (hasMismatch) {
                         Text(
-                            "De converter geeft een ander nummer terug dan je Spotify pagina toont. Toch downloaden?",
+                            "Spotify geeft een ander nummer terug dan de pagina toont. Toch downloaden?",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -553,15 +415,13 @@ fun SpotifyScreen(
 
     // === OVERWRITE DIALOOG — bestand bestaat al ===
     if (showOverwriteDialog) {
-        val existingFile = pendingOverwriteFile ?: pendingConverterDest
+        val existingFile = pendingOverwriteFile
         AlertDialog(
             onDismissRequest = {
                 showOverwriteDialog = false
                 pendingOverwriteUrl = null
                 pendingOverwriteFile = null
                 pendingOverwriteTrackInfo = null
-                pendingConverterSource = null
-                pendingConverterDest = null
             },
             title = { Text("Bestand bestaat al") },
             text = {
@@ -580,17 +440,8 @@ fun SpotifyScreen(
             confirmButton = {
                 Button(onClick = {
                     showOverwriteDialog = false
-                    if (pendingConverterSource != null && pendingConverterDest != null) {
-                        // WebView converter flow — overschrijf direct
-                        scope.launch {
-                            pendingConverterSource!!.copyTo(pendingConverterDest!!, overwrite = true)
-                            lastDownloadedFile = pendingConverterDest
-                            pendingConverterSource = null
-                            pendingConverterDest = null
-                            showActionsDialog = true
-                        }
-                    } else if (pendingOverwriteUrl != null) {
-                        // SpotMate direct API flow — opnieuw downloaden met forceOverwrite
+                    if (pendingOverwriteUrl != null) {
+                        // opnieuw downloaden met forceOverwrite
                         val url = pendingOverwriteUrl!!
                         pendingOverwriteUrl = null
                         pendingOverwriteFile = null
@@ -598,11 +449,11 @@ fun SpotifyScreen(
                         isDirectDownloading = true
                         AppBusyState.isBusy = true
                         scope.launch {
-                            val result = runSpotifyDownload(spotifyPreviewClient, spotifyMethod, url,
-                                ringtoneManager.storage.getDownloadDir(), true) { phase, progress ->
+                            val result = spotifyPreviewClient.downloadFull(url,
+                                ringtoneManager.storage.getDownloadDir(), { phase, progress ->
                                 directDownloadPhase = phase
                                 directDownloadProgress = progress
-                            }
+                            }, true)
                             isDirectDownloading = false
                             AppBusyState.isBusy = false
                             if (result.success && result.file != null) {
@@ -627,8 +478,6 @@ fun SpotifyScreen(
                     pendingOverwriteUrl = null
                     pendingOverwriteFile = null
                     pendingOverwriteTrackInfo = null
-                    pendingConverterSource = null
-                    pendingConverterDest = null
                 }) { Text("Annuleren") }
             }
         )
@@ -719,116 +568,15 @@ fun SpotifyScreen(
     }
 }
 
-// === CONVERTER DIALOOG — eigen schone WebView ===
-
-@Composable
-private fun ConverterDialog(
-    converterUrl: String,
-    converterName: String,
-    onDismiss: () -> Unit,
-    onDownloadStart: (url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) -> Unit
-) {
-    var converterWebView by remember { mutableStateOf<WebView?>(null) }
-    var converterLoading by remember { mutableStateOf(true) }
-    var converterCanGoBack by remember { mutableStateOf(false) }
-    var converterCurrentUrl by remember { mutableStateOf("") }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Converter navigatiebalk
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Sluiten")
-                    }
-                    IconButton(
-                        onClick = { converterWebView?.goBack() },
-                        enabled = converterCanGoBack
-                    ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Terug")
-                    }
-                    IconButton(onClick = { converterWebView?.reload() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Vernieuwen")
-                    }
-
-                    AssistChip(
-                        onClick = { },
-                        label = { Text(converterName, style = MaterialTheme.typography.labelMedium) },
-                        leadingIcon = {
-                            Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    if (converterLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    }
-                }
-
-                Text(
-                    text = converterCurrentUrl,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
-                )
-
-                if (converterLoading) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                } else {
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-
-                // Hint
-                Text(
-                    text = "Plak de Spotify URL (zit op je klembord) in het zoekveld",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-
-                // Converter WebView — schone instantie, blokkeert Spotify redirects
-                CreateWebView(
-                    url = converterUrl,
-                    blockSpotifyDomain = true,
-                    onWebViewCreated = { converterWebView = it },
-                    onPageStarted = { url -> converterLoading = true; converterCurrentUrl = url },
-                    onPageFinished = { url ->
-                        converterLoading = false; converterCurrentUrl = url
-                        converterCanGoBack = converterWebView?.canGoBack() == true
-                    },
-                    onDownloadStart = onDownloadStart
-                )
-            }
-        }
-    }
-}
-
 // === GEDEELDE WEBVIEW FACTORY ===
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun CreateWebView(
     url: String,
-    blockSpotifyDomain: Boolean = false,
     onWebViewCreated: (WebView) -> Unit,
     onPageStarted: (String) -> Unit,
-    onPageFinished: (String) -> Unit,
-    onDownloadStart: ((url: String, userAgent: String, contentDisposition: String, mimeType: String, contentLength: Long) -> Unit)?
+    onPageFinished: (String) -> Unit
 ) {
     AndroidView(
         factory = { context ->
@@ -858,14 +606,6 @@ private fun CreateWebView(
                     }
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                         val requestUrl = request?.url?.toString() ?: return false
-                        // Blokkeer navigatie naar Spotify vanuit converter
-                        if (blockSpotifyDomain && (
-                            requestUrl.contains("open.spotify.com") ||
-                            requestUrl.contains("accounts.spotify.com") ||
-                            requestUrl.contains("spotify.com/login")
-                        )) {
-                            return true // Blokkeer — niet navigeren
-                        }
                         if (requestUrl.startsWith("intent://") || requestUrl.startsWith("market://")) {
                             return true
                         }
@@ -879,11 +619,6 @@ private fun CreateWebView(
                     }
                 }
 
-                if (onDownloadStart != null) {
-                    setDownloadListener { downloadUrl, userAgent, contentDisposition, mimeType, contentLength ->
-                        onDownloadStart(downloadUrl, userAgent, contentDisposition, mimeType, contentLength)
-                    }
-                }
 
                 onWebViewCreated(this)
                 loadUrl(url)
@@ -893,7 +628,7 @@ private fun CreateWebView(
     )
 }
 
-/** Extract album art uit Spotify MP3 (embedded via converter) en sla op in cache. */
+/** Haalt de ingebedde hoes uit het gedownloade bestand en zet die in de cache. */
 internal fun extractSpotifyArt(context: android.content.Context, audioFile: File): String? {
     val retriever = android.media.MediaMetadataRetriever()
     return try {
@@ -908,16 +643,3 @@ internal fun extractSpotifyArt(context: android.content.Context, audioFile: File
     finally { try { retriever.release() } catch (_: Exception) {} }
 }
 
-/** v2.3.0: één downloadpad per Spotify-methode. */
-private suspend fun runSpotifyDownload(
-    client: nl.icthorse.randomringtone.data.SpotifyPreviewClient,
-    method: nl.icthorse.randomringtone.data.SpotifyMethod,
-    url: String,
-    destDir: java.io.File,
-    force: Boolean,
-    onProgress: (String, Float) -> Unit
-): nl.icthorse.randomringtone.data.SpotifyPreviewClient.DownloadResult = when (method) {
-    nl.icthorse.randomringtone.data.SpotifyMethod.FULL -> client.downloadFull(url, destDir, onProgress, force)
-    else -> client.downloadTrack(url, destDir, onProgress, force,
-        useBackend = method == nl.icthorse.randomringtone.data.SpotifyMethod.BACKEND)
-}

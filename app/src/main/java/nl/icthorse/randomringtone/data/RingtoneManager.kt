@@ -35,55 +35,6 @@ class AppRingtoneManager(private val context: Context) {
         const val CONTACT_SUFFIX = "-RandomRing"
     }
 
-    // ── Download ─────────────────────────────────────────────────
-
-    suspend fun downloadPreview(track: DeezerTrack): File = withContext(Dispatchers.IO) {
-        val file = storage.getDownloadFile(track.id)
-
-        if (file.exists()) {
-            RemoteLogger.d("RingtoneManager", "Preview al gedownload, skip", mapOf("trackId" to track.id.toString(), "file" to file.name))
-            return@withContext file
-        }
-
-        RemoteLogger.input("RingtoneManager", "Download preview", mapOf("trackId" to track.id.toString(), "title" to track.title, "url" to track.preview))
-        val request = Request.Builder().url(track.preview).build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                RemoteLogger.e("RingtoneManager", "Download FAILED", mapOf("code" to response.code.toString()))
-                throw Exception("Download failed: ${response.code}")
-            }
-            response.body?.byteStream()?.use { input ->
-                file.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-        }
-        RemoteLogger.output("RingtoneManager", "Preview gedownload", mapOf("file" to file.name, "size" to "${file.length()/1024}KB"))
-
-        // Album art embedden (best-effort, skip indien preview al ID3v2 heeft)
-        val coverUrl = track.album.coverMedium.takeIf { it.isNotBlank() } ?: track.album.cover
-        if (coverUrl.isNotBlank()) {
-            try {
-                val coverReq = Request.Builder().url(coverUrl).build()
-                client.newCall(coverReq).execute().use { resp ->
-                    if (resp.isSuccessful) {
-                        val artBytes = resp.body?.bytes()
-                        if (artBytes != null && artBytes.size > 1000) {
-                            val embedded = Mp3AlbumArt.write(file, artBytes, track.title, track.artist.name)
-                            RemoteLogger.d("RingtoneManager", "Album art embed", mapOf(
-                                "embedded" to embedded.toString(),
-                                "size" to "${artBytes.size / 1024}KB"
-                            ))
-                        }
-                    }
-                }
-            } catch (_: Exception) {
-                // negeer — preview blijft bruikbaar zonder art
-            }
-        }
-        file
-    }
-
     suspend fun saveToRingtoneDir(sourceFile: File, trackId: Long, playlistName: String? = null): File =
         withContext(Dispatchers.IO) {
             val destFile = storage.getRingtoneFile(trackId, playlistName)

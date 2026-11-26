@@ -1,12 +1,12 @@
 {
   "project": "RandomRingtone",
-  "version": "2.5.1",
-  "versionCode": 152,
-  "codename": "David_Bowie",
-  "releaseName": "Starman",
+  "version": "2.6.0",
+  "versionCode": 153,
+  "codename": "Johnny_Cash",
+  "releaseName": "Ring_of_Fire",
   "theme": "Iconische muzikanten",
   "releaseNameTheme": "Nummer van de artiest (buildnaam)",
   "last_updated": "2026-11-26",
   "status": "development",
-  "note": "v2.5.1 = delen van een nummer (Link kopiëren) start direct zoeken + download zonder knop of bevestiging; standaardmethode Spotify = volledig nummer (via YouTube). v2.5.0 = playlist/album-import volgens de Sunnify-werkwijze"
+  "note": "v2.6.0 = alleen nog Spotify (volledig nummer via YouTube) en YouTube: previews (Deezer, Spotify, backend), converter-websites en alle Deezer-aanroepen (ook de on-the-fly herstelstap en de hoes-terugval in de editor) verwijderd. v2.5.1 = delen van een nummer start direct zoeken + download"
 }

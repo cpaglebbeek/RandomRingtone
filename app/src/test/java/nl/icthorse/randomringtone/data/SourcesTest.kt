@@ -17,7 +17,6 @@ class SourcesTest {
         assertEquals("Africa", i.name)
         assertEquals("TOTO", i.artist)
         assertEquals(295L, i.durationSec)
-        assertTrue(i.previewUrl!!.startsWith("https://p.scdn.co/mp3-preview/"))
         assertNotNull(i.albumArt)
     }
 
@@ -28,12 +27,6 @@ class SourcesTest {
         assertEquals("djV11Xbc914", YouTubeOnDevice.videoId("https://youtu.be/djV11Xbc914"))
         assertEquals("djV11Xbc914", YouTubeOnDevice.videoId("https://www.youtube.com/shorts/djV11Xbc914"))
         assertNull(YouTubeOnDevice.videoId("https://www.youtube.com/"))
-    }
-
-    @Test fun removedHijackedConvertersAreGone() {
-        val urls = SpotifyConverter.ALL.map { it.url }
-        assertFalse(urls.any { "keepvid" in it || "spotifydownload.org" in it || "spotifydown.com" in it })
-        assertTrue(SpotifyConverter.ALL.any { it.id == StorageManager.DEFAULT_SPOTIFY_CONVERTER })
     }
 
     // ── v2.4.0: eigen server (YourTube-motor) ──

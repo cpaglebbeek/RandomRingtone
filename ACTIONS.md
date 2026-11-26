@@ -1,6 +1,24 @@
 # Openstaande Acties — RandomRingtone
 
-> Laatst bijgewerkt: 2026-11-25 — v2.3.2 (149) "Elton_John"/"Tiny_Dancer" gepubliceerd (DEBUG): hostnaam icthorsecloud.nl + geroteerde sleutels + bronnen v2.3.0
+> Laatst bijgewerkt: 2026-11-26 — v2.6.0 (153) "Johnny_Cash"/"Ring_of_Fire": alleen nog Spotify en YouTube
+
+## v2.6.0 "Johnny_Cash" / "Ring_of_Fire" — 26-11-2026
+
+Christian: "haal alle legacy manier van downloaden weg en laat alleen youtube en spotify over" + "geen deezer".
+
+- [x] Verwijderd: Spotify-preview (embed + Deezer), preview via backend (ISRC), converter-websites (tweede WebView,
+      DownloadManager-ontvanger, lijst in Instellingen), alle Deezer-aanroepen (`DeezerApi`-client, on-the-fly
+      herstelstap in `TrackResolver`, `RingtoneManager.downloadPreview`, hoes-terugval in de editor, Deezer-test)
+- [x] Gebleven: Spotify = volledig nummer via de YouTube-keten (delen, knop, import); YouTube = eigen server met
+      terugval "Op toestel". Het model `DeezerTrack` en de kolom `deezerTrackId` blijven (bibliotheek, back-ups)
+- [x] Back-ups: veld `spotifyConverter` blijft bestaan (leeg) zodat oude en nieuwe versies elkaars back-up lezen
+- [x] `BUILD_NUMBER` in BuildConfig stond sinds build 148 stil; nu 153 (updatevenster vergelijkt hiermee)
+- [x] 51 unit-tests (converter-test vervallen), live treffercontrole 3 gevonden / 1 verzonnen geweigerd
+- [ ] **Gevolg om te kennen:** ontbreekt het bestand van een oud Deezer-nummer, dan wordt het overgeslagen tot het
+      opnieuw is gedownload (log: `Bestand ontbreekt — track niet beschikbaar`)
+- [ ] Op een gelicenseerd toestel proberen: nummer delen, album importeren, YouTube-tab; daarna STABLE
+- [ ] Installatie op de Fold (26-11): "APK installatie toestaan" stond uit → app downloadt alleen. Eventueel v2.6.x:
+      na het downloaden zelf om de toestemming vragen (nog niet gevraagd/akkoord)
 
 ## v2.5.1 "David_Bowie" / "Starman" — DEBUG gepubliceerd 26-11-2026
 

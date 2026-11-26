@@ -34,7 +34,6 @@ import nl.icthorse.randomringtone.data.RemoteLogger
 import nl.icthorse.randomringtone.data.RemoteVersion
 import nl.icthorse.randomringtone.data.RingtoneDatabase
 import nl.icthorse.randomringtone.data.SavedTrack
-import nl.icthorse.randomringtone.data.SpotifyConverter
 import nl.icthorse.randomringtone.data.UpdateManager
 import java.io.File
 
@@ -981,7 +980,7 @@ fun SettingsScreen(
                 InfoRow("Versie", "v${nl.icthorse.randomringtone.BuildConfig.VERSION_NAME}" +
                     if (nl.icthorse.randomringtone.BuildConfig.BUILD_STATUS == "DEBUG") " [DEBUG]" else " [STABLE]")
                 InfoRow("Build", "${nl.icthorse.randomringtone.BuildConfig.BUILD_NUMBER} — ${nl.icthorse.randomringtone.BuildConfig.CODENAME} / ${nl.icthorse.randomringtone.BuildConfig.RELEASE_NAME}")
-                InfoRow("Muziekbron", "Spotify + YouTube + Deezer")
+                InfoRow("Muziekbron", "Spotify + YouTube")
                 InfoRow("Ringtone duur", "Instelbaar via editor")
             }
         }

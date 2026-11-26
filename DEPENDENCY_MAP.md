@@ -1,5 +1,10 @@
 # Dependency Map — RandomRingtone
 
+> **v2.6.0 (26-11-2026):** de app haalt audio alleen nog via de YouTube-keten (Spotify-scherm en YouTube-scherm).
+> De Deezer-client, de previews en de converter-websites zijn verwijderd; vermeldingen daarvan hieronder zijn historie.
+> `DeezerApi.kt` bevat alleen nog het model `DeezerTrack`.
+
+
 Versie: 1.0 | Datum: 2026-05-03
 
 ---

@@ -185,7 +185,7 @@ class IctHorseBackupClient(private val context: Context) {
             File(tempDir, "playlist_tracks.json").writeText(jsonEncoder.encodeToString(kotlinx.serialization.builtins.ListSerializer(PlaylistTrackBackup.serializer()), ptBackups))
             File(tempDir, "settings.json").writeText(jsonEncoder.encodeToString(SettingsBackupData.serializer(), SettingsBackupData(
                 downloadPath = storage.getDownloadDir().absolutePath, ringtonePath = storage.getRingtoneDir().absolutePath,
-                spotifyConverter = storage.getSpotifyConverter(), backupUri = storage.getBackupUri())))
+                spotifyConverter = ""  /* v2.6.0: converter-sites verwijderd; veld blijft voor oude versies */, backupUri = storage.getBackupUri())))
 
             val meta = BackupMeta(
                 appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?",

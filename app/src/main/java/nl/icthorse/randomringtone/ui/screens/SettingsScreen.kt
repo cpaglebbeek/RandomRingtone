@@ -34,7 +34,6 @@ import nl.icthorse.randomringtone.data.RemoteLogger
 import nl.icthorse.randomringtone.data.RemoteVersion
 import nl.icthorse.randomringtone.data.RingtoneDatabase
 import nl.icthorse.randomringtone.data.SavedTrack
-import nl.icthorse.randomringtone.data.SpotifyConverter
 import nl.icthorse.randomringtone.data.UpdateManager
 import java.io.File
 

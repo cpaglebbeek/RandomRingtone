@@ -10,12 +10,11 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
- * Spotify-bron "Web API + Deezer (ISRC)" (v2.0.0, vervangt SpotMateDirectClient — bug #81).
+ * Spotify-bron (v2.6.0): alleen nog het volledige nummer.
  *
- * Flow: Spotify-link → RandomRingtone-backend `/rrlog/spotify/track/{id}` (Spotify Web API, Client Credentials, secret
- * alleen op de server) → ISRC → Deezer-track met dezelfde ISRC → 30-seconden-preview (MP3) → lokaal bestand.
- * Spotify geeft nieuwe apps sinds 27-11-2024 geen preview_url meer; de ISRC maakt de Deezer-match exact.
- * Alleen gelicenseerde toestellen met toestel-token (X-Device-Id + X-Device-Token).
+ * Flow: Spotify-link → openbare embed-pagina (titel, artiest, duur, hoes) → zoeken op YouTube met controle op
+ * titel, artiest en duur → audio (M4A) via [YouTubeDownload]. De previews (Deezer, Spotify, backend met ISRC) en de
+ * converter-websites zijn in v2.6.0 verwijderd.
  */
 class SpotifyPreviewClient(private val context: Context) {
 
@@ -31,10 +30,8 @@ class SpotifyPreviewClient(private val context: Context) {
         val name: String,
         val artist: String,
         val albumArt: String? = null,
-        val isrc: String? = null,
-        val previewUrl: String? = null,
         val durationSec: Long? = null,
-        /** Waar de preview vandaan komt: "deezer" (30 s, 128 kbps) of "spotify" (~30 s, 96 kbps). */
+        /** Waar de audio vandaan komt: "youtube:<videoId>" na een download. */
         val previewSource: String? = null
     )
 
@@ -51,7 +48,7 @@ class SpotifyPreviewClient(private val context: Context) {
         private set
 
     companion object {
-        /** Zuiver (zonder netwerk): metadata + preview + hoes uit de HTML van open.spotify.com/embed/track/{id}. */
+        /** Zuiver (zonder netwerk): metadata + hoes uit de HTML van open.spotify.com/embed/track/{id}. */
         fun parseEmbedStatic(html: String): TrackInfo? {
             val m = Regex("<script id=\"__NEXT_DATA__\"[^>]*>(.*?)</script>", RegexOption.DOT_MATCHES_ALL)
                 .find(html) ?: return null
@@ -70,7 +67,6 @@ class SpotifyPreviewClient(private val context: Context) {
             name = e.optString("name", e.optString("title")),
             artist = artist,
             albumArt = cover?.ifBlank { null },
-            previewUrl = e.optJSONObject("audioPreview")?.optString("url")?.ifBlank { null },
             durationSec = e.optLong("duration", 0).takeIf { it > 0 }?.let { it / 1000 }
         )
         }
@@ -80,7 +76,7 @@ class SpotifyPreviewClient(private val context: Context) {
         fun trackId(url: String): String? = TRACK_ID.find(url)?.groupValues?.get(1)
     }
 
-    /** Alleen de metadata uit de embed-pagina (zonder Deezer-zoekopdracht); null bij een fout. */
+    /** Alleen de metadata uit de embed-pagina, zonder foutmelding; null bij een fout. */
     suspend fun fetchEmbedMeta(trackId: String): TrackInfo? = withContext(Dispatchers.IO) {
         try {
             client.newCall(Request.Builder().url("https://open.spotify.com/embed/track/$trackId")
@@ -92,9 +88,8 @@ class SpotifyPreviewClient(private val context: Context) {
     }
 
     /**
-     * v2.3.0 — bron zonder sleutels: de openbare Spotify-embed (`open.spotify.com/embed/track/{id}`) bevat titel,
-     * artiesten, duur, hoes en een preview-URL (29-09 gemeten: 4/4 tracks). Daarna een Deezer-match op
-     * artiest + titel + duur (±3 s) voor de betere 30-s-preview; geen match ⇒ Spotify's eigen preview.
+     * Metadata uit de openbare Spotify-embed (`open.spotify.com/embed/track/{id}`): titel, artiesten, duur en hoes.
+     * Zet [lastError] bij een fout. v2.6.0: geen preview en geen Deezer meer.
      */
     suspend fun fetchTrackInfoEmbed(spotifyUrl: String): TrackInfo? = withContext(Dispatchers.IO) {
         lastError = null
@@ -108,137 +103,13 @@ class SpotifyPreviewClient(private val context: Context) {
                 r.body?.string().orEmpty()
             }
             val meta = parseEmbedStatic(html) ?: run { lastError = "Spotify-embed onleesbaar (formaat gewijzigd?)"; return@withContext null }
-            val dz = deezerMatch(meta.artist, meta.name, meta.durationSec)
-            val info = meta.copy(id = id,
-                previewUrl = dz?.preview ?: meta.previewUrl,
-                previewSource = if (dz != null) "deezer" else if (meta.previewUrl != null) "spotify" else null)
-            if (info.previewUrl == null) lastError = "Geen preview voor deze track (Deezer en Spotify) — kies 'Volledig nummer (via YouTube)'"
+            val info = meta.copy(id = id)
             RemoteLogger.output("SpotifyEmbed", "Track info", mapOf("track" to "${info.artist} - ${info.name}",
-                "duration" to "${info.durationSec}", "preview" to (info.previewSource ?: "geen")))
+                "duration" to "${info.durationSec}"))
             info
         } catch (e: Exception) {
             lastError = "Spotify niet bereikbaar (${e.message ?: "?"})"
             null
-        }
-    }
-
-    private data class DeezerHit(val preview: String, val durationSec: Long)
-
-    /** Deezer-zoek: eerst strikt (artist:/track:), dan vrij; alleen treffer met passende duur (±3 s) en titel. */
-    private fun deezerMatch(artist: String, title: String, durationSec: Long?): DeezerHit? {
-        val first = artist.substringBefore(",").trim()
-        val cleanTitle = title.replace(Regex("\\s*[-(].*(remaster|version|edit|live).*$", RegexOption.IGNORE_CASE), "").trim()
-        fun norm(s: String) = s.lowercase().replace(Regex("[^\\p{L}\\p{N}]"), "")
-        val queries = listOf("artist:\"$first\" track:\"$cleanTitle\"", "$first $cleanTitle")
-        for (q in queries) {
-            val url = "https://api.deezer.com/search?limit=10&q=" + java.net.URLEncoder.encode(q, "UTF-8")
-            val body = try { client.newCall(Request.Builder().url(url).build()).execute().use { it.body?.string() } } catch (_: Exception) { null }
-                ?: continue
-            val data = JSONObject(body).optJSONArray("data") ?: continue
-            for (i in 0 until data.length()) {
-                val t = data.getJSONObject(i)
-                val prev = t.optString("preview"); if (prev.isBlank()) continue
-                val d = t.optLong("duration", 0)
-                val durOk = durationSec == null || d == 0L || kotlin.math.abs(d - durationSec) <= 3
-                val titleOk = norm(t.optString("title")).contains(norm(cleanTitle)) || norm(cleanTitle).contains(norm(t.optString("title_short")))
-                val artistOk = norm(t.optJSONObject("artist")?.optString("name") ?: "").let { a -> a.isNotEmpty() && (norm(first).contains(a) || a.contains(norm(first))) }
-                if (durOk && titleOk && artistOk) return DeezerHit(prev, d)
-            }
-        }
-        return null
-    }
-
-    suspend fun fetchTrackInfo(spotifyUrl: String): TrackInfo? = withContext(Dispatchers.IO) {
-        lastError = null
-        val id = trackId(spotifyUrl) ?: run { lastError = "Geen geldige Spotify-tracklink"; return@withContext null }
-        if (licenseManager.deviceToken == null && licenseManager.ensureDeviceToken() != LicenseManager.TokenState.OK) {
-            lastError = "Toestel niet gekoppeld (Instellingen → Licentie → Controleer koppeling)"
-            return@withContext null
-        }
-        try {
-            RemoteLogger.input("SpotifyPreview", "fetchTrackInfo", mapOf("id" to id))
-            val req = Request.Builder().url("${LicenseManager.BACKEND_BASE}/spotify/track/$id")
-                .header("X-Device-Id", licenseManager.deviceHash)
-                .header("X-Device-Token", licenseManager.deviceToken ?: "")
-                .get().build()
-            client.newCall(req).execute().use { r ->
-                val json = JSONObject(r.body?.string() ?: "{}")
-                if (!r.isSuccessful) {
-                    lastError = json.optString("error", "Server gaf ${r.code}")
-                    RemoteLogger.w("SpotifyPreview", "Backend fout", mapOf("code" to r.code.toString(), "error" to (lastError ?: "")))
-                    return@withContext null
-                }
-                val dz = json.optJSONObject("deezer")
-                val info = TrackInfo(
-                    id = id,
-                    name = json.optString("title", ""),
-                    artist = json.optString("artist", ""),
-                    albumArt = json.optString("coverUrl", "").ifBlank { null },
-                    isrc = json.optString("isrc", "").ifBlank { null },
-                    previewUrl = dz?.optString("preview", "")?.ifBlank { null }
-                )
-                if (info.previewUrl == null) {
-                    lastError = if (info.isrc == null) "Spotify geeft voor deze track geen ISRC — gebruik de WebView-converter"
-                        else "Geen Deezer-preview voor deze track — gebruik de WebView-converter"
-                }
-                RemoteLogger.output("SpotifyPreview", "Track info", mapOf("isrc" to (info.isrc ?: "-"),
-                    "preview" to (info.previewUrl != null).toString()))
-                info
-            }
-        } catch (e: Exception) {
-            lastError = "Geen verbinding met de server (${e.message ?: "?"})"
-            null
-        }
-    }
-
-    suspend fun downloadTrack(
-        spotifyUrl: String,
-        destDir: File,
-        onProgress: (phase: String, progress: Float) -> Unit,
-        forceOverwrite: Boolean = false,
-        useBackend: Boolean = false
-    ): DownloadResult = withContext(Dispatchers.IO) {
-        try {
-            onProgress("Track info ophalen...", 0.2f)
-            val info = (if (useBackend) fetchTrackInfo(spotifyUrl) else fetchTrackInfoEmbed(spotifyUrl))
-                ?: return@withContext DownloadResult(false, error = lastError ?: "Track niet gevonden")
-            val preview = info.previewUrl
-                ?: return@withContext DownloadResult(false, trackInfo = info, error = lastError)
-
-            val sanitizedName = "${info.name}-${info.artist}"
-                .replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
-                .replace(Regex("_+"), "_")
-                .trim('_')
-            val destFile = File(destDir, "spotify_mp3_${sanitizedName}.mp3")
-            if (destFile.exists() && !forceOverwrite) {
-                return@withContext DownloadResult(success = false, file = destFile, trackInfo = info, fileExists = true)
-            }
-
-            onProgress("Preview downloaden (${if (info.previewSource == "spotify") "Spotify" else "Deezer"}, 30 s)...", 0.6f)
-            val tmp = File(destDir, ".${destFile.name}.part")
-            client.newCall(Request.Builder().url(preview).get().build()).execute().use { r ->
-                if (!r.isSuccessful) throw Exception("Preview-download mislukt (${r.code})")
-                destDir.mkdirs()
-                r.body?.byteStream()?.use { input -> tmp.outputStream().use { input.copyTo(it) } }
-                    ?: throw Exception("Lege preview")
-            }
-            if (!tmp.renameTo(destFile)) { tmp.copyTo(destFile, overwrite = true); tmp.delete() }
-
-            info.albumArt?.let { art ->
-                onProgress("Albumhoes toevoegen...", 0.9f)
-                try {
-                    client.newCall(Request.Builder().url(art).get().build()).execute().use { r ->
-                        r.body?.bytes()?.takeIf { r.isSuccessful }?.let { Mp3AlbumArt.write(destFile, it, info.name, info.artist) }
-                    }
-                    Mp3Marker.injectIfMissing(destFile, info.name, info.artist)
-                } catch (_: Exception) { /* best-effort */ }
-            }
-            onProgress("Klaar!", 1.0f)
-            RemoteLogger.output("SpotifyPreview", "Download KLAAR", mapOf("file" to destFile.name, "size" to "${destFile.length() / 1024}KB"))
-            DownloadResult(success = true, file = destFile, trackInfo = info)
-        } catch (e: Exception) {
-            RemoteLogger.e("SpotifyPreview", "Download FAILED", mapOf("error" to (e.message ?: "unknown")))
-            DownloadResult(false, error = "Spotify-preview mislukt: ${e.message}")
         }
     }
 
@@ -303,14 +174,4 @@ class SpotifyPreviewClient(private val context: Context) {
         client.newCall(Request.Builder().url(url).build()).execute().use { r -> r.body?.bytes()?.takeIf { r.isSuccessful } }
     } catch (_: Exception) { null }
 
-    /** Zelftest voor Instellingen. */
-    suspend fun selfTestEmbed(): String {
-        val i = fetchTrackInfoEmbed("https://open.spotify.com/track/2374M0fQpWi3dLnB54qaLX") ?: return "✗ ${lastError ?: "mislukt"}"
-        return if (i.previewUrl != null) "✓ Werkt — ${i.artist} - ${i.name} (preview via ${i.previewSource})" else "✗ ${lastError}"
-    }
-
-    suspend fun selfTestBackend(): String {
-        val i = fetchTrackInfo("https://open.spotify.com/track/2374M0fQpWi3dLnB54qaLX") ?: return "✗ ${lastError ?: "mislukt"}"
-        return if (i.previewUrl != null) "✓ Werkt — ${i.artist} - ${i.name} (ISRC ${i.isrc})" else "✗ ${lastError}"
-    }
 }

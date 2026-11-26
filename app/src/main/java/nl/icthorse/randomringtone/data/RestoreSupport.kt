@@ -13,7 +13,7 @@ import java.io.IOException
 data class SettingsBackupData(
     val downloadPath: String? = null,
     val ringtonePath: String? = null,
-    val spotifyConverter: String = StorageManager.DEFAULT_SPOTIFY_CONVERTER,
+    val spotifyConverter: String = "",
     val backupUri: String? = null
 )
 
@@ -85,7 +85,6 @@ object RestoreSupport {
     suspend fun applySettings(s: SettingsBackupData, storage: StorageManager) {
         if (s.downloadPath != null) storage.setDownloadDir(s.downloadPath)
         if (s.ringtonePath != null) storage.setRingtoneDir(s.ringtonePath)
-        storage.setSpotifyConverter(s.spotifyConverter)
         if (s.backupUri != null) storage.setBackupUri(s.backupUri)
     }
 

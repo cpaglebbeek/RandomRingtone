@@ -631,7 +631,6 @@ fun EditorScreen(
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
                                     // Album art: probeer origineel → trimmed → DB fallback
                                     val artPath = extractAlbumArt(context, audioFile, finalFile, db, deezerTrackId)
-                                        ?: deezerCoverFallback(context, trackArtist, trackTitle, finalFile)
                                     val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
                                     if (ext == "m4a") {
                                         // M4A metadata embedden (titel, artiest, cover, marker)
@@ -653,7 +652,6 @@ fun EditorScreen(
                                     if (ext == "mp3") Mp3Marker.injectTrimmedMarker(finalFile, name, trackArtist)
                                     saveProgress = 1f
                                     val artPath = extractAlbumArt(context, audioFile, finalFile, db, deezerTrackId)
-                                        ?: deezerCoverFallback(context, trackArtist, trackTitle, finalFile)
                                     val artBytes = artPath?.let { File(it).takeIf { f -> f.exists() }?.readBytes() }
                                     if (ext == "m4a") {
                                         M4aMetadata.write(finalFile, name, trackArtist, artBytes, "RandomRingtone trimmed")
@@ -753,29 +751,6 @@ private fun extractAlbumArt(context: android.content.Context, originalFile: File
         }
     }
     return null
-}
-
-/**
- * v2.2.0: bron zonder art ⇒ Deezer-cover, maar alleen bij een echte artiest die EXACT terugkomt in het
- * zoekresultaat (geen hoes verzinnen voor YouTube-clips of onbekende bronnen).
- */
-private suspend fun deezerCoverFallback(context: android.content.Context, artist: String, title: String, trimmedFile: File): String? {
-    val a = artist.trim()
-    if (a.isBlank() || a.equals("YouTube", true) || a.equals("Onbekend", true) || a.equals("Spotify", true)) return null
-    return withContext(Dispatchers.IO) {
-        try {
-            val hit = DeezerApi().searchTracks("$a $title", limit = 5)
-                .firstOrNull { it.artist.name.equals(a, ignoreCase = true) && it.album.coverMedium.isNotBlank() }
-                ?: return@withContext null
-            val bytes = okhttp3.OkHttpClient().newCall(okhttp3.Request.Builder().url(hit.album.coverMedium).build())
-                .execute().use { r -> r.body?.bytes()?.takeIf { r.isSuccessful && it.size >= 1000 } }
-                ?: return@withContext null
-            val artFile = File(File(context.cacheDir, "album_art").apply { mkdirs() }, "${trimmedFile.nameWithoutExtension.hashCode()}.jpg")
-            artFile.writeBytes(bytes)
-            RemoteLogger.d("EditorScreen", "Album art via Deezer", mapOf("artist" to a, "album" to hit.album.title))
-            artFile.absolutePath
-        } catch (_: Exception) { null }
-    }
 }
 
 private suspend fun handlePostSave(

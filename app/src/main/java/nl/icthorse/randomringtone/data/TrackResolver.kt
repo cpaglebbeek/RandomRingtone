@@ -168,22 +168,10 @@ class TrackResolver(
             RemoteLogger.d("TrackResolver", "Stap 2: MediaStore MISS")
         }
 
-        // 3. On-the-fly download (alleen Deezer tracks met preview URL)
-        if (track.previewUrl.isBlank()) {
-            RemoteLogger.w("TrackResolver", "Stap 3: Geen previewUrl — track niet beschikbaar")
-            return null
-        }
-
-        RemoteLogger.i("TrackResolver", "Stap 3: On-the-fly Deezer download", mapOf("previewUrl" to track.previewUrl))
-        return try {
-            val deezerTrack = track.toDeezerTrack()
-            val file = ringtoneManager.downloadPreview(deezerTrack)
-            RemoteLogger.output("TrackResolver", "Stap 3: Download OK", mapOf("file" to file.name))
-            file
-        } catch (e: Exception) {
-            RemoteLogger.e("TrackResolver", "Stap 3: Download FAILED", mapOf("error" to (e.message ?: "unknown")))
-            null
-        }
+        // v2.6.0: de on-the-fly Deezer-download (oude stap 3) is verwijderd — ontbreekt het bestand, dan is het nummer
+        // niet beschikbaar tot het opnieuw via Spotify of YouTube is gedownload.
+        RemoteLogger.w("TrackResolver", "Bestand ontbreekt — track niet beschikbaar (opnieuw downloaden)", mapOf("title" to track.title))
+        return null
     }
 
     /**

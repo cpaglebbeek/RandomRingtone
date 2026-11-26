@@ -2,7 +2,7 @@
 
 > Laatst bijgewerkt: 2026-11-26 — v2.6.0 (153) "Johnny_Cash"/"Ring_of_Fire": alleen nog Spotify en YouTube
 
-## v2.6.0 "Johnny_Cash" / "Ring_of_Fire" — 26-11-2026
+## v2.6.0 "Johnny_Cash" / "Ring_of_Fire" — DEBUG gepubliceerd 26-11-2026
 
 Christian: "haal alle legacy manier van downloaden weg en laat alleen youtube en spotify over" + "geen deezer".
 
@@ -14,6 +14,8 @@ Christian: "haal alle legacy manier van downloaden weg en laat alleen youtube en
 - [x] Back-ups: veld `spotifyConverter` blijft bestaan (leeg) zodat oude en nieuwe versies elkaars back-up lezen
 - [x] `BUILD_NUMBER` in BuildConfig stond sinds build 148 stil; nu 153 (updatevenster vergelijkt hiermee)
 - [x] 51 unit-tests (converter-test vervallen), live treffercontrole 3 gevonden / 1 verzonnen geweigerd
+- [x] Smoke op verse AVD's (openclaw-box): telefoon én auto loggen als 2.6.0, 0 fouten; AVD's verwijderd
+- [x] DEBUG op HorseAPK, icthorse.nl en spiegel (200/200). De mail met de adblog-link mislukte (msmtp TLS-fout)
 - [ ] **Gevolg om te kennen:** ontbreekt het bestand van een oud Deezer-nummer, dan wordt het overgeslagen tot het
       opnieuw is gedownload (log: `Bestand ontbreekt — track niet beschikbaar`)
 - [ ] Op een gelicenseerd toestel proberen: nummer delen, album importeren, YouTube-tab; daarna STABLE
@@ -29,7 +31,7 @@ standaardmethode Spotify = "Volledig nummer (via YouTube)". Een eerder gemaakte 
 - [x] Eén downloadpad (`startDownload`) voor delen en knop; 52 unit-tests; smoke telefoon-AVD 0 fouten
 - [ ] **Op toestel proberen:** nummer delen in het Spotify-scherm → voortgang → venster "Wat wil je doen?";
       nameten in app.log (`Delen → direct downloaden`, `SpotifyFull YouTube-treffer`)
-- [ ] Auto-emulator gaf in de smoke van v2.5.1 geen logregel (in v2.4.0 en v2.5.0 wel) — bij de volgende smoke nakijken
+- [x] Auto-emulator gaf in de smoke van v2.5.1 geen logregel — in de smoke van v2.6.0 logt hij weer (eenmalig)
 
 ## v2.5.0 "David_Bowie" / "Heroes" — DEBUG gepubliceerd 26-11-2026
 

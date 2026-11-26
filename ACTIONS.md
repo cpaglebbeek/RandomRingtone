@@ -2,6 +2,25 @@
 
 > Laatst bijgewerkt: 2026-11-25 — v2.3.2 (149) "Elton_John"/"Tiny_Dancer" gepubliceerd (DEBUG): hostnaam icthorsecloud.nl + geroteerde sleutels + bronnen v2.3.0
 
+## v2.5.0 "David_Bowie" / "Heroes" — DEBUG gepubliceerd 26-11-2026
+
+Spotify-motor volgens de werkwijze van Sunnify (zelf nagebouwd, geen code overgenomen: hun licentie verbiedt aanpassen).
+Playlist of album in beeld (of gekopieerde link) → knop "Playlist/Album importeren" → lijst met vinkjes → volledige
+nummers via de YouTube-keten van v2.4.0, met strikte treffercontrole (titel, artiest, duur ±30 s).
+
+- [x] `SpotifyCollection` (embed-pagina + playlistdienst voor >100 nummers), `YouTubeMatch`, album + volgnummer in tags
+- [x] Logger 1.3.0: 150 nieuwe taken per uur per toestel; YourTube-dienst `randomringtone`: 300 per uur
+- [x] 51 unit-tests; parser op echte pagina's (playlist 50, album 18); treffercontrole op echte YouTube-resultaten
+- [x] Smoke op verse AVD's: start en logt als 2.5.0, 0 fouten
+- [ ] **Import op een gelicenseerd toestel proberen** (klein album + playlist >100): lijst, voortgang, overzicht "niet gelukt",
+      playlist in de app; nameten in app.log (`SpotifyImport start/klaar`, `SpotifyCollection Lijst`)
+- [ ] Meten hoeveel nummers de strikte controle weigert bij een echte playlist; zo nodig YouTube Music als eerste zoekbron
+- [ ] Daarna vrijgave STABLE (met `BUILD_STATUS=STABLE` in de build)
+
+Bekend en geaccepteerd (26-11, Christian koos deze variant na de voorwaarden-analyse): het uitlezen van Spotify's
+embed-pagina's en de koppeling met YouTube-audio vallen buiten Spotify's voorwaarden. Zotify (ontsleutelen van Spotify's
+eigen streams met een account) is bewust NIET gebouwd.
+
 ## v2.4.0 "Prince" / "Purple_Rain" — DEBUG gepubliceerd 26-11-2026
 
 YouTube-audio via de eigen server (YourTube-motor, wachtrij + workers achter NL-uitgangen), terugval "Op toestel".
@@ -12,7 +31,7 @@ Keten: app → `https://icthorsecloud.nl/rrlog/youtube/<id>` (toestel-token) →
 - [ ] **Echte download vanuit de app op een gelicenseerd toestel** (Fold of Fairphone): YouTube-tab + Spotify "Volledig nummer"; nameten in app.log en in YourTube (taak van dienst `randomringtone`)
 - [ ] Methodetest in Instellingen: regel "Eigen server (YourTube)" groen op toestel
 - [ ] Daarna vrijgave STABLE (met `BUILD_STATUS=STABLE` in de build)
-- [ ] Spotify-motor ombouwen naar de Sunnify-werkwijze (playlist/album via embed + spclient) — WhatIf voorgelegd 26-11, wacht op akkoord
+- [x] Spotify-motor ombouwen naar de Sunnify-werkwijze → v2.5.0 (zie boven)
 
 ## Hoogste prio — afronden v2.0.0
 

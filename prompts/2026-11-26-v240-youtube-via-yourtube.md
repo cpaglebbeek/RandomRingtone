@@ -1,7 +1,7 @@
 ---
 date: 2026-11-26
 repo: RandomRingtone
-status: pending
+status: done
 resume: "verder met randomringtone — v2.4.0 Prince/Purple_Rain DEBUG gepubliceerd 26-11 (YouTube-audio via YourTube-motor: app → /rrlog/youtube → logger 1.2.0 → YourTube 0.2.1). EERST vragen: v2.4.0 op Fold of Fairphone geïnstalleerd en een YouTube-download + Spotify 'Volledig nummer' geprobeerd? Dan meten in app.log (appVersion 2.4.0) en in YourTube. Daarna STABLE met BUILD_STATUS=STABLE. Open: WhatIf Spotify-ombouw naar Sunnify-werkwijze (playlist/album via embed + spclient) wacht op akkoord; verder de open punten uit 25-11 (Fairphone-restore 23 bestanden, terugkerende toestellen, E2E magic link)."
 ---
 

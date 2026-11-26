@@ -10,8 +10,8 @@ Versie: 1.0 | Datum: 2026-05-03
 
 ```
 MainActivity.kt
-  ├── SpotifyScreen      ── SpotMateDirectClient, StorageManager, Mp3Marker
-  ├── YouTubeScreen      ── Y2MateClient, StorageManager, Mp3Marker
+  ├── SpotifyScreen      ── SpotifyPreviewClient, SpotifyImportDialog (SpotifyCollection, YouTubeMatch), StorageManager, Mp3Marker
+  ├── YouTubeScreen      ── YouTubeDownload (YouTubeServer → logger /rrlog/youtube → YourTube; terugval YouTubeOnDevice), StorageManager, Mp3Marker
   ├── EditorScreen       ── AudioDecoder, AudioTrimmer, AudioPlayer, StorageManager, Mp3Marker
   ├── LibraryScreen      ── SavedTrackDao, StorageManager, AppRingtoneManager, Mp3TagReader
   ├── PlaylistManagerScreen ── PlaylistDao, PlaylistTrackDao, SavedTrackDao, ContactsRepository, ConflictResolver
@@ -25,7 +25,8 @@ MainActivity.kt
 ```
 DeezerApi            ── OkHttpClient (eigen instantie)
 SpotMateDirectClient ── OkHttpClient (eigen instantie)
-Y2MateClient         ── OkHttpClient (eigen instantie)
+YouTubeServer        ── OkHttpClient (eigen instantie), LicenseManager (toestel-token), M4aMetadata
+SpotifyCollection    ── OkHttpClient (eigen instantie), SpotifyPreviewClient.parseEmbedStatic
 IctHorseBackupClient ── OkHttpClient (eigen instantie)
 LicenseManager       ── OkHttpClient (eigen instantie), SharedPreferences
 UpdateManager        ── OkHttpClient (eigen instantie), RemoteLogger, FileProvider
@@ -88,8 +89,9 @@ M4aMetadata   ── (geen afhankelijkheden, pure byte-level I/O)
 | **UpdateManager** | SettingsScreen |
 | **BackupManager** | BackupScreen |
 | **IctHorseBackupClient** | BackupScreen |
-| **SpotMateDirectClient** | SpotifyScreen |
-| **Y2MateClient** | YouTubeScreen |
+| **SpotifyPreviewClient** | SpotifyScreen, SpotifyImportDialog, SourceMethodsSection |
+| **SpotifyCollection** / **YouTubeMatch** | SpotifyImportDialog, YouTubeOnDevice.strictMatch (sinds v2.5.0) |
+| **YouTubeDownload** (YouTubeServer + YouTubeOnDevice) | YouTubeScreen, SpotifyPreviewClient (sinds v2.4.0; Y2Mate verwijderd) |
 | **AudioDecoder** | EditorScreen |
 | **AudioTrimmer** | EditorScreen |
 | **AudioPlayer** | EditorScreen |

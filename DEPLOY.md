@@ -249,3 +249,11 @@ Controle zonder toestel: `curl -X POST https://icthorsecloud.nl/rrlog/youtube/dQ
 `Toestel niet geautoriseerd` (een Basic Auth-prompt betekent dat de nginx-locatie ontbreekt).
 HorseAPK-bestandsnaam: `RandomRingtone-v<versie>-<Codename>_<Release>-release.apk` (kopie met underscore; de
 build levert `…-<Codename>-<Release>-release.apk`, die naam gaat naar icthorse.nl en de spiegel).
+
+## Spotify-import (sinds v2.5.0, 2026-11-26)
+
+Afhankelijk van: openbare embed-pagina's van Spotify (`open.spotify.com/embed/{playlist|album|track}/<id>`) en, voor
+playlists boven de 100 nummers, Spotify's interne playlistdienst (kan zonder aankondiging wijzigen → de app toont dan
+"alleen de eerste N nummers geladen"). Serverkant: logger ≥ 1.3.0 (150 taken/uur per toestel) en YourTube-dienstgrens 300.
+Controle zonder toestel: `RR_EMBED_DIR=<map met playlist.html + album.html> ./gradlew :app:testReleaseUnitTest` (parser
+op verse pagina's) en `RR_LIVE=1 … --tests '*youtubeStrictMatchLive'` (treffercontrole op echte zoekresultaten).
